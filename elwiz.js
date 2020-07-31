@@ -284,7 +284,7 @@ let pulse = {
     json.cumuHourPowExpActive = buf.readUInt32BE(offset + 69) / 1000; // kWh
     json.cumuHourPowImpReactive = buf.readUInt32BE(offset + 74) / 1000; // kVArh
     json.cumuHourPowExpReactive = buf.readUInt32BE(offset + 79) / 1000; // kVArh
-    if (pulse.lastCumulativePower < 0) {
+    if (pulse.lastCumulativePower > 0) {
       json.lastHourActivePower = (buf.readUInt32BE(offset + 64) / 1000 - pulse.lastCumulativePower).toFixed(3);
     }
     pulse.lastCumulativePower = buf.readUInt32BE(offset + 64) / 1000;
