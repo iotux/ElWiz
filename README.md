@@ -80,6 +80,7 @@ Sett inn brukernavn og passord hvis din broker krever dette.
 "const topic" som kommer like etter  brukernavn og passord, må samsvare med det du angir når du konfigurerer **Pulse**. Andre endringer skal normalt ikke være påkrevet.
 
 **DEBUG** og **REPUBLISH** sin rolle.
+Se lenger ned under avsnittet **Verdt å merke seg**
 
 ## Oppsett av Pulse
 Brukervilkårene for å bruke **Tibbers** mobil-app er ikke akseptable for mitt vedkommende. Jeg har derfor valgt å bruke **Pulse** uten app. Jeg mister riktignok tilgang til **Tibbers** tjenester, men til gjengjeld sparer jeg de 39 kronene per måned som det koster å være tilknyttet **Tibber**. Jeg oppnår allikevel det jeg er ute etter.
