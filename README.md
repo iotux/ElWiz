@@ -253,7 +253,32 @@ Legg merke til at **SIG** fjernes fra kommandoen for å sende signaler. For **SI
 minmaskin]$ kill -TERM 23456
 ``` 
  **\<Ctrl C\>** sender **SIGINT** til programmet
+ 
+## Styring av Pulse
+**Pulse** har noen funksjoner som kan styres ved hjelp av **MQTT-meldinger**. Det gjøres ved å sende meldingene med **topic** som er angitt i feltet **mqtt_topic_sub** i weg-grensesnittet. Dette er ikke dokumentert, men ved å prøve forskjellige alternativer, har jeg funnet disse funksjonene.
+
+ - reboot - Starter **Pulse** på nytt
+ - update - OTA-oppdatering av styreprogram (informasjon om "update_url" mangler)
+De som bruker **mosquitto** broker, har tilgang til **mosquitto_pub** for å publisere medinger. Ved å bruke det **mqtt_topic_sub** som ble oppgitt i oppsett av **Pulse**, f. eks. **rebbit**, så vil en kommano til **Pulse** se slik ut når man sender meldinga **reboot**:
+```
+mosquitto_pub -h localhost -t rebbit -m reboot
+Debug: Rebooting
+```
+Ved å sende kommandoen **update**, så vi man få dette svaret:
+```
+mosquitto_pub -h localhost -t rebbit -m "update"
+Debug: Update in progress
+Debug: Firmware update failed: -1
+```
 
 ## Kontinuerlig drift
 Et hendig verktøy å bruke for programmer som skal være igang døgnet rundt, er **PM2** https://pm2.keymetrics.io/
 Med **PM2** har du kontroll på stop, start, restart, automatisk start etter oppstart av PC/server, minneforbruk, logging og mye mer. Det er vel verdt bryet å ta en titt på.
+
+## Referanser
+Under kartleggingen av data fra **Tibber Pulse**, har informasjon fra @daniel.h.iversen and @roarfred og andre innlegg i dette diskusjonsforumet https://www.hjemmeautomasjon.no/forums/topic/4255-tibber-pulse-mqtt/ har vært til god hjelp.
+
+ - https://github.com/roarfred/AmsToMqttBridge/blob/master/Samples/Kaifa/obisdata.md
+ - https://github.com/Danielhiversen/pyTibber/blob/master/tibber/__init__.py
+ - https://github.com/roarfred/AmsToMqttBridge/blob/master/Documentation/Kaifa%20HAN%20OBIS%20codes%20KFM_001.pdf
+
