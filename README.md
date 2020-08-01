@@ -87,7 +87,7 @@ Sett inn brukernavn og passord hvis din broker krever dette.
 
 **topic** under **\# Listening topics** må samsvare med det som angis i **mqtt_topic** når du konfigurerer **Pulse**. Andre endringer skal normalt ikke være påkrevet.
 
-Ved behov for å gjøre endringer i **ElWiz** vil det være nyttig å midlertidig gi **DEBUG** verdien **true**. Hvis behovet er å produsere helt nye **MQTT-meldinger**, så gjøres det i **onList1(), onList2()** og **onList3()**. Ved å sette **REPUBLISH** til **false** vil programmets egne **MQTT-meldinger** undertrykkes helt. I avsnittet **Verdt å merke seg** lenger nede finnes det mer informasjon om dette.
+Ved behov for å gjøre endringer i hvordan **ElWiz** vil det være nyttig å midlertidig gi **DEBUG** verdien **true**. Hvis behovet er å produsere helt nye **MQTT-meldinger**, så finnes funksjonene **onList1(), onList2()** og **onList3()** som er beregnet for dette. Ved å sette **REPUBLISH** til **false** vil programmets egne **MQTT-meldinger** undertrykkes helt. I avsnittet **Verdt å merke seg** lenger nede finnes det mer informasjon om dette.
 
 ## Oppsett av Pulse
 I forhold til personvern er brukervilkårene for å bruke **Tibbers** mobil-app alt for vidtrekkende for mitt vedkommende. Jeg har derfor valgt å bruke **Pulse** uten app. Jeg mister riktignok tilgang til **Tibbers** tjenester, men til gjengjeld sparer jeg de 39 kronene per måned som det koster å være tilknyttet **Tibber**. Jeg oppnår allikevel det jeg er ute etter.
