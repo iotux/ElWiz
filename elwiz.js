@@ -33,46 +33,54 @@ function onList1(json) {
   // Then publish or do other processing
   //
   // Convenient for checking your own results
-  if (pulse.debug) console.log("onList1:", json);
+  if (pulse.debug)
+    console.log("onList1:", thingsData);
 }
 
 function onList2(json) {
   // Example for using a subset of data
-  let ts = getTimestamp(json.date);
   delete (json.weekDay);
   delete (json.meterVersion);
   delete (json.meterId);
   delete (json.meterType);
   // Do something with the rest of data
-
-  if (pulse.debug) console.log("onList2:", json);
+ 
+  if (pulse.debug)
+    console.log("onList2:", thingsData);
 }
 
 function onList3(json) {
-  let ts = getTimestamp(json.date);
+  //let ts = getTimestamp(json.date);
+  // Adjust meterDate to make a more accurate price lookup
   delete (json.weekDay);
   delete (json.meterVersion);
   delete (json.meterId);
   delete (json.meterType);
+  delete(json.date);
+
   // Do something with the data
 
-  if (pulse.debug) console.log("onList3:", json);
+    if (pulse.debug)
+      console.log("onList3:", thingsData);
+  }
 }
 
 function onStatus(json) {
-  // Repack some of the status data
+ // Repack some of the status data
   let data = {
     tibberVersion: json.Build,
     hardWare: json.Hw,
     ID: json.ID,
+    MAC: getMacAddress(json.ID),
     upTime: upTime(json.Uptime),
     SSID: json.ssid,
     rssi: json.rssi,
     wifiFail: json.wififail
   }
-  // Then publish if needed
-  //
-  if (pulse.debug) { console.log("onStatus:", data); }
+
+  if (pulse.debug)
+    console.log("onStatus:", data);
+
 }
 // ***************** End local processing ******************
 
@@ -103,13 +111,22 @@ function weekDay(day) {
 }
 
 function pulseDate(buf) {
-  // Returns local date and time
+  // Returns date and time
   return buf.readInt16BE(0)
     + "-" + addZero(buf.readUInt8(2))
     + "-" + addZero(buf.readUInt8(3))
     + "T" + addZero(buf.readUInt8(5))
     + ":" + addZero(buf.readUInt8(6))
     + ":" + addZero(buf.readUInt8(7));
+}
+
+function getMacAddress(id) {
+  return id.substr(10,2) 
+    + ":" + id.substr(8,2) 
+    + ":" + id.substr(6,2) 
+    + ":" + id.substr(4,2) 
+    + ":" + id.substr(2,2) 
+    + ":" + id.substr(0,2) 
 }
 
 function upTime(secsUp) {
@@ -121,8 +138,29 @@ function upTime(secsUp) {
 }
 
 function getTimestamp(date) {
-  let secs = Date.parse(date);
-  return secs;
+  let millis = Date.parse(date);
+  return millis;
+}
+
+function today() {
+  let now = new Date();
+  let tmp = new Date(now.getTime());
+  let day = tmp.toLocaleDateString();
+  let ret = day.split("-")[0]
+    + "-" + addZero(day.split("-")[1])
+    + "-" + addZero(day.split("-")[2]);
+  return ret;
+}
+
+function dayAhead() {
+  let oneDay = 24 * 60 * 60 * 1000;
+  let now = new Date();
+  let tomorrow = new Date(now.getTime() + oneDay);
+  let day = tomorrow.toLocaleDateString();
+  let ret = day.split("-")[0]
+    + "-" + addZero(day.split("-")[1])
+    + "-" + addZero(day.split("-")[2]);
+    return ret;
 }
 
 let C = {};
@@ -142,6 +180,8 @@ let pulse = {
   mqttOptions: {},
   debug: false,
   republish: true,
+  computePrices: false,
+  dayPrices: {},
 
   init: function () {
     setInterval(pulse.watch, 1000);
@@ -152,11 +192,19 @@ let pulse = {
 
     // Load broker and topics preferences from config file
     C = yaml.load(configFile);
+    if (C.computePrices !== undefined)
+      pulse.computePrices = C.computePrices;
 
-    if (pulse.debug)
-      console.log(C);
+    if (pulse.computePrices) {
+      if (fs.existsSync("./data/prices-" + today() + ".json")) {
+        pulse.dayPrices = require("./data/prices-" + today() + ".json");
+      }
+    }
+  
     pulse.debug = C.DEBUG;
     pulse.republish = C.REPUBLISH;
+    if (pulse.debug)
+      console.log(C);
 
     if (C.mqttBroker === null) {
       console.log("\nBroker IP address or hostname missing");
@@ -166,7 +214,7 @@ let pulse = {
 
     pulse.broker = C.mqttBroker + ":" + C.brokerPort;
     pulse.mqttOptions = {
-      userName: C.userName,
+      username: C.userName,
       password: C.password,
       will: {
         topic: C.pubNotice,
@@ -175,7 +223,6 @@ let pulse = {
     };
 
     pulse.client = mqtt.connect("mqtt://" + pulse.broker, pulse.mqttOptions);
-    //console.log(pulse.client)
     pulse.client.on("error", function (err) {
       if (err.errno === "ENOTFOUND") {
         console.log("\nNot connectd to broker");
@@ -187,7 +234,8 @@ let pulse = {
 
     pulse.client.on("connect", function () {
       pulse.client.subscribe(C.topic, function (err) {
-        if (err) { console.log("Subscription error"); }
+        if (err)
+         { console.log("Subscription error"); }
       });
       pulse.client.publish(C.pubNotice, C.greetMessage);
     });
@@ -279,16 +327,36 @@ let pulse = {
     let offset = meterOffset;
     let json = pulse.list2Func(buf);
 
-    json.meterDate = pulseDate(buf.subarray(offset + 51));
+    // meterDate is 10 seconds late. Is it a Pulse bug or a feature from the meter?
+    // According to NVE "OBIS List Information":
+    // The values are generated at XX:00:00 and streamed out from the 
+    // HAN interface 10 second later (XX:00:10)
+    // It makes sense to "backdate" the value by 10 secs to 
+    // make for easier lookup the correct price data from Nordpool
+    json.meterDate = pulseDate(buf.subarray(offset + 51)).substr(0,17) + "00";
     json.cumuHourPowImpActive = buf.readUInt32BE(offset + 64) / 1000; // kWh
     json.cumuHourPowExpActive = buf.readUInt32BE(offset + 69) / 1000; // kWh
     json.cumuHourPowImpReactive = buf.readUInt32BE(offset + 74) / 1000; // kVArh
     json.cumuHourPowExpReactive = buf.readUInt32BE(offset + 79) / 1000; // kVArh
     if (pulse.lastCumulativePower > 0) {
-      json.lastHourActivePower = (buf.readUInt32BE(offset + 64) / 1000 - pulse.lastCumulativePower).toFixed(3);
+      json.lastHourActivePower = (buf.readUInt32BE(offset + 64) / 1000 - pulse.lastCumulativePower).toFixed(3) * 1;
     }
     pulse.lastCumulativePower = buf.readUInt32BE(offset + 64) / 1000;
     savePower(pulse.lastCumulativePower);
+    if(pulse.computePrices) {
+      let index = json.meterDate.substr(11,2) * 1;
+      if (index === 0) index = 24;
+      json.customerPrice = pulse.dayPrices[index - 1].customerPrice;
+      json.lastHourCost = (json.customerPrice * json.lastHourActivePower).toFixed(4) * 1;
+      json.spotPrice = pulse.dayPrices[index - 1].spotPrice;
+      json.startTime = pulse.dayPrices[index -1].startTime;
+      json.endTime = pulse.dayPrices[index -1].endTime;
+      if (index === 24) {
+        if (!fs.existsSync("./data/prices-" + today() + ".json")) {
+          pulse.dayPrices = require("./data/prices-" + today() + ".json");
+        }
+      }
+    }
     return json;
   },
 
@@ -357,20 +425,20 @@ let pulse = {
         else if (buf[0] === "H") {
           // pulse Pulse sender bare "Hello" ved oppstart
           let msg = message.toString();
-          if (REPUBLISH)
+          if (pulse.republish)
             pulse.client.publish(C.pubNotice, C.greetMessage);
           if (pulse.debug)
             console.log("Pulse is starting: " + C.pubNotice + " ", msg);
         } else {
           let msg = message.toString();
-          if (REPUBLISH)
+          if (pulse.republish)
             pulse.client.publish(C.pubNotice, msg);
           if (pulse.debug)
             console.log("Event message: " + C.pubNotice + " ", msg);
         }
       } // topic === "tibber"
     }); // client.on(message)
-  }
+  } // run ()
 };
 
 pulse.init();
