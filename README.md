@@ -7,6 +7,8 @@
 
 Målgruppen for **ElWiz** er personer som er interessert i **smarte hjem** og **IoT**, og som vil gjøre arbeidet selv uten avhengighet av ekserne ressurser. Formålet er å hente data fra en **AMS-måler** for å bruke det i **Home Assistant**, **OpenHAB** eller et lignende system. Programmet tolker rå binærdata fra **Pulse** og oversetter det til **JSON**-format som er enkelt å utnytte videre. Programmet bruker ikke **SSL**, og det er dermed enkelt å bruke for dem som har en ekstra PC, **Raspberry** Pi eller sin egen server hjemme. Programmet er beregnet på å gå døgnkontinuerlig, og er derfor ikke egnet til å kjøre på f. eks. en bærbar eller annen maskin som man gjerne slår av etter bruk.
 
+Brukere av **AMS-målere** blir avregnet per time. Programmet **fetchprices** henter **spotpriser** fra **Nordpool** kraftbørs og beregner brukerens strømkostnader time for time. For å få nytte av dette må konfigurasjonsfila **config.yaml** justeres i henhold til de takstene for strøm som brukeren betaler. **fetchprices** er beskrevet i detalj i **fetchprices.md**.
+
 **ElWiz** er skrevet i **node.js** (javascript) for Linux og består av en enkelt programfil for å gjøre det enkelt å installere og bruke, samt en fil med konfigurasjonsdata. De som vil bruke det på **Mac** eller **Windows**, må muligens gjøre noen mindre endringer i programmet. Dette gjelder eventuelt **signaler** som beskrives lenger ned.
 
 **ElWiz** er testet med kun tilgang til **Kaifa MA304H3E AMS-måler**. Det er mulig at det også må gjøres noen mindre endringer hvis det skal brukes på en **AMS-måler** fra en anne produsent.
@@ -44,7 +46,7 @@ yarn add yamljs
 ```
 
 ## Tilpasning for egen lokal broker
-Fila **config.yaml.sample** kopieres til **config.yaml**. I **config.yaml** vil det være nødvendig å angi IP-adressen og eventuelt brukernavn og passord til egen **MQTT-broker**. Innholdet i konfigurasjonsfila ser slik ut:
+Fila **config.yaml.sample** kopieres til **config.yaml**. I **config.yaml** vil det være nødvendig å angi IP-adressen og eventuelt brukernavn og passord til egen **MQTT-broker**. De viktigste parametrene i konfigurasjonsfila ser slik ut:
 
 
 ```yaml
@@ -68,7 +70,7 @@ pubNotice: pulse/notice
 
 # ElWiz event messages
 willMessage: ElWiz has left the building
-greetMessage: ElWiz is singing
+greetMessage: ElWiz is performing
 
 # Tibber Pulse event messages
 onlineMessage: Pulse is talking
@@ -173,11 +175,24 @@ Eksemplet nedenfor er fra **List 3**. Programmet leverer komplette data, men i *
   "meterDate": '2020-07-27T10:00:10',   // AMS-målerens dato og tid
   "cumuHourPowImpActive": 42020.232,    // Enhet: kWh   - Akkumulert
   "cumuHourPowExpActive": 0,            // Enhet: kWh   - Akkumulert
-  "cumuHourPowImpReactive2": 19900.058,  // Enhet: kWArh - Akkumulert
+  "cumuHourPowImpReactive2": 19900.058, // Enhet: kWArh - Akkumulert
   "cumuHourPowExpReactive": 653.829,    // Enhet: kWArh - Akkumulert
   "lastHourActivePower": '1.470'        // Enhet: kWh   - Forbruk siste time
 }
   ```
+
+Brukere av **fetchprices** vil i tillegg få tilgang til spotpriser, priser fra egen leverandør og ferdig utregnet kostnad time for time. 
+```javascript
+{
+  "customerPrice": 1.3513, // Lokal valuta
+  "lastHourCost": 1.9432,  // Local valuta
+  "spotPrice": 0.6163,     // Local valuta
+  "startTime": '2020-08-12T11:00:00',
+  "endTime": '2020-08-12T12:00:00'
+}
+```
+Se egen dokumentasjon i **fetchprices.md**
+
 ## Filtrering av data
 I mitt tilfelle sender jeg data til **Thingsboard** i tillegg til min egen lokale **mosquitto** broker. **Thingsboard** genererer sin egen tidsstempling ved mottak.
 ### Filtrering eksempel 1
