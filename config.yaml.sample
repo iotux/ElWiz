@@ -32,8 +32,9 @@ DEBUG: false
 # you may want to set this to false
 REPUBLISH: true
 
+#############################################
 # The rest of the configuration is only valid 
-# for the "getprices" program
+# for the "fetchprices" program
 #
 # Windows users without cron may want to use 
 # the "node-schedule" module.
@@ -59,12 +60,15 @@ computePrices: false
 priceCurrency: NOK
 
 # The following regions are available.
+#
 # Sweden, Finland, Denmark
 # [SE1, SE2, SE3, SE4, FI, DK1, DK2]
 # [  1,   2,   3,   4,  5,   6,   7]
+#
 # Norway
 # [Oslo, Kr.sand, Bergen, Molde, Tr.heim, Tromsø]
 # [   8,       9,     10,    11,      12,     13]
+#
 # Find your region and insert here.
 # Ask your local supplier if in doubt.
 priceRegion: 8
