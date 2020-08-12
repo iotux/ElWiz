@@ -1,3 +1,8 @@
+#
+*.swp
+node_modules/
+# Data directory
+data/*
 # Konfigurasjon av lokalt tilpassede data
 config.yaml
 # Lagring av siste akkumulerte forbruk
