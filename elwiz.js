@@ -190,23 +190,24 @@ let pulse = {
     pulse.lastCumulativePower = getPower(savedPowerFile);
 
     // Load broker and topics preferences from config file
-    C = yaml.load(configFile);
     if (C.computePrices !== undefined)
       pulse.computePrices = C.computePrices;
     
-    if (! fs.existsSync("./config.yaml")) {
+    if (fs.existsSync("./config.yaml")) {
+      C = yaml.load(configFile);
+    } else {
       console.log("\nConfiguration file not found");
       console.log("Please copy your \"config.yaml.sample\" to \"config.yaml\" and configure your MQTT broker");
       process.exit(0);
     }
 
     if (pulse.computePrices) {
-      if (! fs.existsSync("./data/prices-" + today() + ".json")) {
+      if (fs.existsSync("./data/prices-" + today() + ".json")) {
+        pulse.dayPrices = require("./data/prices-" + today() + ".json");
+      } else {
         console.log("\nPrice file not found");
         console.log("Please configure your \"config.yaml\" and run \"getprises.js\"");
         process.exit(0);
-      } else {
-        pulse.dayPrices = require("./data/prices-" + today() + ".json");
       }
     }
   
