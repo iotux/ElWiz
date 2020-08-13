@@ -60,9 +60,8 @@ function onList3(json) {
 
   // Do something with the data
 
-    if (pulse.debug)
-      console.log("onList3:", thingsData);
-  }
+  if (pulse.debug)
+    console.log("onList3:", thingsData);
 }
 
 function onStatus(json) {
@@ -196,7 +195,11 @@ let pulse = {
       pulse.computePrices = C.computePrices;
 
     if (pulse.computePrices) {
-      if (fs.existsSync("./data/prices-" + today() + ".json")) {
+      if (! fs.existsSync("./data/prices-" + today() + ".json")) {
+        console.log("\nPrice file not found");
+        console.log("Please configure your \"config.yaml\" and run \"getprises.js\"");
+        process.exit(0);
+      } else {
         pulse.dayPrices = require("./data/prices-" + today() + ".json");
       }
     }
