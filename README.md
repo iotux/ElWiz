@@ -2,6 +2,24 @@
 # ElWiz - program for å lese data fra Tibber Pulse
 
 **Remark:** *This program is mainly written for a Norwegian or nordic country audience, and is therefore witten in the Norwegian language. However, the program comments are written in English for those who are not natives.*
+
+## Innhold
+* [Intro](#intro)
+* [Installering](#installering)
+* [Tilpasning for egen broker](#tilpasning-for-egen-lokal-broker)
+* [Oppsett av Pulse](#oppsett-av-pulse)
+* [AMS-målerens data](#ams-m%C3%A5lerens-data)
+* [Data fra Pulse](#data-fra-pulse)
+* [MQTT-data fra ElWiz](#mqtt-data-fra-elwiz)
+* [Filtrering av data](#filtrering-av-data)
+    * [Filtrering eksempel 1](#filtrering-eksempel-1)
+    * [Filtrering eksempel 2](#filtrering-eksempel-2)
+    * [Verdt å merke seg](#verdt-%C3%A5-merke-seg)
+* [Signaler til programmet](#signaler-til-programmet)
+* [Styring av Pulse](#styring-av-pulse)
+* [Kontinuerlig drift](#kontinuerlig-drift)
+* [Referanser](#referanser)
+
 ## Intro
 **Tibber Pulse** er en microcontroller (MCU) som leser data om strømforbruk fra en **AMS-måler**. Nedenfor er den angitt som **Pulse**. **ElWiz** bruker **Pulse** for å hente data fra **AMS-målere**.
 
