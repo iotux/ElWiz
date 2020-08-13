@@ -37,12 +37,18 @@ Hvis du bruker **npm**:
 npm install mqtt
 npm install fs
 npm install yamljs
+npm install node-schedule
+npm install request
+npm install request-promise
 ```
 Hvis du foretrekker **yarn**:
 ```
 yarn add mqtt
 yarn add fs
 yarn add yamljs
+yarn add node-schedule
+yarn add request
+yarn add request-promise
 ```
 
 ## Tilpasning for egen lokal broker
