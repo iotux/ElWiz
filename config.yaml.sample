@@ -35,7 +35,10 @@ REPUBLISH: true
 #############################################
 # The rest of the configuration is only valid 
 # for the "fetchprices" program
-#
+
+# Days to keep price files
+keepDays: 7
+
 # Windows users without cron may want to use 
 # the "node-schedule" module.
 # Set the following to "true" if that is the case.
@@ -82,7 +85,8 @@ supplierMonthPrice: 0.0
 supplierVatPercent: 0.0
 
 # Spot prices from Nordpool are vithout VAT
-spotVatPercent: 0.0
+# A VAT percent is usually need for private households
+spotVatPercent: 25.0
 
 # Network cost
 gridKwhPrice: 0.0
