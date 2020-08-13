@@ -193,6 +193,12 @@ let pulse = {
     C = yaml.load(configFile);
     if (C.computePrices !== undefined)
       pulse.computePrices = C.computePrices;
+    
+    if (! fs.existsSync("./config.yaml")) {
+      console.log("\nConfiguration file not found");
+      console.log("Please copy your \"config.yaml.sample\" to \"config.yaml\" and configure your MQTT broker");
+      process.exit(0);
+    }
 
     if (pulse.computePrices) {
       if (! fs.existsSync("./data/prices-" + today() + ".json")) {
