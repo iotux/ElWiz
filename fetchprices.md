@@ -6,8 +6,8 @@ brukerens bruttopris og kostnad per kWh, samt spotprisen inklusive MVA som vist 
 ```javascript
 {
   "customerPrice": 1.3513, // Lokal valuta
-  "lastHourCost": 1.9432,  // Local valuta
-  "spotPrice": 0.6163,     // Local valuta
+  "lastHourCost": 1.9432,  // Lokal valuta
+  "spotPrice": 0.6163,     // Lokal valuta
   "startTime": '2020-08-12T11:00:00',
   "endTime": '2020-08-12T12:00:00'
 }
@@ -79,7 +79,7 @@ Velger man å sette inn nettopriser, så må MVA-satsen settes inn i parameteret
 I eksemplet nedenfor leverer kraftselskapet strøm til spotpris + et påslag av **kr 9** per måned.
 Her er det allerede innregnet **MVA** med **25%**. **supplierVatPercent** er derfor satt til **0.0**. 
 Påslaget på **kr 9** blir fordelt på antall timer i en måned. 
-I bakgrunnen blir spotprisen tillagt **MVA** og lagt til i resultatet.
+Spotprisen fra den nordiske kraftbørsen blir tillagt **MVA** og lagt til i resultatet.
 
 ```
 supplierKwhPrice: 0.0
