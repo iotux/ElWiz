@@ -34,7 +34,7 @@ function onList1(json) {
   //
   // Convenient for checking your own results
   if (pulse.debug)
-    console.log("onList1:", thingsData);
+    console.log("onList1:", json);
 }
 
 function onList2(json) {
@@ -46,7 +46,7 @@ function onList2(json) {
   // Do something with the rest of data
  
   if (pulse.debug)
-    console.log("onList2:", thingsData);
+    console.log("onList2:", json);
 }
 
 function onList3(json) {
@@ -61,7 +61,7 @@ function onList3(json) {
   // Do something with the data
 
   if (pulse.debug)
-    console.log("onList3:", thingsData);
+    console.log("onList3:", json);
 }
 
 function onStatus(json) {
