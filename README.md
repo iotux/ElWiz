@@ -23,13 +23,13 @@
 ## Intro
 **Tibber Pulse** er en microcontroller (MCU) som leser data om strømforbruk fra en **AMS-måler**. Nedenfor er den angitt som **Pulse**. **ElWiz** bruker **Pulse** for å hente data fra **AMS-målere**.
 
-Målgruppen for **ElWiz** er personer som er interessert i **smarte hjem** og **IoT**, og som vil gjøre arbeidet selv uten avhengighet av ekserne ressurser. Formålet er å hente data fra en **AMS-måler** for å bruke det i **Home Assistant**, **OpenHAB** eller et lignende system. Programmet tolker rå binærdata fra **Pulse** og oversetter det til **JSON**-format som er enkelt å utnytte videre. Programmet bruker ikke **SSL**, og det er dermed enkelt å bruke for dem som har en ekstra PC, **Raspberry** Pi eller sin egen server hjemme. Programmet er beregnet på å gå døgnkontinuerlig, og er derfor ikke egnet til å kjøre på f. eks. en bærbar eller annen maskin som man gjerne slår av etter bruk.
+Målgruppen for **ElWiz** er personer som er interessert i **smarte hjem** og **IoT**, og som vil gjøre arbeidet selv uten avhengighet av ekserne ressurser eller skytjenester (cloud services). Formålet er å hente data fra en **AMS-måler** for å bruke det i **Home Assistant**, **OpenHAB** eller et lignende system. Programmet tolker rå binærdata fra **Pulse** og oversetter det til **JSON**-format som er enkelt å utnytte videre. Programmet bruker ikke **SSL**, og det er dermed enkelt å bruke for dem som har en ekstra PC, **Raspberry Pi** eller sin egen server hjemme. Programmet er beregnet på å gå døgnkontinuerlig, og er derfor ikke egnet til å kjøre på f. eks. en bærbar eller annen maskin som man gjerne slår av etter bruk.
 
-Brukere av **AMS-målere** blir avregnet per time. Programmet **fetchprices.js** henter **spotpriser** fra **Nordpool** kraftbørs og beregner brukerens strømkostnader time for time. For å få nytte av dette må konfigurasjonsfila **config.yaml** justeres i henhold til de takstene for strøm som brukeren betaler. **fetchprices.js** er beskrevet i detalj i **fetchprices.md** (https://github.com/iotux/ElWiz/blob/master/fetchprices.md).
+Brukere av **AMS-målere** blir avregnet per time. Programmet **fetchprices.js** henter **spotpriser** fra **Nordpool** kraftbørs og beregner brukerens strømkostnader time for time. For å få nytte av dette må konfigurasjonsfila **config.yaml** justeres i henhold til de takstene for strøm som brukeren betaler. **fetchprices.js** er beskrevet i detalj i [**fetchprices.md**](https://github.com/iotux/ElWiz/blob/master/fetchprices.md).
 
 **ElWiz** er skrevet i **node.js** (javascript) for Linux og består av en enkelt programfil for å gjøre det enkelt å installere og bruke, samt en fil med konfigurasjonsdata. De som vil bruke det på **Mac** eller **Windows**, må muligens gjøre noen mindre endringer i programmet. Dette gjelder eventuelt **signaler** som beskrives lenger ned.
 
-**ElWiz** er testet med kun tilgang til **Kaifa MA304H3E AMS-måler**. Det er mulig at det også må gjøres noen mindre endringer hvis det skal brukes på en **AMS-måler** fra en anne produsent.
+**ElWiz** er testet med kun tilgang til **Kaifa MA304H3E AMS-måler**. Det er mulig at det også må gjøres noen mindre endringer hvis det skal brukes på en **AMS-måler** fra en annen produsent.
 
 Nedenfor er det bekrevet hva du trenger for å installere **ElWiz** og sette opp **Pulse**. Du kan deretter sende data til **Home Assistant**, **OpenHAB**, eller lignende systemer. Det vil være opp til deg som bruker å tilpasse disse for å utnytte data fra programmet. 
 
@@ -113,7 +113,7 @@ Sett inn brukernavn og passord hvis din broker krever dette.
 
 **topic** under **\# Listening topics** må samsvare med det som angis i **mqtt_topic** når du konfigurerer **Pulse**. Andre endringer skal normalt ikke være påkrevet.
 
-Ved behov for å gjøre endringer i hvordan **ElWiz** vil det være nyttig å midlertidig gi **DEBUG** verdien **true**. Hvis behovet er å produsere helt nye **MQTT-meldinger**, så finnes funksjonene **onList1(), onList2()** og **onList3()** som er beregnet for dette. Ved å sette **REPUBLISH** til **false** vil programmets egne **MQTT-meldinger** undertrykkes helt. I avsnittet **Verdt å merke seg** lenger nede finnes det mer informasjon om dette.
+Ved behov for å gjøre endringer i hvordan **ElWiz** vil det være nyttig å midlertidig gi **DEBUG** verdien **true**. Hvis behovet er å produsere helt nye **MQTT-meldinger**, så finnes funksjonene **onList1(), onList2()** og **onList3()** som er beregnet for dette. Ved å sette **REPUBLISH** til **false** vil programmets egne **MQTT-meldinger** undertrykkes helt. I avsnittet [**Verdt å merke seg**](#verdt-%C3%A5-merke-seg) lenger nede finnes det mer informasjon om dette.
 
 ## Oppsett av Pulse
 I forhold til personvern er brukervilkårene for å bruke **Tibbers** mobil-app alt for vidtrekkende for mitt vedkommende. Jeg har derfor valgt å bruke **Pulse** uten app. Jeg mister riktignok tilgang til **Tibbers** tjenester, men til gjengjeld sparer jeg de 39 kronene per måned som det koster å være tilknyttet **Tibber**. Jeg oppnår allikevel det jeg er ute etter.
@@ -146,7 +146,7 @@ Data fra **AMS-måleren** kommer i 3 forskjellige varianter. **List 1, List 2**,
 Dette er beskrevet mer utførlig lenger nede, samt synliggjort i eksemplene nedenfor.
 
 ## Data fra Pulse
-Fra **Pulse** kommer en oppstartsmelding, statusmeldinger og **AMS** målerdata. **Pulse** mangler derimot en **LastWill**-melding. En slik melding skal som regel sendes til brokeren ved oppstart av enheten. Hvis brokeren mister kontakten med enheten, vil den sende denne meldingen til abonnenter. For å kompensere for denne mangelen, er det en **"vaktbikkje"-funksjon** i **ElWiz**. Dette er en teller som teller ned med et intervall på 1 sekund. Når programmet mottar en melding fra **Pulse**, gjenoppfrisker programmet denne telleren. Hvis data fra **Pulse** uteblir, vil telleren fortsette å telle ned. Når den får verdien 0, vil programmet sende en **MQTT-melding** som varsel på at det mangler data fra **Pulse**. Telleren er i utgangspunktet satt til 15 sekunder, men denne verdien kan endres i programkoden.
+Fra **Pulse** kommer en oppstartsmelding, statusmeldinger og **AMS** målerdata. **Pulse** mangler derimot en **LastWill**-melding. En slik melding skal som regel sendes til brokeren ved oppstart av enheten. Hvis brokeren mister kontakten med enheten, vil den sende denne meldingen til abonnenter. For å kompensere for denne mangelen, er det en **"watchdog"-funksjon** i **ElWiz**. Dette er en teller som teller ned med et intervall på 1 sekund. Når programmet mottar en melding fra **Pulse**, gjenoppfrisker programmet denne telleren. Hvis data fra **Pulse** uteblir, vil telleren fortsette å telle ned. Når den får verdien 0, vil programmet sende en **MQTT-melding** som varsel på at det mangler data fra **Pulse**. Telleren er i utgangspunktet satt til 15 sekunder, men denne verdien kan endres i programkoden.
 
 ```
 // The watchdog timer
@@ -325,7 +325,7 @@ Med **PM2** har du kontroll på stop, start, restart, automatisk start etter opp
 ## Referanser
 Under kartleggingen av data fra **Tibber Pulse**, har har jeg hatt god hjelp av informasjon fra @daniel.h.iversen and @roarfred og andre innlegg i dette diskusjonsforumet https://www.hjemmeautomasjon.no/forums/topic/4255-tibber-pulse-mqtt/.
 
-Nedenfor er linker med uvurderlig informasjon for de som er interessert i dekodingen.
+Nedenfor er linker med nyttig informasjon for de som er interessert i dekodingen.
  - [Informasjon fra NVE om HAN-grensesnittet](https://github.com/roarfred/AmsToMqttBridge/blob/master/Documentation/NVE_Info_kunder_HANgrensesnitt.pdf)
  - [Dekoding i Python (av @Danielhiversen)](https://github.com/Danielhiversen/pyHanSolo/blob/master/han_solo/__init__.py)
  - [Dekoding i C (av @roarfred)](https://github.com/roarfred/AmsToMqttBridge/blob/master/Code/Arduino/KaifaTest/KaifaTest.ino)
