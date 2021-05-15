@@ -312,6 +312,11 @@ let pulse = {
   list2Func: function (buf) {
     // Process List #2 raw data
     let offset = meterOffset; // 71
+    let L1 = buf.readUInt32BE(offset + 35); // Volts Item 12 ul
+    let L2 = buf.readUInt32BE(offset + 40); // Volts Item 13 ul
+    let L3 = buf.readUInt32BE(offset + 45); // Volts Item 15 ul
+    if (L2 === 0) // This meter doesn't measure L1L3
+      L2 = Math.sqrt((L1 - L3 * 0.5)**2 + (L3 * 0.866)**2);
     return {
       date: pulseDate(buf.subarray(19)),
       weekDay: weekDay(buf.readUInt8(23)),
@@ -325,9 +330,9 @@ let pulse = {
       currentL1: buf.readInt32BE(offset + 20) / 1000, // Amps Item 9 sl
       currentL2: buf.readInt32BE(offset + 25) / 1000, // Amps Item 10 sl
       currentL3: buf.readInt32BE(offset + 30) / 1000, // Amps Item 11 sl
-      voltageL1: buf.readUInt32BE(offset + 35) / 10, // Volts Item 12 ul
-      voltageL2: buf.readUInt32BE(offset + 40) / 10, // Volts Item 13 ul
-      voltageL3: buf.readUInt32BE(offset + 45) / 10 // Volts Item 14 ul
+      voltageL1: L1 / 10,
+      voltageL2: (L2 / 10).toFixed(1) * 1,
+      voltageL3: L3 / 10
     }
   },
 
