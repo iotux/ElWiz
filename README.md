@@ -31,19 +31,19 @@ Brukere av **AMS-målere** blir avregnet per time. Programmet **fetchprices.js**
 
 **ElWiz** er testet med kun tilgang til **Kaifa MA304H3E AMS-måler**. Det er mulig at det også må gjøres noen mindre endringer hvis det skal brukes på en **AMS-måler** fra en annen produsent.
 
-Nedenfor er det bekrevet hva du trenger for å installere **ElWiz** og sette opp **Pulse**. Du kan deretter sende data til **Home Assistant**, **OpenHAB**, eller lignende systemer. Det vil være opp til deg som bruker å tilpasse disse for å utnytte data fra programmet. 
+Nedenfor er det bekrevet hva du trenger for å installere **ElWiz** og sette opp **Pulse**. Du kan deretter sende data til **Home Assistant**, **OpenHAB**, eller lignende systemer. Det vil være opp til deg som bruker å tilpasse disse for å utnytte data fra programmet.
 
 #### Hva du trenger
  - en **Tibber Pulse**
  - tilgang til en **MQTT broker**
  - Noe kjennskap til **MQTT**
  - kunne redigere enkle opplysninger i en tekstfil
- 
+
 #### Kjekt å ha men ikke påkrevet
  - tilgang til **Home Assistant** eller annen tilsvarende plattform
  - kjennskap til programmering i **node.js** (javascript)
  - MQTT-kontrollert kaffekoker
- 
+
 ## Installering
 For de som ikke kjenner **git**, vil det enkleste være å laste ned **ZIP-arkivet** her: https://github.com/iotux/Pulse/archive/master.zip og pakke det ut i egen katalog (mappe). Brukere av **git** kan som vanlig bruke **git clone**. Programmer må ha skrivetilgang til katalogen.
 
@@ -75,7 +75,7 @@ Fila **config.yaml.sample** kopieres til **config.yaml**. I **config.yaml** vil 
 
 ```yaml
 ---
-# The IP address or hostname 
+# The IP address or hostname
 # of your favorite MQTT broker
 broker: your.own.broker
 brokerPort: 1883
@@ -122,11 +122,11 @@ Første steg for å koble **Pulse** til eget nett, er å tvinge den inn i AP-mod
 
 ![Pulse i AP-modus](https://github.com/iotux/ElWiz/blob/master/Pulse-AP.jpg)
 
-Feltene **ssid** og **psk** fylles ut med navnet på egen WiFi-ruter og passord. 
+Feltene **ssid** og **psk** fylles ut med navnet på egen WiFi-ruter og passord.
 
-Feltene **mqtt_url** og **mqtt_port** fylles ut med **IP-adressen** til din egen broker og portnummer **1883** for bruk uten **SSL**. 
+Feltene **mqtt_url** og **mqtt_port** fylles ut med **IP-adressen** til din egen broker og portnummer **1883** for bruk uten **SSL**.
 
-I feltet **mqtt_topic** kan du legge inn et fritt valgt navn. Det bør være forskjellig fra topic som bruker i programmet for å sende meldinger. Ettersom **tibber** er forvalgt i programmet, kan det være greit å bruke her. 
+I feltet **mqtt_topic** kan du legge inn et fritt valgt navn. Det bør være forskjellig fra topic som bruker i programmet for å sende meldinger. Ettersom **tibber** er forvalgt i programmet, kan det være greit å bruke her.
 
 Feltet **mqtt_topic_sub** er et **topic** som **Pulse** abonnerer på. For å markere at **MQTT-meldinger** går motsatt veg, så kan du f. eks. bruke **rebbit** her. Dermed er du sikret mot at det kommer i konflikt med andre **MQTT-meldinger**. Så langt har jeg funnet ut at ved å sende meldingen *"reboot"*, så vil **Pulse** svare med *"Debug: rebooting"* og starte på nytt. Hvis man f. eks. sender meldingen *"tull"*, så vil den svare med *"Debug: Unknown command 'tull'"*. Det er mer om dette i avsnittet **Styring av Pulse**.
 
@@ -140,8 +140,8 @@ Data fra **AMS-måleren** kommer i 3 forskjellige varianter. **List 1, List 2**,
  - **List 1** inneholder det aktuelle strømforbruket målt i kW, samt tidspunkt. Denne typen mottas i intervaller på 2 eller 2,5 sekunder.
 
  - **List 2** inneholder i tillegg effekt, strøm og spenning som mottas i intervaller på 10 sekunder
- 
- - **List 3** inneholder i tillegg til **List 2** akkumulerte data for hittil brukt strøm. Dette mottas hver hele time. 
+
+ - **List 3** inneholder i tillegg til **List 2** akkumulerte data for hittil brukt strøm. Dette mottas hver hele time.
 
 Dette er beskrevet mer utførlig lenger nede, samt synliggjort i eksemplene nedenfor.
 
@@ -184,7 +184,7 @@ Eksemplet nedenfor viser et komplett sett av data fra **List 2**.
 ```
 Eksemplet nedenfor er fra **List 3**. Programmet leverer komplette data, men i **onList3()** er **AMS-målerens** versjon, ID og type utelatt. I tillegg til data fra **Pulse**, er det også beregnet forbruk siste time. Resultatet av denne filtreringen er vist nedenfor.
 ```javascript
-{ 
+{
   "date": '2020-07-27T10:00:10',  // Pulses dato og tid
   "powImpActive": 1.63,           // Se ovenfor. Gjelder også neste verdier
   "powExpActive": 0,
@@ -205,7 +205,7 @@ Eksemplet nedenfor er fra **List 3**. Programmet leverer komplette data, men i *
 }
   ```
 
-Brukere av **fetchprices** vil i tillegg få tilgang til spotpriser, priser fra egen leverandør og ferdig utregnet kostnad time for time. 
+Brukere av **fetchprices** vil i tillegg få tilgang til spotpriser, priser fra egen leverandør og ferdig utregnet kostnad time for time.
 ```javascript
 {
   "customerPrice": 1.3513, // Lokal valuta
@@ -220,7 +220,7 @@ Se egen dokumentasjon i **fetchprices.md**
 ## Filtrering av data
 I mitt tilfelle sender jeg data til **Thingsboard** i tillegg til min egen lokale **mosquitto** broker. **Thingsboard** genererer sin egen tidsstempling ved mottak.
 ### Filtrering eksempel 1
-Her fjernes derfor tidsstempel fra **List 1** før publisering videre. 
+Her fjernes derfor tidsstempel fra **List 1** før publisering videre.
 
 ```javascript
 const thingsboard = mqtt.connect(thingsboardUrl, thingsboardOptions);
@@ -236,7 +236,7 @@ function onList1(json) {
   if (thingsPub)
     thingsboard.publish(thingsboardTopic, JSON.stringify(json));
   // Convenient for checking your own results
-  if (pulse.debug) 
+  if (pulse.debug)
     console.log("onList1: ", json);
 }
 ```
@@ -252,7 +252,7 @@ function onList2(json) {
   }
   // Gjør noe med omformaterte data
   minServer.publish("minTopic", JSON.stringify(data));
-  if (pulse.debug) 
+  if (pulse.debug)
     console.log("onList2: ", data);
 }
 ```
@@ -292,14 +292,14 @@ Tilgjengelige signaler:
  - **SIGHUP** - Leser inn fila **config.yaml**
  - **SIGUSR1** - Slår debugging av eller på
  - **SIGTERM** - Lagrer fila **power.json** før programmet stoppes
- - **SIGINT** - Lagrer fila **power.json** før programmet stoppes 
+ - **SIGINT** - Lagrer fila **power.json** før programmet stoppes
 
 Legg merke til at **SIG** fjernes fra kommandoen for å sende signaler. For **SIGTERM** ser det slik ut:
 ```
 kill -TERM 23456
-``` 
+```
  **\<Ctrl C\>** sender **SIGINT** til programmet
- 
+
 ## Styring av Pulse
 **Pulse** har noen funksjoner som kan styres ved hjelp av **MQTT-meldinger**. Det gjøres ved å sende meldingene med **topic** som er angitt i feltet **mqtt_topic_sub** i weg-grensesnittet. Dette er ikke dokumentert, men ved å prøve forskjellige alternativer, har jeg funnet disse funksjonene.
 
