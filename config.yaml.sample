@@ -1,7 +1,7 @@
 ---
 # The IP address or hostname 
 # of your favorite MQTT broker
-mqttBroker: your.own.broker
+mqttBroker: localhost
 brokerPort: 1883
 
 # Enter credetials if needed
@@ -25,19 +25,37 @@ onlineMessage: Pulse is talking
 offlineMessage: Pulse is quiet
 
 # Debug mode at startup
-DEBUG: false
+DEBUG: true
 
 # Republish mode at startup
-# If you want to filter the output,
-# you may want to set this to false
 REPUBLISH: true
 
-#############################################
-# The rest of the configuration is only valid 
-# for the "fetchprices" program
+# The next options are for Home Assistant
+# Publish to Home Assistant (defaults to true)?
+# Set this to "false" if you don't want HA auto discovery
+haPublish: true
 
-# Days to keep price files
-keepDays: 7
+# Home Assistant sensor base topic (defaults to "elwiz/sensor")
+haBaseTopic: elwiz/sensor
+
+# Publish options for list 1, 2, 3 & status
+statusRetain: false
+statusQos: 0
+list1Retain: false
+list1Qos: 0
+list2Retain: false
+list3Qos: 0
+list3Retain: false
+list3Qos: 1
+statusRetain: false
+statusQos: 0
+
+# The rest of the configuration is only valid 
+# for the "getprices" program
+
+# Days to keep data files
+# Files older tham "keepDays" are deleted
+keepDays: 7 
 
 # Windows users without cron may want to use 
 # the "node-schedule" module.
@@ -55,40 +73,40 @@ scheduleMinutes: [30]
 # Your local supplier's price information
 # Setting computePrices false for
 # only returning naked spot prices (no VAT)
+# Because electricity prices has been going wild lately,
+# it's could be wise to let this remain false at the moment.
+# The price calculation will probably be wrong regardless.
+# Spot prices still works great, however.
 computePrices: false
 
 # Use the same currency as your local supplier
 # The following currencies are available:
-# [EUR, SEK, NOK, DKR]
+# EUR, SEK, NOK, DKR
 priceCurrency: NOK
 
 # The following regions are available.
-#
 # Sweden, Finland, Denmark
 # [SE1, SE2, SE3, SE4, FI, DK1, DK2]
 # [  1,   2,   3,   4,  5,   6,   7]
-#
 # Norway
 # [Oslo, Kr.sand, Bergen, Molde, Tr.heim, Tromsø]
 # [   8,       9,     10,    11,      12,     13]
-#
 # Find your region and insert here.
 # Ask your local supplier if in doubt.
-priceRegion: 8
+priceRegion: 12
 
 # Change the following values according
 # to your electric power supplier's invoice
-# Different price models may require changes to program 
-# You will mos likely find you prices from your supplier's invoices
+# Different rate models may require changes to program 
 supplierKwhPrice: 0.0
-supplierMonthPrice: 0.0
+supplierMonthPrice: 9.0
 supplierVatPercent: 0.0
 
-# Spot prices from Nordpool are vithout VAT
+# Spot market prices are without VAT
 # A VAT percent is usually need for private households
 spotVatPercent: 25.0
 
 # Network cost
-gridKwhPrice: 0.0
-gridDayPrice: 0.0
+gridKwhPrice: 0.4454
+gridDayPrice: 6.66
 gridVatPercent: 0.0
