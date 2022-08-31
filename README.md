@@ -1,7 +1,6 @@
-
 # ElWiz - program for å lese data fra Tibber Pulse
 
-**Remark:** *This program is mainly written for a Norwegian or nordic country audience, and is therefore witten in the Norwegian language. However, the program comments are written in English for those who are not natives.*
+**Remark:** *This program is mainly developed for a Norwegian or nordic country audience, and this **README** is therefore written in the Norwegian language. However, the program comments are written in English for those who are not natives.*
 
 ## Innhold
 * [Intro](#intro)
@@ -18,6 +17,7 @@
 * [Signaler til programmet](#signaler-til-programmet)
 * [Styring av Pulse](#styring-av-pulse)
 * [Kontinuerlig drift](#kontinuerlig-drift)
+* [Home Assistant (HA) integrasjon](#home-assistant-ha-integrasjon)
 * [Referanser](#referanser)
 
 ## Intro
@@ -47,7 +47,7 @@ Nedenfor er det bekrevet hva du trenger for å installere **ElWiz** og sette opp
 ## Installering
 For de som ikke kjenner **git**, vil det enkleste være å laste ned **ZIP-arkivet** her: https://github.com/iotux/Pulse/archive/master.zip og pakke det ut i egen katalog (mappe). Brukere av **git** kan som vanlig bruke **git clone**. Programmer må ha skrivetilgang til katalogen.
 
-Det er 3 avhengigheter som må løses. Det gjøres fra kommandolinja med kommandoen **npm** eller **yarn**.
+Nedenfor er en kort liste over avhengigheter som må løses. Det gjøres fra kommandolinja med kommandoen **npm** eller **yarn**.
 
 Hvis du bruker **npm**:
 
@@ -58,6 +58,7 @@ npm install yamljs
 npm install node-schedule
 npm install request
 npm install request-promise
+npm install simple-json-db
 ```
 Hvis du foretrekker **yarn**:
 ```
@@ -67,21 +68,22 @@ yarn add yamljs
 yarn add node-schedule
 yarn add request
 yarn add request-promise
+yarn add simple-json-db
 ```
 
 ## Tilpasning for egen lokal broker
-Fila **config.yaml.sample** kopieres til **config.yaml**. I **config.yaml** vil det være nødvendig å angi IP-adressen og eventuelt brukernavn og passord til egen **MQTT-broker**. De viktigste parametrene i konfigurasjonsfila ser slik ut:
+Fila **config.yaml.sample** kopieres til **config.yaml**. I **config.yaml** vil det være nødvendig å angi **IP-adressen** og eventuelt **brukernavn** og **passord** til egen **MQTT-broker**. De viktigste parametrene i konfigurasjonsfila ser slik ut:
 
 
 ```yaml
 ---
-# The IP address or hostname
+# The IP address or hostname 
 # of your favorite MQTT broker
-broker: your.own.broker
+mqttBroker: localhost
 brokerPort: 1883
 
 # Enter credetials if needed
-userName:
+userName: 
 password:
 
 # Listening topic
@@ -101,10 +103,34 @@ onlineMessage: Pulse is talking
 offlineMessage: Pulse is quiet
 
 # Debug mode at startup
-DEBUG: false
+DEBUG: true
 
 # Republish mode at startup
 REPUBLISH: true
+
+# The next options are for Home Assistant
+# Publish to Home Assistant (defaults to true)?
+# Set this to "false" if you don't want HA auto discovery
+haPublish: true
+
+# Home Assistant sensor base topic (defaults to "elwiz/sensor")
+# This is different from "pubTopic" to separate it from basic use of ElWiz
+# A separate topic will also prevent "spamming" of HA
+haBaseTopic: elwiz/sensor
+
+# Publish options for list 1, 2, 3 & status
+# Setting "list3Retain" to "true" may help to 
+# get the messages stick on an unstable system 
+statusRetain: false
+statusQos: 0
+list1Retain: false
+list1Qos: 0
+list2Retain: false
+list3Qos: 0
+list3Retain: false
+list3Qos: 0
+statusRetain: false
+statusQos: 0
 ```
 
 **IP-adressen** må endres så den stemmer med din lokale **MQTT broker**. Brokerens navn kan også brukes hvis det er gjenkjennbart.
@@ -113,7 +139,7 @@ Sett inn brukernavn og passord hvis din broker krever dette.
 
 **topic** under **\# Listening topics** må samsvare med det som angis i **mqtt_topic** når du konfigurerer **Pulse**. Andre endringer skal normalt ikke være påkrevet.
 
-Ved behov for å gjøre endringer i hvordan **ElWiz** vil det være nyttig å midlertidig gi **DEBUG** verdien **true**. Hvis behovet er å produsere helt nye **MQTT-meldinger**, så finnes funksjonene **onList1(), onList2()** og **onList3()** som er beregnet for dette. Ved å sette **REPUBLISH** til **false** vil programmets egne **MQTT-meldinger** undertrykkes helt. I avsnittet [**Verdt å merke seg**](#verdt-%C3%A5-merke-seg) lenger nede finnes det mer informasjon om dette.
+Ved behov for å gjøre endringer i hvordan **ElWiz** vil det være nyttig å midlertidig gi **DEBUG** verdien **true**. Hvis behovet er å produsere helt nye **MQTT-meldinger**, så finnes funksjonene **onList1(), onList2()** og **onList3()** som er beregnet for dette. Ved å sette **REPUBLISH** til **false** vil programmets egne **MQTT-meldinger** undertrykkes helt. I avsnittet [**Verdt å merke seg**](#verdt-%C3%A5-merke-seg) lenger nede finnes det mer informasjon om dette. Publisering til **Home Assistant** en lagt i disse funksjonene med sin egen topic, **haPubTopic**. Dermed vil ikke meldingene til **HA** inteferere med øvrig bruk.
 
 ## Oppsett av Pulse
 I forhold til personvern er brukervilkårene for å bruke **Tibbers** mobil-app alt for vidtrekkende for mitt vedkommende. Jeg har derfor valgt å bruke **Pulse** uten app. Jeg mister riktignok tilgang til **Tibbers** tjenester, men til gjengjeld sparer jeg de 39 kronene per måned som det koster å være tilknyttet **Tibber**. Jeg oppnår allikevel det jeg er ute etter.
@@ -124,7 +150,7 @@ Første steg for å koble **Pulse** til eget nett, er å tvinge den inn i AP-mod
 
 Feltene **ssid** og **psk** fylles ut med navnet på egen WiFi-ruter og passord.
 
-Feltene **mqtt_url** og **mqtt_port** fylles ut med **IP-adressen** til din egen broker og portnummer **1883** for bruk uten **SSL**.
+Feltene **mqtt_url** og **mqtt_port** fylles ut med **IP-adressen** til din egen broker og portnummer **1883** for bruk uten **SSL**. Hvis brokeren er satt opp for å kreve autentisering med brukernavn og passord, så angis dette i feltet **mqtt_url**. Hvis brukernavnet er **oladunk** og passordet er **hemmelighet1**, så angis dette slik: **oladunk:hemmelighet1@din.broker.adresse**, hvor broker-adresse kan være et **FQDN vertsnavn** eller **IP-adresse**.
 
 I feltet **mqtt_topic** kan du legge inn et fritt valgt navn. Det bør være forskjellig fra topic som bruker i programmet for å sende meldinger. Ettersom **tibber** er forvalgt i programmet, kan det være greit å bruke her.
 
@@ -257,7 +283,7 @@ function onList2(json) {
 }
 ```
 ### Verdt å merke seg:
-Komplette data publiseres **før** henholdsvis **onList1(), onList2()** og **onList3()** blir utført. Dermed vil både originale data og egne tilpasninger publiseres. For å **kun** sende egne tilpasninger, kan **REPUBLISH** settes til **false** i fila **config.yaml**. Ved å sette **DEBUG** til **true**, vil programmet dumpe JSON-pakkene til konsollet. Det kan være et godt hjelpemiddel hvis du skal filtrere eller omskrive **MQTT-meldingene**. Hvis du bruker **Linux**, kan du la denne stå til **false** og allikevel få dumpet pakkene til **Linux shell** ved å sende et **signal** fra kommandolinja. Mer om det i neste avsnitt.
+Komplette data publiseres **før** henholdsvis **onList1(), onList2()** og **onList3()** blir utført. Dermed vil både originale data, meldinger til **Home Assistant** og egne tilpasninger publiseres. For å **kun** sende egne tilpasninger, kan **REPUBLISH** settes til **false** i fila **config.yaml**. Ved å sette **DEBUG** til **true**, vil programmet dumpe JSON-pakkene til konsollet. Det kan være et godt hjelpemiddel hvis du skal filtrere eller omskrive **MQTT-meldingene**. Hvis du bruker **Linux**, kan du la denne stå til **false** og allikevel få dumpet pakkene til **Linux shell** ved å sende et **signal** fra kommandolinja. Mer om det i neste avsnitt.
 
 ## Signaler til programmet
 Er du en lykkelig eier av Linux, kan du bruke signaler for å styre funksjoner i **ElWiz**. I programmer som behandler data er det obligatorisk å fange opp f. eks. **\<Ctrl C\>** eller **kill**. Formålet er å lagre data før programmet drepes. Når programmet startes, får det tildelt en prosess-ID, PID. Denne skrives ut til konsollet når programmet starter og brukes for å sende signaler til programmet. Det kan også brukes for å aktivisere endringer i **config.yaml** uten å starte programmet på nytt. Når programmet startes, skrives denne meldingen til konsollet:
@@ -321,6 +347,11 @@ Debug: Firmware update failed: -1
 ## Kontinuerlig drift
 Et hendig verktøy å bruke for programmer som skal være igang døgnet rundt, er **PM2** https://pm2.keymetrics.io/
 Med **PM2** har du kontroll på stop, start, restart, automatisk start etter oppstart av PC/server, minneforbruk, logging og mye mer. Det er vel verdt bryet å ta en titt på.
+
+## Home Assistant (HA) integrasjon
+**ElWiz** har ferdig integrasjon for **HA**. Når **ElWiz** starter opp, så vil programmet "oppdages" av **HA** sin **auto discovery**-mekanisme. Dette kommer fram i listen over **Enheter** i **HA**. Der presenterer **ElWiz** seg som **ElWiz Pulse Enabler**. I panelet **Energi** kan deretter **ElWiz** registreres som hovedkilde for importert strøm. 
+
+Integrasjonen mot **HA** er beskrevet i eget dokument (**kommer**)
 
 ## Referanser
 Under kartleggingen av data fra **Tibber Pulse**, har har jeg hatt god hjelp av informasjon fra @daniel.h.iversen and @roarfred og andre innlegg i dette diskusjonsforumet https://www.hjemmeautomasjon.no/forums/topic/4255-tibber-pulse-mqtt/.
