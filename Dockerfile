@@ -12,7 +12,8 @@ RUN npm install mqtt && \
     npm install yamljs && \
     npm install node-schedule && \
     npm install request && \
-    npm install request-promise \
+    npm install request-promise && \
+    npm install simple-json-db \
     npm cache clean --force
 
 
