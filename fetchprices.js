@@ -130,7 +130,7 @@ function fetchData(fetchDate) {
           let priceObj = {
             startTime: rows[i].StartTime,
             endTime: rows[i].EndTime,
-            price: price.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.01
+            price: price.toString().replace(/ /g, '').replace(/(\d)\,/g, '.$1')
           }
           if (computePrices)
             oneDayPrices.push(computePrice(priceObj));
