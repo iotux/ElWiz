@@ -6,7 +6,7 @@ const fs = require('fs');
 const yaml = require("yamljs");
 //const dateFormat = require('dateformat');
 const request = require('request-promise');
-
+const dateFormat = require('date-and-time');
 const C = yaml.load("config.yaml");
 
 const runNodeSchedule = C.runNodeSchedule;
@@ -73,10 +73,7 @@ function fileDate(days) {
   let oneDay = 24 * 60 * 60 * 1000;
   let now = new Date();
   let date = new Date(now.getTime() + oneDay * days);
-  let day = date.toLocaleDateString();
-  let ret = day.split("-")[0]
-    + "-" + addZero(day.split("-")[1])
-    + "-" + addZero(day.split("-")[2]);
+  let ret = dateFormat.format(date, 'DD-MM-YYYY');
   return ret;
 }
 

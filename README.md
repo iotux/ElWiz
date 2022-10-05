@@ -59,6 +59,7 @@ npm install node-schedule
 npm install request
 npm install request-promise
 npm install simple-json-db
+npm install date-and-time
 ```
 Hvis du foretrekker **yarn**:
 ```
@@ -69,6 +70,7 @@ yarn add node-schedule
 yarn add request
 yarn add request-promise
 yarn add simple-json-db
+yarn date-and-time
 ```
 
 ## Tilpasning for egen lokal broker
