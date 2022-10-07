@@ -351,7 +351,9 @@ Et hendig verktøy å bruke for programmer som skal være igang døgnet rundt, e
 Med **PM2** har du kontroll på stop, start, restart, automatisk start etter oppstart av PC/server, minneforbruk, logging og mye mer. Det er vel verdt bryet å ta en titt på.
 
 ## Home Assistant (HA) integrasjon
-**ElWiz** har ferdig integrasjon for **HA**. Når **ElWiz** starter opp, så vil programmet "oppdages" av **HA** sin **auto discovery**-mekanisme. Dette kommer fram i listen over **Enheter** i **HA**. Der presenterer **ElWiz** seg som **ElWiz Pulse Enabler**. I panelet **Energi** kan deretter **ElWiz** registreres som hovedkilde for importert strøm. 
+**ElWiz** har ferdig integrasjon for **HA**. En forutsetning for dette er at [Home Assistant MQTT Integration](https://www.home-assistant.io/integrations/mqtt/) er installert.
+
+Når **ElWiz** starter opp, så vil programmet "oppdages" av **HA** sin **auto discovery**-mekanisme. Dette kommer fram i listen over **Enheter** i **HA**. Der presenterer **ElWiz** seg som **ElWiz Pulse Enabler**. I panelet **Energi** kan deretter **ElWiz** registreres som hovedkilde for importert strøm. 
 
 Integrasjonen mot **HA** er beskrevet i eget dokument (**kommer**)
 
