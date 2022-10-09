@@ -492,12 +492,19 @@ let pulse = {
   },
 
   list1Func: function (buf) {
+    let pow;
     // Process List #1 raw data
-    let wDay = buf.readUInt8(23);
-    let pow = buf.readUIntBE(34, 4) / 1000;
+    if (buf[2] === 0x27) {
+      pow = buf.readUIntBE(34, 4) / 1000;
+    } else 
+    if (buf[2] === 0x2a) {
+      pow = buf.readUIntBE(31, 4) / 1000;
+    }
+    // let wDay = buf.readUInt8(23);
+    let pow; = buf.readUIntBE(34, 4) / 1000;
     return {
       date: pulseDate(buf.subarray(19)),
-      weekDay: weekDay(wDay),
+      //weekDay: weekDay(wDay),
       powImpActive: pow,
       minPower: this.getMinPower(pow),
       maxPower: this.getMaxPower(pow)
@@ -640,7 +647,7 @@ let pulse = {
             pulse.timerValue = watchValue;
             pulse.timerExpired = false;
 
-            if (buf[2] === 0x27) { // 0x27,39
+            if (buf[2] === 0x27 || buf[2] === 0x2a) { // 0x27,39 || 0x2a,42
               // List 1 data
               pulse.pulseData1 = pulse.list1Func(buf);
               // Hook for postprocessing List #1 data
