@@ -501,9 +501,8 @@ let pulse = {
       pow = buf.readUIntBE(31, 4) / 1000;
     }
     // let wDay = buf.readUInt8(23);
-    let pow; = buf.readUIntBE(34, 4) / 1000;
     return {
-      date: pulseDate(buf.subarray(19)),
+      //date: pulseDate(buf.subarray(19)),
       //weekDay: weekDay(wDay),
       powImpActive: pow,
       minPower: this.getMinPower(pow),
