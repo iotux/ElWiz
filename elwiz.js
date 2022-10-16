@@ -358,7 +358,7 @@ let pulse = {
       pulse.client.publish(haBaseTopic + "accumulatedConsumptionLastHour", db.get("accumulatedConsumptionLastHour").toString(), pubOpts);
       pulse.client.publish(haBaseTopic + "lastMeterProduction", db.get("lastMeterProduction").toString(), pubOpts);
       pulse.client.publish(haBaseTopic + "accumulatedProduction", db.get("accumulatedProduction").toString(), pubOpts);
-      pulse.client.publish(haBaseTopic + "accumulatedProductionLastHour", db.get("accumulatedProductionLastHhour").toString(), pubOpts);
+      pulse.client.publish(haBaseTopic + "accumulatedProductionLastHour", db.get("accumulatedProductionLastHour").toString(), pubOpts);
     }
   },
 
