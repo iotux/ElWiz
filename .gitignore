@@ -1,7 +1,6 @@
 #
 *.swp
 node_modules/
-.git/
 # Data directory
 data/*
 # Konfigurasjon av lokalt tilpassede data
