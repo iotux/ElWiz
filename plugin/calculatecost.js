@@ -2,17 +2,12 @@
 const yaml = require("yamljs");
 const db = require('../misc/dbinit.js');
 const configFile = "./config.yaml";
-//const { event } = require('../misc/misc.js')
-//const { getHour, skewDays } = require('../util/util.js');
 
 const config = yaml.load(configFile);
-const priceDir = '.' + config.priceDirectory;
-//const priceDir = config.priceDirectory;
 
 const daysInMonth = [undefined, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 const spotVatPercent = config.spotVatPercent;
-const priceCurrency = config.priceCurrency;
 const gridVatPercent = config.gridVatPercent;
 const gridMonthPrice = config.gridMonthPrice;
 const gridDayPrice = config.gridDayPrice;
@@ -40,6 +35,7 @@ function kwhCalc(obj, kWh) {
     gridPrice = energyDayPrice;
   else
     gridPrice = energyNightPrice;
+  gridPrice += gridKwhPrice;
   gridPrice += gridMonthPrice / daysInMonth[month] / 24;
   gridPrice += gridDayPrice / 24;
   gridPrice += gridPrice * gridVatPercent / 100;

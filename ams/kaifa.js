@@ -138,6 +138,7 @@ const listDecode = async function (msg) {
 };
 
 const listHandler = async function (buf) {
+  buf = list33
   let hex = await buf.toString('hex').toUpperCase();
   let result = await listDecode(hex)
   let listObject = result['data'];
