@@ -20,14 +20,13 @@ pubStatus: meter/status
 pubNotice: meter/notice
 
 # Publish options for list 1, 2, 3 & status
-statusRetain: false
-statusQos: 0
 list1Retain: false
 list1Qos: 0
 list2Retain: false
 list3Qos: 0
 list3Retain: true
 list3Qos: 1
+
 statusRetain: false
 statusQos: 0
 
@@ -47,7 +46,7 @@ DEBUG: true
 REPUBLISH: true
 
 # User has production (solar panels)
-hasProduction: true
+hasProduction: false
 
 
 #############################################
@@ -66,12 +65,10 @@ hasProduction: true
 #  - custom
 # 
 publisher: hassPublish
-  
- 
 
 #############################################
 # Publish to Home Assistant (defaults to TRUE)?
-hassPublish: false
+hassPublish: true
 # Home Assistant sensor base topic (defaults to "elwiz/sensor")
 haBaseTopic: elwiz/sensor
 haAnnounceTopic: homeassistant/sensor/ElWiz/
