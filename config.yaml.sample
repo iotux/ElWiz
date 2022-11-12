@@ -73,10 +73,8 @@ publisher: hassPublish
 # Publish to Home Assistant (defaults to TRUE)?
 hassPublish: false
 # Home Assistant sensor base topic (defaults to "elwiz/sensor")
-#haBaseTopic: elwiz/sensor
-haBaseTopic: hasp/sensor
-#haAnnounceTopic: homeassistant/sensor/ElWiz/
-haAnnounceTopic: assistant/sensor/ElWiz/
+haBaseTopic: elwiz/sensor
+haAnnounceTopic: homeassistant/sensor/ElWiz/
 
 #############################################
 # The rest of the configuration is only valid 
