@@ -1,27 +1,25 @@
-version: '2'
+version: "1"
 services:
   mqtt:
     image: eclipse-mosquitto
     ports:
-    - "1883:1883"
+      - "1883:1883"
     volumes:
-    - mqtt-config:/mosquitto/config
-    - mqtt-data:/mosquitto/data
-    - mqtt-log:/mosquitto/log
+      - mqtt-config:/mosquitto/config
+      - mqtt-data:/mosquitto/data
+      - mqtt-log:/mosquitto/log
     restart: unless-stopped
   elwiz:
- #   image: edenb/livemap
+    image: edenb/livemap
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-    - "4000:3000"
+      - "4000:3000"
     links:
-    - mqtt
+      - mqtt
     restart: unless-stopped
 volumes:
-  initdb:
-  postgresdb:
   mqtt-config:
   mqtt-data:
   mqtt-log:

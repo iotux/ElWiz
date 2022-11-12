@@ -1,9 +1,11 @@
 #
 *.swp
 node_modules/
+.git/
 # Data directory
 data/*
 # Konfigurasjon av lokalt tilpassede data
 config.yaml
 # Lagring av siste akkumulerte forbruk
-savepower.json
+savepower.*
+powersave.*

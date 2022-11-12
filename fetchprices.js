@@ -4,21 +4,18 @@
 
 const fs = require('fs');
 const yaml = require("yamljs");
-//const dateFormat = require('dateformat');
-const request = require('request-promise');
-const dateFormat = require('date-and-time');
-const C = yaml.load("config.yaml");
+const request = require('axios');
+const { format } = require('date-fns');
+const config = yaml.load("config.yaml");
 
-const runNodeSchedule = C.runNodeSchedule;
-const keepDays = C.keepDays;
-const priceCurrency = C.priceCurrency;
-const priceRegion = C.priceRegion;
-const scheduleHours = C.scheduleHours;
-const scheduleMinutes = C.scheduleMinutes;
-
+const keepDays = config.keepDays;
+const priceCurrency = config.priceCurrency;
+const priceRegion = config.priceRegion;
 const nordPoolUri =  "https://www.nordpoolgroup.com/api/marketdata/page/10/" + priceCurrency + "/";
 
-let fetchDay = "";
+const runNodeSchedule = config.runNodeSchedule;
+const scheduleHours = config.scheduleHours;
+const scheduleMinutes = config.scheduleMinutes;
 
 let schedule;
 let runSchedule;
@@ -30,8 +27,7 @@ if (runNodeSchedule) {
 }
 
 let nordPool = {
-    'uri': "",
-  // "https://www.nordpoolgroup.com/api/marketdata/page/10/" + priceCurrency + "/" + fetchDay,
+    //'uri': "",
   headers: {
     'accept': 'application/json',
     'Content-Type': 'text/json',
@@ -42,16 +38,17 @@ let nordPool = {
 
 const daysInMonth = [undefined, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-const computePrices = C.computePrices;
-const supplierKwhPrice = C.supplierKwhPrice; //0.0277;
-const supplierMonthPrice = C.supplierMonthPrice; // 9.0;
-const supplierVatPercent = C.supplierVatPercent;  // 25 
+//const computePrices = config.computePrices;
+const supplierKwhPrice = config.supplierKwhPrice;
+const supplierMonthPrice = config.supplierMonthPrice;
+const supplierVatPercent = config.supplierVatPercent; 
 
-const spotVatPercent = C.spotVatPercent;
+const spotVatPercent = config.spotVatPercent;
 
-const gridKwhPrice = C.gridKwhPrice; //0.4454;
-const gridDayPrice = C.gridDayPrice; //6.66;
-const gridVatPercent = C.gridVatPercent;
+const gridKwhPrice = config.gridKwhPrice;
+const gridDayPrice = config.gridDayPrice;
+const gridVatPercent = config.gridVatPercent;
+const savePath = config.priceDirectory;
 
 let oneDayPrices = [];
 
@@ -62,91 +59,94 @@ function addZero(num) {
   return num;
 }
 
-function flipDate(day) {
-  return day.split("-")[2] + "-" + day.split("-")[1] + "-" + day.split("-")[0];
+function getDate(ts) {
+  // Returns date fit for file name
+  let date = new Date(ts);
+  return format(date,"yyyy-MM-dd")
 }
 
-function fileDate(days) {
+function uriDate(days) {
   // days equal to 0 is today
   // Negative values are daycount in the past
   // Positive are daycount in the future
   let oneDay = 24 * 60 * 60 * 1000;
   let now = new Date();
   let date = new Date(now.getTime() + oneDay * days);
-  let ret = dateFormat.format(date, 'DD-MM-YYYY');
+  let ret = format(date, 'dd-MM-yyyy');
+  return ret;
+}
+
+function skewDays(days) {
+  // days equal to 0 is today
+  // Negative values are daycount in the past
+  // Positive are daycount in the future
+  let oneDay = 24 * 60 * 60 * 1000;
+  let now = new Date();
+  let date = new Date(now.getTime() + oneDay * days);
+  let ret = format(date, 'yyyy-MM-dd');
   return ret;
 }
 
 function retireDays(days) {
   // Count days backwards
-  while (fs.existsSync("./data/prices-" + fileDate(days * -1) + ".json")) {
-    fs.unlinkSync("./data/prices-" + fileDate(days++ * -1) + ".json");
+  while (fs.existsSync(savePath + "/prices-" + skewDays(days * -1) + ".json")) {
+    fs.unlinkSync(savePath + "/prices-" + skewDays(days++ * -1) + ".json");
   }
 }
 
-function getValues (data) {
-  let date = oneDayPrices[0].startTime.substr(0, 10) + ".json";
-  fs.writeFileSync("./data/prices-" + date, JSON.stringify(oneDayPrices, false, 2));
-  oneDayPrices = [];
+function writeFile() {
+  //console.log(oneDayPrices)
+  if (oneDayPrices[0] !== undefined) {
+    let date = oneDayPrices[0].startTime.substr(0, 10) + ".json";
+    fs.writeFileSync(savePath + "/prices-" + date, JSON.stringify(oneDayPrices, false, 2));
+    oneDayPrices = [];
+  }
 };
 
-function computePrice(priceObj) {
-  let month = priceObj.startTime.split("-")[1] * 1;
-  let supplierPrice = supplierKwhPrice + supplierMonthPrice / daysInMonth[month] / 24;
-  supplierPrice += supplierPrice  * supplierVatPercent / 100;
-  supplierPrice += priceObj.price * 1 + priceObj.price * spotVatPercent / 100;
-  let gridPrice = gridKwhPrice + gridDayPrice / 24;
-  gridPrice += gridDayPrice * gridVatPercent / 100;
-  return {
-    startTime: priceObj.startTime,
-    endTime: priceObj.endTime,
-    spotPrice: priceObj.price * 1,
-    customerPrice: (supplierPrice + gridPrice).toFixed(4) * 1
-  }
-}
-
-function initData() {
-  if (!fs.existsSync("./data")) {
-    fs.mkdirSync("./data");
-    fetchDay = flipDate(fileDate(0));
-    fetchData(fetchDay);
-    // The default is to fetch prices for one day ahead 
-    fetchDay = "";
-  }
-}
-
-function fetchData(fetchDate) {
-  retireDays(keepDays);
-  if (!fs.existsSync("./data/prices-" + fetchDate + ".json")) {
-    nordPool.uri = nordPoolUri + fetchDay;
-    request(nordPool)
+async function getPrices(days) {
+  if (!fs.existsSync(savePath + "/prices-" + skewDays(days) + ".json")) {
+    let url = nordPoolUri + uriDate(days);
+    await request(url, nordPool)
       .then(function (body) {
-        let rows = body.data.Rows;
+        let data = body.data.data
+        //console.log(data.Rows)
+        let rows = data.Rows;
         for (let i = 0; i < 24; i++) {
           let price = rows[i].Columns[priceRegion].Value;
+          if (price === '-') {
+            console.log("Day ahead prices are not ready");
+            exit(0)
+          }
           let priceObj = {
             startTime: rows[i].StartTime,
             endTime: rows[i].EndTime,
-            price: price.toString().replace(/ /g, '').replace(/(\d)\,/g, '.$1')
+            price: (price.toString().replace(/ /g, '').replace(/(\d)\,/g, '.$1') / 100).toFixed(4) * 1
           }
-          if (computePrices)
-            oneDayPrices.push(computePrice(priceObj));
-          else
-            oneDayPrices.push(priceObj);
+          oneDayPrices.push(priceObj);
         }
       })
-      .catch(function (e) {
-        console.log(e)
-      })
-      .then(getValues)
+    .catch(function (err) {
+      if (err.response) {
+        console.log('Error:', err.response.status, err.response.statusText);
+        console.log('Headers:', err.response.headers)
+      }
+    }).then(writeFile)
   }
 }
 
-initData();
+async function run() {
+  await retireDays(keepDays);
+  if (!fs.existsSync(savePath)) {
+    fs.mkdirSync(savePath, { recursive: true });
+    await getPrices(0);
+  }
+  await getPrices(1)
+}
 
 if (runNodeSchedule) {
-  let sched = schedule.scheduleJob(runSchedule, function() {
-    fetchData(fetchDay);
-  })
-} else
-  fetchData(fetchDay);
+  //let sched =
+  schedule.scheduleJob(runSchedule, run)
+} else {
+  run();
+}
+

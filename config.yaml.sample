@@ -1,20 +1,35 @@
 ---
 # The IP address or hostname 
 # of your favorite MQTT broker
-mqttBroker: localhost
+mqttBroker: 10.11.2.70
 brokerPort: 1883
 
 # Enter credetials if needed
 userName: 
 password:
 
-# Listening topic
+# meterModel can be kaifa, aidon or kamstrup
+meterModel: kaifa
+
+# Tibber Pulse listening topic
 topic: tibber/#
 
-# Topics for publishing
-pubTopic: pulse/meter
-pubStatus: pulse/status
-pubNotice: pulse/notice
+# ElWiz publishing topics
+pubTopic: meter/ams
+pubStatus: meter/status
+pubNotice: meter/notice
+
+# Publish options for list 1, 2, 3 & status
+statusRetain: false
+statusQos: 0
+list1Retain: false
+list1Qos: 0
+list2Retain: false
+list3Qos: 0
+list3Retain: true
+list3Qos: 1
+statusRetain: false
+statusQos: 0
 
 # ElWiz event messages
 willMessage: ElWiz has left the building
@@ -28,28 +43,42 @@ offlineMessage: Pulse is quiet
 DEBUG: true
 
 # Republish mode at startup
+# DEPRECATED. Use publish modes instead
 REPUBLISH: true
 
-# The next options are for Home Assistant
-# Publish to Home Assistant (defaults to true)?
-# Set this to "false" if you don't want HA auto discovery
-haPublish: true
+# User has production (solar panels)
+hasProduction: true
 
+
+#############################################
+# Possible publishing modes
+#
+# hassPublish
+# basicPublish
+# customPublish
+#
+# cache
+#  - redis
+#  - memcached
+# storage
+#  - mongodb
+#  - mariadb
+#  - custom
+# 
+publisher: hassPublish
+  
+ 
+
+#############################################
+# Publish to Home Assistant (defaults to TRUE)?
+hassPublish: false
 # Home Assistant sensor base topic (defaults to "elwiz/sensor")
-haBaseTopic: elwiz/sensor
+#haBaseTopic: elwiz/sensor
+haBaseTopic: hasp/sensor
+#haAnnounceTopic: homeassistant/sensor/ElWiz/
+haAnnounceTopic: assistant/sensor/ElWiz/
 
-# Publish options for list 1, 2, 3 & status
-statusRetain: false
-statusQos: 0
-list1Retain: false
-list1Qos: 0
-list2Retain: false
-list3Qos: 0
-list3Retain: false
-list3Qos: 1
-statusRetain: false
-statusQos: 0
-
+#############################################
 # The rest of the configuration is only valid 
 # for the "getprices" program
 
@@ -64,20 +93,27 @@ keepDays: 7
 runNodeSchedule: false
 
 # The following recommendedecommended scheduleing
-# will try to fetch prices 10 minutes past 
+# will try to fetch prices 15 minutes past 
 # the scheduleHours. The same scheduling is
 # recommended for cron users
 scheduleHours: [15,17,19,21,23]
-scheduleMinutes: [30]
+scheduleMinutes: [15]
+
+# Where to store currency and price data
+# relative to the program directory
+currencyDirectory: ./data/currencies
+priceDirectory: ./data/prices
 
 # Your local supplier's price information
 # Setting computePrices false for
 # only returning naked spot prices (no VAT)
-# Because electricity prices has been going wild lately,
-# it's could be wise to let this remain false at the moment.
-# The price calculation will probably be wrong regardless.
-# Spot prices still works great, however.
-computePrices: false
+computePrices: true
+calculateCost: true
+
+# Send signal about prices availability
+priceTopic: prices
+priceTopicRetain: true
+priceTopicQos: 0
 
 # Use the same currency as your local supplier
 # The following currencies are available:
@@ -97,16 +133,37 @@ priceRegion: 12
 
 # Change the following values according
 # to your electric power supplier's invoice
-# Different rate models may require changes to program 
+# Different rate models may require changes to program
+# Suppliers usually adds a fixed dayly OR monthly price
+# Use the ones that apply and set the others to 0.0 
 supplierKwhPrice: 0.0
-supplierMonthPrice: 9.0
+supplierDayPrice: 0.0
+supplierMonthPrice: 0.0
 supplierVatPercent: 0.0
 
 # Spot market prices are without VAT
-# A VAT percent is usually need for private households
+# A VAT percent is usually needed for private households
 spotVatPercent: 25.0
 
 # Network cost
-gridKwhPrice: 0.4454
-gridDayPrice: 6.66
+# Network fixed prices
 gridVatPercent: 0.0
+gridKwhPrice: 0.0
+gridMonthPrice: 0.0
+gridDayPrice: 0.0
+
+#
+energyTax: 0.0
+energyDayPrice: 0.0
+energyNightPrice: 0.0
+
+dayHoursStart: 06:00
+dayHoursEnd: 22:00
+
+capacity0-2: 0.0
+capacity2-5: 0.0
+capacity5-10: 0.0
+capacity10-15: 0.0
+capacity15-20: 0.0
+capacity20-25: 0.0
+
