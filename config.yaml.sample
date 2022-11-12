@@ -1,7 +1,7 @@
 ---
 # The IP address or hostname 
 # of your favorite MQTT broker
-mqttBroker: 10.11.2.70
+mqttBroker: localhost
 brokerPort: 1883
 
 # Enter credetials if needed
