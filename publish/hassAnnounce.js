@@ -5,21 +5,22 @@ const Mqtt = require('../mqtt/mqtt.js');
 const configFile = "./config.yaml";
 const config = yaml.load(configFile);
 
-const haBaseTopic = config.haBaseTopic;
+const haBaseTopic = config.haBaseTopic + '/';
 const hasProduction = config.hasProduction;
 
 let client;
 
-
 const hassDevice = function (name, uniqueId, devClass, staClass, unitOfMeasurement, stateTopic) {
   let result = {
     name: name,
-    uniq_id: uniqueId,
+    unique_id: uniqueId,
     dev_cla: devClass, // device_class
     stat_cla: staClass, // state_class
     unit_of_meas: unitOfMeasurement,
-    avty_t: haBaseTopic + "/status",    // availability_topic
-    stat_t: haBaseTopic + "/" + stateTopic,
+    avty_t: haBaseTopic + "status",    // availability_topic
+    stat_t: haBaseTopic + stateTopic + "/state",
+    //stat_t: haBaseTopic + "state",
+    //val_tpl: "{{ value_json." + uniqueId + " }}",
     dev: {
       ids: "elwiz_pulse_enabler",
       name: "ElWiz Pulse Enabler",
@@ -34,13 +35,14 @@ const hassDevice = function (name, uniqueId, devClass, staClass, unitOfMeasureme
   const hassDeviceDay2 = function (name, uniqueId, devClass, staClass, unitOfMeasurement, stateTopic) {
     let result = {
       name: name,
-      uniq_id: uniqueId,
+      unique_id: uniqueId,
       dev_cla: devClass, // device_class
       stat_cla: staClass, // state_class
       unit_of_meas: unitOfMeasurement,
-      avty_t: haBaseTopic + "/status",    // availability_topic
-      stat_t: haBaseTopic + "/" + stateTopic,
-      //val_tpl: "{{value}}",
+      avty_t: haBaseTopic + "status",    // availability_topic
+      stat_t: haBaseTopic + stateTopic + "/state",
+      //stat_t: haBaseTopic + "state",
+      //val_tpl: "{{ value_json." + uniqueId + " }}",
       dev: {
         ids: "elwiz_pulse_enabler_d2",
         name: "ElWiz Pulse Day 2 Enabler",
@@ -53,7 +55,7 @@ const hassDevice = function (name, uniqueId, devClass, staClass, unitOfMeasureme
   };
 
 const hassAnnounce = async function () {
-  const haTopic = config.haAnnounceTopic;
+  const haTopic = config.haAnnounceTopic + '/';
   const pubOpts = { qos: 1, retain: true }
   const debug = config.DEBUG;
   client = Mqtt.mqttClient();
@@ -109,8 +111,11 @@ const hassAnnounce = async function () {
   announce = hassDevice('Customer price', 'customerPrice', 'monetary', 'measurement', 'kr/kWh', 'customerPrice');
   client.publish(haTopic + "customerPrice/config", JSON.stringify(announce, !debug, 2), pubOpts);
 
-  announce = hassDevice('Last hour cost', 'lastHourCost', 'monetary', 'measurement', 'kr/kWh', 'lastHourCost');
-  client.publish(haTopic + "lastHourCost/config", JSON.stringify(announce, !debug, 2), pubOpts);
+  announce = hassDevice('Last hour cost', 'costLastHour', 'monetary', 'measurement', 'kr/kWh', 'costLastHour');
+  client.publish(haTopic + "costLastHour/config", JSON.stringify(announce, !debug, 2), pubOpts);
+
+  announce = hassDevice('Accumulated cost', 'accumulatedCost', 'monetary', 'measurement', 'kr/kWh', 'accumulatedCost');
+  client.publish(haTopic + "accumulatedCost/config", JSON.stringify(announce, !debug, 2), pubOpts);
 
   announce = hassDevice('Spot price', 'spotPrice', 'monetary', 'measurement', 'kr/kWh', 'spotPrice');
   client.publish(haTopic + "spotPrice/config", JSON.stringify(announce, !debug, 2), pubOpts);
@@ -142,9 +147,6 @@ const hassAnnounce = async function () {
   announce = hassDeviceDay2('Customer price tomorrow', 'customerPriceDay2', 'monetary', 'measurement', 'kr/kWh', 'customerPriceDay2');
   client.publish(haTopic + "customerPriceDay2/config", JSON.stringify(announce, !debug, 2), pubOpts);
 
-  //announce = hassDevice('Last hour cost', 'lastHourCost', 'monetary', 'measurement', 'kr', 'lastHourCost');
-  //client.publish(haTopic + "lastHourCost/config", JSON.stringify(announce, !debug, 2), pubOpts);
-
   announce = hassDeviceDay2('Spot price tomorrow', 'spotPriceDay2', 'monetary', 'measurement', 'kr/kWh', 'spotPriceDay2');
   client.publish(haTopic + "spotPriceDay2/config", JSON.stringify(announce, !debug, 2), pubOpts);
 
@@ -172,19 +174,8 @@ const hassAnnounce = async function () {
   client.publish(haTopic + "endTimeDay2/config", JSON.stringify(announce, !debug, 2), pubOpts);
 
   // Set retain flag (pubOpts) on status message to let HA find it after a stop/restart
-  client.publish(haBaseTopic + "/status", "online", pubOpts);
-  // Populate lastMeterConsumption from storage to prevent up to one hour wait after a restart or stop
-  /*
-  if (db.get("lastMeterConsumption") > 0 || db.get("lastMeterProduction") > 0) {
-    let haBaseTopic = haBaseTopic + "/";
-    //client.publish(haBaseTopic + "lastMeterConsumption", db.get("lastMeterConsumption").toString(), pubOpts);
-    //client.publish(haBaseTopic + "accumulatedConsumption", db.get("accumulatedConsumption").toString(), pubOpts);
-    //client.publish(haBaseTopic + "accumulatedConsumptionLastHour", db.get("accumulatedConsumptionLastHour").toString(), pubOpts);
-    //client.publish(haBaseTopic + "lastMeterProduction", db.get("lastMeterProduction").toString(), pubOpts);
-    //client.publish(haBaseTopic + "accumulatedProduction", db.get("accumulatedProduction").toString(), pubOpts);
-    //client.publish(haBaseTopic + "accumulatedProductionLastHour", db.get("accumulatedProductionLastHhour").toString(), pubOpts);
-  }
-  */
+  client.publish(haBaseTopic + "status", "online", pubOpts);
+ 
 }; // hassAnnounce()
 
 module.exports = { hassAnnounce };

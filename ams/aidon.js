@@ -1,11 +1,11 @@
 const yaml = require("yamljs");
 const configFile = "./config.yaml";
 
-const db = require('../misc/dbinit.js')
 const amsCalc = require('../ams/amscalc.js')
+const db = require('../misc/dbinit.js')
 const { event } = require('../misc/misc.js')
 const { hex2Dec, hex2Ascii, hasData, getAmsTime } = require('../misc/util.js')
-const { format } = require('date-fns')
+const { formatISO } = require('date-fns')
 
 // Load broker and topics preferences from config file
 const config = yaml.load(configFile);
@@ -60,6 +60,7 @@ const listDecode = async function (buf) {
   msg.data = buf;
 
   obj = { listType: 'list1', data: {} }
+  //obj.data.timestamp = formatISO(new Date(), { representation: 'complete' });
 
   if (hasData(msg.data, METER_VERSION) > -1) {
     obj.data.meterVersion = hex2Ascii(msg.data.substr(hasData(msg.data, METER_VERSION), 22))

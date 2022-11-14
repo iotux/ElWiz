@@ -52,10 +52,12 @@ const calculateCost = {
   calc: async function (list, obj) {
     // List3 is run once every hour
     if (list === 'list3') {
+      obj.customerPrice = await kwhCalc(obj, 1)
       obj.costLastHour = await kwhCalc(obj, obj.accumulatedConsumptionLastHour);
       obj.accumulatedCost = await kwhCalc(obj, obj.accumulatedConsumption);
+      await db.set('customerPrice', obj.customerPrice);
       await db.set('accumulatedCost', obj.accumulatedCost);
-      await db.set('accumulatedCostLastHour', obj.accumulatedCostLastHour);
+      await db.set('costLastHour', obj.costLastHour);
       await db.sync();
       return obj;
     }

@@ -1,4 +1,4 @@
-const { addDays,format } = require('date-fns');
+const { formatISO } = require('date-fns');
 
 const weekDays = [undefined, "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"];
 
@@ -76,7 +76,8 @@ function getAmsTime(msg, index) {
   let h = hex2Dec(msg.substr(index += 4, 2));
   let m = hex2Dec(msg.substr(index += 2, 2));
   let s = hex2Dec(msg.substr(index += 2, 2));
-  return format(new Date(Y, M, D, h, m, s), "yyyy-MM-dd'T'HH:mm:ss");
+  //return formatISO(new Date(Y, M, D, h, m, s), "yyyy-MM-dd'T'HH:mm:ss");
+  return formatISO(new Date(Y, M, D, h, m, s), { representtation: "complete" });
 }
 
 module.exports = { hex2Dec, hex2Ascii, hasData, getAmsTime, addZero, getHour, skewDays, weekDay, upTime, getMacAddress }

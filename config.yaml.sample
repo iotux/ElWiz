@@ -71,6 +71,10 @@ publisher: hassPublish
 hassPublish: true
 # Home Assistant sensor base topic (defaults to "elwiz/sensor")
 haBaseTopic: elwiz/sensor
+
+# Don't change the following topic unless you
+# have changed the way HomeAssistant read
+# MQTT messages
 haAnnounceTopic: homeassistant/sensor/ElWiz/
 
 #############################################
