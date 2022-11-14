@@ -108,14 +108,14 @@ const hassAnnounce = async function () {
   client.publish(haTopic + "currentL3/config", JSON.stringify(announce, !debug, 2), pubOpts);
 
   // Price/cost messages
-  announce = hassDevice('Customer price', 'customerPrice', 'monetary', 'measurement', 'kr/kWh', 'customerPrice');
-  client.publish(haTopic + "customerPrice/config", JSON.stringify(announce, !debug, 2), pubOpts);
-
-  announce = hassDevice('Last hour cost', 'costLastHour', 'monetary', 'measurement', 'kr/kWh', 'costLastHour');
+  announce = hassDevice('Cost last hour', 'costLastHour', 'monetary', 'measurement', 'kr', 'costLastHour');
   client.publish(haTopic + "costLastHour/config", JSON.stringify(announce, !debug, 2), pubOpts);
 
-  announce = hassDevice('Accumulated cost', 'accumulatedCost', 'monetary', 'measurement', 'kr/kWh', 'accumulatedCost');
+  announce = hassDevice('Accumulated cost', 'accumulatedCost', 'monetary', 'measurement', 'kr', 'accumulatedCost');
   client.publish(haTopic + "accumulatedCost/config", JSON.stringify(announce, !debug, 2), pubOpts);
+
+  announce = hassDevice('Customer price', 'customerPrice', 'monetary', 'measurement', 'kr/kWh', 'customerPrice');
+  client.publish(haTopic + "customerPrice/config", JSON.stringify(announce, !debug, 2), pubOpts);
 
   announce = hassDevice('Spot price', 'spotPrice', 'monetary', 'measurement', 'kr/kWh', 'spotPrice');
   client.publish(haTopic + "spotPrice/config", JSON.stringify(announce, !debug, 2), pubOpts);
