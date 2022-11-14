@@ -49,10 +49,12 @@ Nedenfor er det bekrevet hva du trenger for å installere **ElWiz** og sette opp
 For de som ikke kjenner **git**, vil det enkleste være å laste ned **ZIP-arkivet** her: https://github.com/iotux/Pulse/archive/master.zip og pakke det ut i egen katalog (mappe). Brukere av **git** kan som vanlig bruke **git clone**. Programmer må ha skrivetilgang til katalogen.
 
 Det enkleste er å bruke **git clone** for å installere programmet:
+
 **git clone https://github.com/iotux/ElWiz.git**
 
-Deretter installeres programmet med
+Deretter installeres programmet med følgende kommandoer:
 
+**cd ElWiz**
 **npm install**
 
 Følgende avhengigheter blir dermed installert
