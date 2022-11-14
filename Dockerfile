@@ -7,14 +7,14 @@ ENV PORT 3000
 RUN mkdir -p /app
 WORKDIR /app
 
-RUN npm install mqtt && \
-    npm install fs && \
-    npm install yamljs && \
-    npm install node-schedule && \
+RUN npm install fs && \
+    npm install axios && \
     npm install date-fns && \
+    npm install xml-js && \
+    npm install mqtt && \
+    npm install node-schedule && \
     npm install simple-json-db && \
-    npm install request && \
-    npm install request-promise \
+    npm install yamljs && \
     npm cache clean --force
 
 
