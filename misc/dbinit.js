@@ -4,6 +4,8 @@ const JSONdb = require('simple-json-db');
 const energyFile = './powersave.json'
 
 const energySavings = {
+  "prevDayMeterConsumption": 0,
+  "prevDayMeterProduction": 0,
   "lastMeterConsumption": 0,
   "lastMeterProduction": 0,
   "lastMeterConsumptionReactive": 0,
