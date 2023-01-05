@@ -83,7 +83,7 @@ const pulse = {
 
   run: function () {
     pulse.client.on("message", function (topic, message) {
-      if (topic === "tibber") {
+      if (topic === config.topic) {
         let buf = Buffer.from(message);
         // JSON data
         if (buf[0] === 0x7b) { // 0x7b, 123, "{" = Pulse status
