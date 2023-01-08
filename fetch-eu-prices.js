@@ -29,7 +29,7 @@ const computePrices = config.computePrices;
 const currencyFile = currencyDirectory + '/currencies-latest.json';
 
 const baseUrl = "https://transparency.entsoe.eu/api";
-const token = "1377e114-de9c-4daf-9a0c-e672f1dd2827";
+const token = config.priceAccessToken;
 
 let reqOpts = {
   method: "get",
