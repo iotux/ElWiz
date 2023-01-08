@@ -4,7 +4,7 @@
 mqttBroker: localhost
 brokerPort: 1883
 
-# Enter credetials if needed
+# Enter credentials if needed
 userName: 
 password:
 
@@ -79,7 +79,14 @@ haAnnounceTopic: homeassistant/sensor/ElWiz/
 
 #############################################
 # The rest of the configuration is only valid 
-# for the "getprices" program
+# for the "fetchprices" and "fetch-eu-prices programs
+
+# For the "fetch-eu-prices" program, an access token is
+# needed from "https://transparency.entsoe.eu.
+# You will get this token by writing an email to
+# "transparency@entsoe.eu" and ask for a token
+#
+priceAccessToken: <insert your token here>
 
 # Days to keep data files
 # Files older tham "keepDays" are deleted
