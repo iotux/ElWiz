@@ -39,7 +39,10 @@ const currencyFile = currencyDirectory + '/currencies-latest.json';
 
 const baseUrl = "https://transparency.entsoe.eu/api";
 const token = config.priceAccessToken;
+<<<<<<< HEAD
 
+=======
+>>>>>>> f966fd64567cf261e9398bdc82d242ef00abb088
 
 let reqOpts = {
   method: "get",
