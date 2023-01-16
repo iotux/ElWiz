@@ -1,0 +1,15 @@
+{
+  "apps": [{
+    "name": "elwiz",
+    "script": "./elwiz.js"
+  },{
+    "name": "NP-prices",
+    "script": "./fetchprices.js"
+  },{
+    "name": "EU-prices",
+    "script": "./fetch-eu-prices.js"
+  },{
+    "name": "currencies",
+    "script": "./fetch-eu-currencies.js"
+  }]
+}

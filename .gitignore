@@ -1,5 +1,6 @@
 #
 *.swp
+.dockerignore
 node_modules/
 # Data directory
 data/*

@@ -15,6 +15,21 @@ const debug = config.DEBUG;
 const namePrefix = 'currencies-';
 const url = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 
+const runNodeSchedule = config.runNodeSchedule;
+// Currency rates are available around 16:00 hours
+const scheduleHours = [16]; // config.scheduleHours;
+const scheduleMinutes = [8]; //config.scheduleMinutes;
+const computePrices = config.computePrices;
+
+let schedule;
+let runSchedule;
+if (runNodeSchedule) {
+  schedule = require('node-schedule');
+  runSchedule = new schedule.RecurrenceRule();
+  runSchedule.hour = scheduleHours;
+  runSchedule.minute = scheduleMinutes;
+}
+
 let options = {
   headers: {
     'accept': 'application/xml',
@@ -65,5 +80,8 @@ function init() {
 }
 
 init();
-getCurrencies();
-
+if (runNodeSchedule) {
+  schedule.scheduleJob(runSchedule, getCurrencies);
+} else {
+  getCurrencies();
+}

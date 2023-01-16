@@ -6,6 +6,7 @@ const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios');
 const { format } = require('date-fns');
+const { setWeekWithOptions } = require('date-fns/fp');
 const config = yaml.load("config.yaml");
 
 const keepDays = config.keepDays;
@@ -50,14 +51,17 @@ const gridDayPrice = config.gridDayPrice;
 const gridVatPercent = config.gridVatPercent;
 const savePath = config.priceDirectory;
 
-let oneDayPrices = [];
+let oneDayPrices = {
+  hourly: [],
+  daily: {}
+};
 
 function addZero(num) {
   if (num <= 9) {
     return "0" + num;
   }
   return num;
-}
+};
 
 function getDate(ts) {
   // Returns date fit for file name
@@ -65,72 +69,84 @@ function getDate(ts) {
   return format(date,"yyyy-MM-dd")
 }
 
-function uriDate(days) {
-  // days equal to 0 is today
+function uriDate(offset) {
+  // offset equal to 0 is today
   // Negative values are daycount in the past
   // Positive are daycount in the future
   let oneDay = 24 * 60 * 60 * 1000;
   let now = new Date();
-  let date = new Date(now.getTime() + oneDay * days);
+  let date = new Date(now.getTime() + oneDay * offset);
   let ret = format(date, 'dd-MM-yyyy');
   return ret;
 }
 
-function skewDays(days) {
-  // days equal to 0 is today
+function skewDays(offset) {
+  // offset equal to 0 is today
   // Negative values are daycount in the past
   // Positive are daycount in the future
   let oneDay = 24 * 60 * 60 * 1000;
   let now = new Date();
-  let date = new Date(now.getTime() + oneDay * days);
+  let date = new Date(now.getTime() + oneDay * offset);
   let ret = format(date, 'yyyy-MM-dd');
   return ret;
 }
 
-function retireDays(days) {
-  // Count days backwards
-  while (fs.existsSync(savePath + "/prices-" + skewDays(days * -1) + ".json")) {
-    fs.unlinkSync(savePath + "/prices-" + skewDays(days++ * -1) + ".json");
+function retireDays(offset) {
+  // Count offset days backwards
+  while (fs.existsSync(savePath + "/prices-" + skewDays(offset * -1) + ".json")) {
+    fs.unlinkSync(savePath + "/prices-" + skewDays(offset * -1) + ".json");
+    console.log("Price file removed:", savePath + "/prices-" + skewDays(offset * -1) + ".json")
+    offset++;
   }
 }
 
-function writeFile() {
-  //console.log(oneDayPrices)
-  if (oneDayPrices[0] !== undefined) {
-    let date = oneDayPrices[0].startTime.substr(0, 10) + ".json";
-    fs.writeFileSync(savePath + "/prices-" + date, JSON.stringify(oneDayPrices, false, 2));
-    oneDayPrices = [];
-  }
+function writeFile(fileName) {
+  //let fileName = savePath + "/prices-" + skewDays(offset) + ".json"
+    fs.writeFileSync(fileName, JSON.stringify(oneDayPrices, false, 2));
+    console.log("Price file saved:", fileName);
+    oneDayPrices = { hourly: [], daily: undefined}
 };
 
-async function getPrices(days) {
-  if (!fs.existsSync(savePath + "/prices-" + skewDays(days) + ".json")) {
-    let url = nordPoolUri + uriDate(days);
+async function getPrices(dayOffset) {
+  let fileName = savePath + "/prices-" + skewDays(dayOffset) + ".json";
+  if (!fs.existsSync(fileName)) {
+    let url = nordPoolUri + uriDate(dayOffset);
+    //console.log('NordPool: ',url);
     await request(url, nordPool)
       .then(function (body) {
-        let data = body.data.data
-        //console.log(data.Rows)
+        let data = body.data.data;
         let rows = data.Rows;
         for (let i = 0; i < 24; i++) {
           let price = rows[i].Columns[priceRegion].Value;
           if (price === '-') {
-            console.log("Day ahead prices are not ready");
-            exit(0)
+            console.log("Day ahead prices are not ready:", skewDays(dayOffset));
+            exit(0);
           }
           let priceObj = {
             startTime: rows[i].StartTime,
             endTime: rows[i].EndTime,
-            price: (price.toString().replace(/ /g, '').replace(/(\d)\,/g, '.$1') / 100).toFixed(4) * 1
+            spotPrice: (price.toString().replace(/ /g, '').replace(/(\d)\,/g, '.$1') / 100).toFixed(4) * 1,
+            customerPrice: 0
           }
-          oneDayPrices.push(priceObj);
+          //console.log(rows[i].StartTime)
+          oneDayPrices['hourly'].push(priceObj);
         }
+        oneDayPrices.daily = {
+          minPrice: (rows[24].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
+          maxPrice: (rows[25].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
+          avgPrice: (rows[26].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
+          peakPrice: (rows[27].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
+          offPeakPrice1: (rows[28].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
+          offPeakPrice2: (rows[29].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
+        }
+        writeFile(fileName);
       })
-    .catch(function (err) {
+      .catch(function (err) {
       if (err.response) {
         console.log('Error:', err.response.status, err.response.statusText);
         console.log('Headers:', err.response.headers)
       }
-    }).then(writeFile)
+    })
   }
 }
 
@@ -138,7 +154,9 @@ async function run() {
   await retireDays(keepDays);
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
-    await getPrices(0);
+    for (let i = (keepDays - 1) * -1; i <= 0; i++) {
+      await getPrices(i);
+    }
   }
   await getPrices(1)
 }

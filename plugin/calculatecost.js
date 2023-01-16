@@ -20,6 +20,8 @@ const supplierKwhPrice = config.supplierKwhPrice;
 
 const energyTax = config.energyTax;
 
+gridKwhReward = config.gridKwhReward;
+
 const dayHoursStart = config.peakHoursStart;
 const dayHoursEnd = config.peakHoursEnd;
 const energyDayPrice = config.energyDayPrice;
@@ -27,7 +29,14 @@ const energyNightPrice = config.energyNightPrice;
 
 let isVirgin = true;
 
-function kwhCalc(obj, kWh) {
+function calcReward(obj, kWh) {
+  let month = obj.startTime.split("-")[1] * 1;
+  let curHour = obj.startTime.split('T')[0].substr(0, 5);
+  // TODO: complete this
+  return kWh * gridKwhReward;
+}
+
+function calcCost(obj, kWh) {
   let month = obj.startTime.split("-")[1] * 1;
   let curHour = obj.startTime.split('T')[0].substr(0, 5);
   let gridPrice;
@@ -52,22 +61,18 @@ const calculateCost = {
   calc: async function (list, obj) {
     // List3 is run once every hour
     if (list === 'list3') {
-      obj.customerPrice = await kwhCalc(obj, 1)
-      obj.costLastHour = await kwhCalc(obj, obj.accumulatedConsumptionLastHour);
-      obj.accumulatedCost = await kwhCalc(obj, obj.accumulatedConsumption);
-      await db.set('customerPrice', obj.customerPrice);
-      await db.set('accumulatedCost', obj.accumulatedCost);
-      await db.set('costLastHour', obj.costLastHour);
-      await db.sync();
+      obj.customerPrice = await calcCost(obj, 1)
+      obj.costLastHour = await calcCost(obj, obj.accumulatedConsumptionLastHour);
+      obj.accumulatedCost = (db.get("accumulatedCost") + obj.costLastHour).toFixed(4) * 1;
+      db.set("accumulatedCost", obj.accumulatedCost);
+
+      obj.rewardLastHour = await calcReward(obj, obj.accumulatedProductionLastHour);
+      obj.accumulatedReward = (db.get("accumulatedReward") + obj.rewardLastHour).toFixed(4) * 1;
+      db.set("accumulatedReward", obj.accumulatedReward);
+      db.sync();
       return obj;
     }
   },
-
-  init: function () {
-    if (isVirgin) {
-      isVirgin = false;
-    }
-  }
 };
 
 module.exports = {calculateCost};

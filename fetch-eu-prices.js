@@ -26,10 +26,20 @@ const scheduleHours = config.scheduleHours;
 const scheduleMinutes = config.scheduleMinutes;
 const computePrices = config.computePrices;
 
+let schedule;
+let runSchedule;
+if (runNodeSchedule) {
+  schedule = require('node-schedule');
+  runSchedule = new schedule.RecurrenceRule();
+  runSchedule.hour = scheduleHours;
+  runSchedule.minute = scheduleMinutes;
+}
+
 const currencyFile = currencyDirectory + '/currencies-latest.json';
 
 const baseUrl = "https://transparency.entsoe.eu/api";
-const token = "1377e114-de9c-4daf-9a0c-e672f1dd2827";
+const token = config.priceAccessToken;
+
 
 let reqOpts = {
   method: "get",

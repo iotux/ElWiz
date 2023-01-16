@@ -77,26 +77,42 @@ haBaseTopic: elwiz/sensor
 # MQTT messages
 haAnnounceTopic: homeassistant/sensor/ElWiz/
 
-#############################################
-# The rest of the configuration is only valid 
-# for the "getprices" program
+##################################################
+# The rest of the configuration is only valid for
+# the "fetchprices" and "fetch-eu-prices" programs
+
+# For the "fetch-eu-prices" program, an "access token"
+# is needed from "https://transparency.entsoe.eu.
+# You will get this token by writing an email to
+# "transparency@entsoe.eu" and ask for a token
+#
+priceAccessToken: <insert your token here>
 
 # Days to keep data files
 # Files older tham "keepDays" are deleted
 keepDays: 7 
 
-# Windows users without cron may want to use 
-# the "node-schedule" module.
+# Windows and Docker users without cron 
+# want to use the "node-schedule" module.
 # Set the following to "true" if that is the case.
-# Cron users should set  it to "false".
+# Cron users should set it to "false".
 runNodeSchedule: false
 
-# The following recommendedecommended scheduleing
-# will try to fetch prices 15 minutes past 
-# the scheduleHours. The same scheduling is
-# recommended for cron users
-scheduleHours: [15,17,19,21,23]
+# The following recommended scheduling will
+# try to fetch prices <scheduleMinutes> minutes
+# past the "scheduleHours" for the "fetchprices"
+# program. Likewise, the <scheduleEuMinutes> is
+# for the "fetch-eu-prices" program.
+# The same scheduling is recommended for cron users
+# According to floating iformation, the prices
+# are available about 13:00 CET/CEST from
+# Nord Pool, while the prices from ENTSO-E
+# is available about 14:00 CET/CEST
+# The scheduler will retry until successful
+# within the "scheduleHours"
+scheduleHours: [14,16,18,20,22]
 scheduleMinutes: [15]
+scheduleEuMinutes: [45]
 
 # Where to store currency and price data
 # relative to the program directory
@@ -166,3 +182,5 @@ capacity10-15: 0.0
 capacity15-20: 0.0
 capacity20-25: 0.0
 
+# Network reward per kWh production
+gridKwhReward: 0.0

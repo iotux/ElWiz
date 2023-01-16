@@ -58,7 +58,7 @@ const listDecode = async function (msg) {
   };
 
   if (elements === 9 || elements === 14) {
-    console.log('Index type 2', index)
+    //console.log('Index type 2', index)
     listType = 'list2'
     index += 0;
     obj.currentL1 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
@@ -80,7 +80,7 @@ const listDecode = async function (msg) {
   };
 
   if (elements === 14 || elements === 18) {
-    console.log('Index type 3', index)
+    //console.log('Index type 3', index)
     listType = 'list3'
 
     obj.meterDate = await getAmsTime(msg, index += 12);

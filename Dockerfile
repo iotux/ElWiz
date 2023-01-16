@@ -1,7 +1,15 @@
-FROM node:16-buster-slim
+FROM node:buster
 
+RUN apt update && apt install tzdata -y
+# For development
+#RUN apt install vim -y && \
+#    apt install less -y
+
+ENV TZ="Europe/Oslo"
 ENV HOST localhost
 ENV PORT 3000
+
+RUN npm install pm2 -g
 
 # Create app directory
 RUN mkdir -p /app
@@ -17,9 +25,13 @@ RUN npm install fs && \
     npm install yamljs && \
     npm cache clean --force
 
-
 # Bundle app source
 COPY . /app
 
-ENTRYPOINT ["node","elwiz.js"]
+#ENTRYPOINT ["pm2-runtime", "start"]
+ENTRYPOINT ["pm2", "--no-daemon", "start"]
+# Use one, comment out the other
+CMD ["pm2run.json"]
+#CMD ["pm2run-nordpool.json"]
+#CMD ["pm2run-entsoe.json"]
 
