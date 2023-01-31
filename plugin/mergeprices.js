@@ -59,9 +59,12 @@ async function mergePrices(list, obj) {
     await priceInit().then(() => {
     // Today prices
       //console.log(dayPrices['hourly'][idx])
-      obj.spotPrice = dayPrices['hourly'][idx].spotPrice;
       obj.startTime = dayPrices['hourly'][idx].startTime;
       obj.endTime = dayPrices['hourly'][idx].endTime;
+      obj.spotPrice = dayPrices['hourly'][idx].spotPrice;
+      obj.gridPrice = dayPrices['hourly'][idx].gridPrice;
+      obj.supplierPrice = dayPrices['hourly'][idx].supplierFixedPrice;
+      obj.customerPrice = dayPrices['hourly'][idx].customerPrice;
       obj.minPrice = dayPrices['daily'].minPrice;
       obj.maxPrice = dayPrices['daily'].maxPrice;
       obj.avgPrice = dayPrices['daily'].avgPrice;
@@ -69,9 +72,12 @@ async function mergePrices(list, obj) {
       obj.offPeakPrice1 = dayPrices['daily'].offPeakPrice1;
       obj.offPeakPrice2 = dayPrices['daily'].offPeakPrice2;
       // Next day prices
-      obj.spotPriceDay2 = nextDayPrices['hourly'][idx].spotPrice;
       obj.startTimeDay2 = nextDayPrices['hourly'][idx].startTime;
       obj.endTimeDay2 = nextDayPrices['hourly'][idx].endTime;
+      obj.spotPriceDay2 = nextDayPrices['hourly'][idx].spotPrice;
+      obj.gridPriceDay2 = nextDayPrices['hourly'][idx].gridPrice;
+      obj.supplierPriceDay2 = nextDayPrices['hourly'][idx].supplierFixedPrice;
+      obj.customerPriceDay2 = nextDayPrices['hourly'][idx].customerPrice;
       obj.minPriceDay2 = nextDayPrices['daily'].minPrice;
       obj.maxPriceDay2 = nextDayPrices['daily'].maxPrice;
       obj.avgPriceDay2 = nextDayPrices['daily'].avgPrice;

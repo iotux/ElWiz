@@ -171,10 +171,10 @@ spotVatPercent: 25.0
 
 # Network cost
 # Network fixed prices
-gridVatPercent: 0.0
 gridKwhPrice: 0.0
-gridMonthPrice: 0.0
 gridDayPrice: 0.0
+gridMonthPrice: 0.0
+gridVatPercent: 0.0
 
 #
 energyTax: 0.0

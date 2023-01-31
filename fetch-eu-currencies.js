@@ -17,9 +17,8 @@ const url = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 
 const runNodeSchedule = config.runNodeSchedule;
 // Currency rates are available around 16:00 hours
-const scheduleHours = [16]; // config.scheduleHours;
-const scheduleMinutes = [8]; //config.scheduleMinutes;
-const computePrices = config.computePrices;
+const scheduleHours = config.scheduleHours;
+const scheduleMinutes = config.scheduleMinutes;
 
 let schedule;
 let runSchedule;

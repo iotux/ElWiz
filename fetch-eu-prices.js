@@ -10,21 +10,36 @@ const convert = require('xml-js');
 const { format } = require('date-fns')
 const { exit } = require('process');
 const { runInContext } = require('vm');
-
 const config = yaml.load("config.yaml");
-const debug = config.DEBUG
-const currencyDirectory = config.currencyDirectory;
-const savePath = config.priceDirectory;
-const currency = config.priceCurrency;
-const VAT = config.spotVatPercent / 100;
 
+const debug = config.DEBUG
 const keepDays = config.keepDays;
+const currencyDirectory = config.currencyDirectory;
+const priceCurrency = config.priceCurrency;
 const priceRegion = config.priceRegion;
+
+const spotVatPercent = config.spotVatPercent;
+const supplierDayPrice = config.supplierDayPrice;
+const supplierMonthPrice = config.supplierMonthPrice;
+const supplierVatPercent = config.supplierVatPercent; 
+
+const gridDayPrice = config.gridDayPrice;
+const gridMonthPrice = config.gridMonthPrice;
+const gridVatPercent = config.gridVatPercent;
+
+const dayHoursStart = config.dayHoursStart;
+const dayHoursEnd = config.dayHoursEnd;
+const energyDayPrice = config.energyDayPrice;
+const energyNightPrice = config.energyNightPrice;
+const savePath = config.priceDirectory;
+
+let gridDayHourPrice;
+let gridNightHourPrice;
+let supplierPrice;
 
 const runNodeSchedule = config.runNodeSchedule;
 const scheduleHours = config.scheduleHours;
-const scheduleMinutes = config.scheduleMinutes;
-const computePrices = config.computePrices;
+const scheduleMinutes = config.scheduleEuMinutes;
 
 let schedule;
 let runSchedule;
@@ -39,10 +54,6 @@ const currencyFile = currencyDirectory + '/currencies-latest.json';
 
 const baseUrl = "https://transparency.entsoe.eu/api";
 const token = config.priceAccessToken;
-<<<<<<< HEAD
-
-=======
->>>>>>> f966fd64567cf261e9398bdc82d242ef00abb088
 
 let reqOpts = {
   method: "get",
@@ -52,8 +63,6 @@ let reqOpts = {
   },
 }
 
-let client;
-let fetchDay = 1;
 let currencyRate;
 
 function addZero(num) {
@@ -125,11 +134,8 @@ function entsoeUrl(token, periodStart, periodEnd) {
 async function getPrices(days) {
   if (!fs.existsSync(savePath + "/prices-" + skewDays(days) + ".json")) {
     let url = entsoeUrl(token, entsoeDate(days), entsoeDate(days + 1));
-    //console.log(reqOpts)
     await request.get(url, reqOpts).then(function (body) {
-      //console.log(body.data)
       let result = convert.xml2js(body.data, { compact: true, spaces: 4 });
-      //console.log(result)
       if (result.Publication_MarketDocument !== undefined) {
         let realMeat = result.Publication_MarketDocument.TimeSeries.Period;
         let startDay = getDate(realMeat.timeInterval.start._text);
@@ -137,20 +143,33 @@ async function getPrices(days) {
         let minPrice = 9999;
         let maxPrice = 0;
         let oneDayPrices = {
+          priceProvider: 'ENTSO-E',
+          priceProviderUrl: url,
           hourly: [],
           daily: {}
         }
         for (let i = 0; i <= 23; i++) {
+          let curHour = addZero(realMeat.Point[i].position._text - 1) + ':00';
+          let nextHour = addZero(realMeat.Point[i].position._text) + ':00';
+          let startTime = startDay + 'T' + curHour + ':00';
+          let endTime = i === 23 ? endDay + 'T00:00:00' : startDay + 'T' + nextHour + ':00';
+          let gridPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
           let spotPrice = ((realMeat.Point[i]["price.amount"]._text * currencyRate) / 1000).toFixed(4) * 1;
-          oneDayPrices['hourly'].push({
-            startTime: startDay + 'T' + addZero(realMeat.Point[i].position._text - 1) + ':00:00',
-            endTime: i === 23 ? endDay + 'T00:00:00'
-              : startDay + 'T' + addZero(realMeat.Point[i].position._text) + ':00:00',
+          //spotPrice += spotPrice * spotVatPercent / 100;
+          let priceObj = {
+            startTime: startTime,
+            endTime: endTime,
             spotPrice: spotPrice,
-            //customerPrice: 0,
-          })
+            gridFixedPrice: gridPrice,
+            supplierFixedPrice: supplierPrice,
+            customerPrice: undefined
+          }
+          //console.log(priceObj)
+          oneDayPrices['hourly'].push(priceObj);
+
           minPrice = spotPrice < minPrice ? spotPrice : minPrice;
           maxPrice = spotPrice > maxPrice ? spotPrice : maxPrice
+          //console.log(oneDayPrices)
         }
   
         oneDayPrices['daily'] = {
@@ -164,8 +183,9 @@ async function getPrices(days) {
         //let date = oneDayPrices['hourly'][0].startTime.substr(0, 10) + ".json";
         let file = savePath + '/prices-' + skewDays(days) + '.json';
         fs.writeFileSync(file, JSON.stringify(oneDayPrices, false, 2));
+        console.log("Price file saved:", file);
       } else {
-        console.log("Day ahead prices are not ready");
+        console.log("Day ahead prices are not ready", skewDays(days));
         exit(0)
       }
     }).catch(function (err) {
@@ -177,23 +197,41 @@ async function getPrices(days) {
   }
 }
 
+async function init() {
+  let price = gridDayPrice / 24;
+  price += gridMonthPrice / 720; // 30 x 24 is close enough;
+  gridNightHourPrice = price + energyNightPrice;
+  gridNightHourPrice += gridNightHourPrice * gridVatPercent / 100;
+
+  gridDayHourPrice = price + energyDayPrice;
+  gridDayHourPrice += gridDayHourPrice * gridVatPercent / 100;
+
+  supplierPrice = supplierDayPrice / 24;
+  supplierPrice += supplierMonthPrice / 720;
+  supplierPrice += supplierPrice * supplierVatPercent / 100;
+}
+
 async function run() {
   if (!fs.existsSync(currencyDirectory)) {
     console.log("No currency file present");
     console.log('Please run "./fetch-eu-currencies.js"');
     exit(0);
   } else {
-    currencyRate = getCurrency(currency);
+    currencyRate = getCurrency(priceCurrency);
   }
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
-    await getPrices(0);
+    for (let i = (keepDays - 1) * -1; i <= 0; i++) {
+      await getPrices(i);
+    }
   }
   await getPrices(1)
 }
 
+init();
+
 if (runNodeSchedule) {
-  //let sched =
+  console.log("Fetch prices scheduling started...");
   schedule.scheduleJob(runSchedule, run)
 } else {
   run();

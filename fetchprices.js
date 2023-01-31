@@ -14,6 +14,25 @@ const priceCurrency = config.priceCurrency;
 const priceRegion = config.priceRegion;
 const nordPoolUri =  "https://www.nordpoolgroup.com/api/marketdata/page/10/" + priceCurrency + "/";
 
+const spotVatPercent = config.spotVatPercent;
+const supplierDayPrice = config.supplierDayPrice;
+const supplierMonthPrice = config.supplierMonthPrice;
+const supplierVatPercent = config.supplierVatPercent; 
+
+const gridDayPrice = config.gridDayPrice;
+const gridMonthPrice = config.gridMonthPrice;
+const gridVatPercent = config.gridVatPercent;
+
+const dayHoursStart = config.dayHoursStart;
+const dayHoursEnd = config.dayHoursEnd;
+const energyDayPrice = config.energyDayPrice;
+const energyNightPrice = config.energyNightPrice;
+const savePath = config.priceDirectory;
+
+let gridDayHourPrice;
+let gridNightHourPrice;
+let supplierPrice;
+
 const runNodeSchedule = config.runNodeSchedule;
 const scheduleHours = config.scheduleHours;
 const scheduleMinutes = config.scheduleMinutes;
@@ -38,18 +57,6 @@ let nordPool = {
 };
 
 const daysInMonth = [undefined, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-//const computePrices = config.computePrices;
-const supplierKwhPrice = config.supplierKwhPrice;
-const supplierMonthPrice = config.supplierMonthPrice;
-const supplierVatPercent = config.supplierVatPercent; 
-
-const spotVatPercent = config.spotVatPercent;
-
-const gridKwhPrice = config.gridKwhPrice;
-const gridDayPrice = config.gridDayPrice;
-const gridVatPercent = config.gridVatPercent;
-const savePath = config.priceDirectory;
 
 let oneDayPrices = {
   hourly: [],
@@ -100,11 +107,10 @@ function retireDays(offset) {
   }
 }
 
-function writeFile(fileName) {
+function writeFile(prices, fileName) {
   //let fileName = savePath + "/prices-" + skewDays(offset) + ".json"
-    fs.writeFileSync(fileName, JSON.stringify(oneDayPrices, false, 2));
+    fs.writeFileSync(fileName, JSON.stringify(prices, false, 2));
     console.log("Price file saved:", fileName);
-    oneDayPrices = { hourly: [], daily: undefined}
 };
 
 async function getPrices(dayOffset) {
@@ -116,22 +122,37 @@ async function getPrices(dayOffset) {
       .then(function (body) {
         let data = body.data.data;
         let rows = data.Rows;
+        let oneDayPrices = {
+          priceProvider: 'Nord Pool',
+          priceProviderUrl: url,
+          hourly: [],
+          daily: {}
+        }
+
         for (let i = 0; i < 24; i++) {
           let price = rows[i].Columns[priceRegion].Value;
           if (price === '-') {
             console.log("Day ahead prices are not ready:", skewDays(dayOffset));
             exit(0);
           }
+          let startTime = rows[i].StartTime;
+          let endTime = rows[i].EndTime;
+          let curHour = startTime.split('T')[1].substr(0, 5);
+          let gridPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice
+          let spotPrice = (price.toString().replace(/ /g, '').replace(/(\d)\,/g, '.$1') / 100).toFixed(4) * 1;
+          //spotPrice += spotPrice * spotVatPercent / 100;
           let priceObj = {
-            startTime: rows[i].StartTime,
-            endTime: rows[i].EndTime,
-            spotPrice: (price.toString().replace(/ /g, '').replace(/(\d)\,/g, '.$1') / 100).toFixed(4) * 1,
-            customerPrice: 0
+            startTime: startTime,
+            endTime: endTime,
+            spotPrice: spotPrice, 
+            gridFixedPrice: gridPrice,
+            supplierFixedPrice: supplierPrice,
+            customerPrice: undefined
           }
-          //console.log(rows[i].StartTime)
           oneDayPrices['hourly'].push(priceObj);
         }
-        oneDayPrices.daily = {
+
+        oneDayPrices['daily'] = {
           minPrice: (rows[24].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
           maxPrice: (rows[25].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
           avgPrice: (rows[26].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
@@ -139,7 +160,7 @@ async function getPrices(dayOffset) {
           offPeakPrice1: (rows[28].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
           offPeakPrice2: (rows[29].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
         }
-        writeFile(fileName);
+        writeFile(oneDayPrices, fileName);
       })
       .catch(function (err) {
       if (err.response) {
@@ -148,6 +169,20 @@ async function getPrices(dayOffset) {
       }
     })
   }
+}
+
+async function init() {
+  let price = gridDayPrice / 24;
+  price += gridMonthPrice / 720; // 30 x 24 is close enough;
+  gridNightHourPrice = price + energyNightPrice;
+  gridNightHourPrice += gridNightHourPrice * gridVatPercent / 100;
+
+  gridDayHourPrice = price + energyDayPrice;
+  gridDayHourPrice += gridDayHourPrice * gridVatPercent / 100;
+
+  supplierPrice = supplierDayPrice / 24;
+  supplierPrice += supplierMonthPrice / 720;
+  supplierPrice += supplierPrice * supplierVatPercent / 100;
 }
 
 async function run() {
@@ -161,8 +196,10 @@ async function run() {
   await getPrices(1)
 }
 
+init();
+
 if (runNodeSchedule) {
-  //let sched =
+  console.log("Fetch prices scheduling started...");
   schedule.scheduleJob(runSchedule, run)
 } else {
   run();
