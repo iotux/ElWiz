@@ -96,7 +96,7 @@ keepDays: 7
 # want to use the "node-schedule" module.
 # Set the following to "true" if that is the case.
 # Cron users should set it to "false".
-runNodeSchedule: false
+runNodeSchedule: true
 
 # The following recommended scheduling will
 # try to fetch prices <scheduleMinutes> minutes
