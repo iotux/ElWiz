@@ -1,7 +1,9 @@
 const fs = require("fs");
 const JSONdb = require('simple-json-db');
 
-const energyFile = './data/powersave.json'
+// TODO: make a better storage spec
+const savePath ='./data'
+const energyFile = savePath + '/powersave.json'
 
 const energySavings = {
   "lastMeterConsumption": 0,
@@ -27,6 +29,8 @@ function dbInit(file, data) {
     let savings = fs.readFileSync(file);
     db.JSON(JSON.parse(savings));
   } else {
+    if (!fs.existsSync(savePath))
+      fs.mkdirSync(savePath, { recursive: true });
     fs.writeFileSync(file, JSON.stringify(data, false, 2))
     db.JSON(data);
     db.sync();

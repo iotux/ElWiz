@@ -75,6 +75,7 @@ async function getCurrencies() {
 function init() {
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
+    getCurrencies();
   }
 }
 

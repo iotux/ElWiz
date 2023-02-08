@@ -62,7 +62,7 @@ async function mergePrices(list, obj) {
       obj.startTime = dayPrices['hourly'][idx].startTime;
       obj.endTime = dayPrices['hourly'][idx].endTime;
       obj.spotPrice = dayPrices['hourly'][idx].spotPrice;
-      obj.gridPrice = dayPrices['hourly'][idx].gridPrice;
+      obj.gridPrice = dayPrices['hourly'][idx].gridFixedPrice;
       obj.supplierPrice = dayPrices['hourly'][idx].supplierFixedPrice;
       obj.customerPrice = dayPrices['hourly'][idx].customerPrice;
       obj.minPrice = dayPrices['daily'].minPrice;
@@ -75,7 +75,7 @@ async function mergePrices(list, obj) {
       obj.startTimeDay2 = nextDayPrices['hourly'][idx].startTime;
       obj.endTimeDay2 = nextDayPrices['hourly'][idx].endTime;
       obj.spotPriceDay2 = nextDayPrices['hourly'][idx].spotPrice;
-      obj.gridPriceDay2 = nextDayPrices['hourly'][idx].gridPrice;
+      obj.gridPriceDay2 = nextDayPrices['hourly'][idx].gridFixedPrice;
       obj.supplierPriceDay2 = nextDayPrices['hourly'][idx].supplierFixedPrice;
       obj.customerPriceDay2 = nextDayPrices['hourly'][idx].customerPrice;
       obj.minPriceDay2 = nextDayPrices['daily'].minPrice;

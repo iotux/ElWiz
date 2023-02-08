@@ -7,5 +7,4 @@ data/*
 # Konfigurasjon av lokalt tilpassede data
 config.yaml
 # Lagring av siste akkumulerte forbruk
-savepower.*
 powersave.*

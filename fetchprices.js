@@ -98,7 +98,7 @@ function skewDays(offset) {
   return ret;
 }
 
-function retireDays(offset) {
+async function retireDays(offset) {
   // Count offset days backwards
   while (fs.existsSync(savePath + "/prices-" + skewDays(offset * -1) + ".json")) {
     fs.unlinkSync(savePath + "/prices-" + skewDays(offset * -1) + ".json");
@@ -133,14 +133,13 @@ async function getPrices(dayOffset) {
           let price = rows[i].Columns[priceRegion].Value;
           if (price === '-') {
             console.log("Day ahead prices are not ready:", skewDays(dayOffset));
-            exit(0);
           }
           let startTime = rows[i].StartTime;
           let endTime = rows[i].EndTime;
           let curHour = startTime.split('T')[1].substr(0, 5);
           let gridPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice
           let spotPrice = (price.toString().replace(/ /g, '').replace(/(\d)\,/g, '.$1') / 100).toFixed(4) * 1;
-          //spotPrice += spotPrice * spotVatPercent / 100;
+          spotPrice += spotPrice * spotVatPercent / 100;
           let priceObj = {
             startTime: startTime,
             endTime: endTime,
@@ -152,13 +151,20 @@ async function getPrices(dayOffset) {
           oneDayPrices['hourly'].push(priceObj);
         }
 
+        let minPrice = (rows[24].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
+        let maxPrice = (rows[25].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
+        let avgPrice = (rows[26].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
+        let peakPrice = (rows[27].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
+        let offPeakPrice1 = (rows[28].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
+        let offPeakPrice2 = (rows[29].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
+
         oneDayPrices['daily'] = {
-          minPrice: (rows[24].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
-          maxPrice: (rows[25].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
-          avgPrice: (rows[26].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
-          peakPrice: (rows[27].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
-          offPeakPrice1: (rows[28].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
-          offPeakPrice2: (rows[29].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001).toFixed(4) * 1,
+          minPrice: (minPrice += minPrice * spotVatPercent / 100).toFixed(4) * 1,
+          maxPrice: (maxPrice += maxPrice * spotVatPercent / 100).toFixed(4) * 1,
+          avgPrice: (avgPrice += avgPrice * spotVatPercent / 100).toFixed(4) * 1,
+          peakPrice: (peakPrice += peakPrice * spotVatPercent / 100).toFixed(4) * 1,
+          offPeakPrice1: (offPeakPrice1 += offPeakPrice1 * spotVatPercent / 100).toFixed(4) * 1,
+          offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
         }
         writeFile(oneDayPrices, fileName);
       })
@@ -199,6 +205,7 @@ async function run() {
 init();
 
 if (runNodeSchedule) {
+  run();
   console.log("Fetch prices scheduling started...");
   schedule.scheduleJob(runSchedule, run)
 } else {

@@ -114,12 +114,12 @@ function entsoeDate(days) {
     + res.substr(11, 2) + '00';
 }
 
-function calcAvg(start, end, obj, decimals) {
+function calcAvg(start, end, obj) {
   let res = 0;
   for (let i = start; i < end; i++) {
     res += obj[i].spotPrice;
   }
-  return (res / (end - start)).toFixed(decimals) * 1
+  return (res / (end - start))
 }
 
 function entsoeUrl(token, periodStart, periodEnd) {
@@ -153,9 +153,9 @@ async function getPrices(days) {
           let nextHour = addZero(realMeat.Point[i].position._text) + ':00';
           let startTime = startDay + 'T' + curHour + ':00';
           let endTime = i === 23 ? endDay + 'T00:00:00' : startDay + 'T' + nextHour + ':00';
-          let gridPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+          let gridPrice = (curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice).toFixed(4) * 1;
           let spotPrice = ((realMeat.Point[i]["price.amount"]._text * currencyRate) / 1000).toFixed(4) * 1;
-          //spotPrice += spotPrice * spotVatPercent / 100;
+          spotPrice += spotPrice * spotVatPercent / 100;
           let priceObj = {
             startTime: startTime,
             endTime: endTime,
@@ -173,12 +173,12 @@ async function getPrices(days) {
         }
   
         oneDayPrices['daily'] = {
-          minPrice: minPrice.toFixed(4) * 1,
-          maxPrice: maxPrice.toFixed(4) * 1,
-          avgPrice: calcAvg(0, 24, oneDayPrices['hourly'], 4),
-          peakPrice: calcAvg(6, 22, oneDayPrices['hourly'], 4),
-          offPeakPrice1: calcAvg(0, 6, oneDayPrices['hourly'], 4),
-          offPeakPrice2: calcAvg(22, 24, oneDayPrices['hourly'], 4),
+          minPrice: (minPrice += minPrice * spotVatPercent / 100).toFixed(4) * 1,
+          maxPrice: (maxPrice += maxPrice * spotVatPercent / 100).toFixed(4) * 1,
+          avgPrice: (calcAvg(0, 24, oneDayPrices['hourly'])).toFixed(4) * 1,
+          peakPrice: (calcAvg(6, 22, oneDayPrices['hourly'])).toFixed(4) * 1,
+          offPeakPrice1: (calcAvg(0, 6, oneDayPrices['hourly'])).toFixed(4) * 1,
+          offPeakPrice2: (calcAvg(22, 24, oneDayPrices['hourly'])).toFixed(4) * 1,
         }
         //let date = oneDayPrices['hourly'][0].startTime.substr(0, 10) + ".json";
         let file = savePath + '/prices-' + skewDays(days) + '.json';
@@ -186,7 +186,6 @@ async function getPrices(days) {
         console.log("Price file saved:", file);
       } else {
         console.log("Day ahead prices are not ready", skewDays(days));
-        exit(0)
       }
     }).catch(function (err) {
       if (err.response) {
@@ -215,7 +214,7 @@ async function run() {
   if (!fs.existsSync(currencyDirectory)) {
     console.log("No currency file present");
     console.log('Please run "./fetch-eu-currencies.js"');
-    exit(0);
+    // exit(0); // This results in frequent pm2 restarts
   } else {
     currencyRate = getCurrency(priceCurrency);
   }
@@ -231,6 +230,8 @@ async function run() {
 init();
 
 if (runNodeSchedule) {
+  // First a single run to init prices
+  run();
   console.log("Fetch prices scheduling started...");
   schedule.scheduleJob(runSchedule, run)
 } else {

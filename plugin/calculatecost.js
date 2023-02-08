@@ -18,21 +18,25 @@ const gridKwhReward = config.gridKwhReward;
 
 // TODO: priceObject
 
-function calcReward(obj, kWh) {
+async function calcReward(obj, kWh) {
   // TODO: complete this
   return kWh * gridKwhReward;
 }
 
-function calcCost(obj, kWh) {
-  // TODO: use fixed 30 days per month
-  //let gridPrice = obj.gridPrice + (gridKwhPrice + gridKwhPrice * gridVatPercent / 100);
-  let gridPrice = obj.gridFixedPrice + gridKwhPrice * kWh;
-  let supplierPrice = obj.supplierFixedPrice + supplierKwhPrice * kWh;
-  let tax = energyTax * kWh;  
-  let kwhPrice = gridPrice + supplierPrice + tax;
-  let spotPrice = (obj.spotPrice + obj.spotPrice * spotVatPercent / 100) * kWh;
+async function calcPrice(obj, kWh) {
+  // Actual price per kWh this hour (experimental)
+  let price = (obj.gridPrice + obj.supplierPrice) / kWh;
+  price += (gridKwhPrice + supplierKwhPrice + energyTax);
+  price += obj.spotPrice;
+  return price.toFixed(4) * 1;
+}
 
-  return (kwhPrice + spotPrice).toFixed(4) * 1;
+async function calcCost(obj, kWh) {
+  // Cost this hour
+  let cost = (obj.gridPrice + obj.supplierPrice);
+  cost += (gridKwhPrice + supplierKwhPrice + energyTax) * kWh;
+  cost += obj.spotPrice * kWh
+  return cost.toFixed(4) * 1;
 }
 
 const calculateCost = {
@@ -40,11 +44,10 @@ const calculateCost = {
   calc: async function (list, obj) {
     // List3 is run once every hour
     if (list === 'list3') {
-      obj.customerPrice = await calcCost(obj, 1)
+      obj.customerPrice = await calcPrice(obj, obj.accumulatedConsumptionLastHour);
       obj.costLastHour = await calcCost(obj, obj.accumulatedConsumptionLastHour);
       obj.accumulatedCost = (db.get("accumulatedCost") + obj.costLastHour).toFixed(4) * 1;
       db.set("accumulatedCost", obj.accumulatedCost);
-
       obj.rewardLastHour = await calcReward(obj, obj.accumulatedProductionLastHour);
       obj.accumulatedReward = (db.get("accumulatedReward") + obj.rewardLastHour).toFixed(4) * 1;
       db.set("accumulatedReward", obj.accumulatedReward);
