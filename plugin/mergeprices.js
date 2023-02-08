@@ -44,9 +44,9 @@ const getPrices = async (date) => {
 async function priceInit() {
   if (isVirgin) {
     isVirgin = false;
-    dayPrices = await getPrices(await skewDays(0))
+    dayPrices = await getPrices(skewDays(0))
     //console.log(dayPrices);
-    nextDayPrices = await getPrices(await skewDays(1));
+    nextDayPrices = await getPrices(skewDays(1));
     //console.log(nextDayPrices)
   }
 }
