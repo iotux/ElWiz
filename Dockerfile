@@ -1,6 +1,6 @@
 FROM node:buster
 
-RUN apt update && apt install tzdata -y
+RUN apt-get update && apt-get install tzdata -y
 # For development
 #RUN apt install vim -y && \
 #    apt install less -y

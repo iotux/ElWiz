@@ -139,11 +139,11 @@ async function getPrices(dayOffset) {
           let curHour = startTime.split('T')[1].substr(0, 5);
           let gridPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice
           let spotPrice = price.toString().replace(/ /g, '').replace(/(\d)\,/g, '.$1') / 100;
-          spotPrice += (spotPrice * spotVatPercent / 100).toFixed(4) * 1;
+          spotPrice += spotPrice * spotVatPercent / 100;
           let priceObj = {
             startTime: startTime,
             endTime: endTime,
-            spotPrice: spotPrice, 
+            spotPrice: spotPrice.toFixed(4) * 1, 
             gridFixedPrice: gridPrice,
             supplierFixedPrice: supplierPrice,
             customerPrice: undefined

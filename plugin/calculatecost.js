@@ -47,10 +47,16 @@ const calculateCost = {
       obj.customerPrice = await calcPrice(obj, obj.accumulatedConsumptionLastHour);
       obj.costLastHour = await calcCost(obj, obj.accumulatedConsumptionLastHour);
       obj.accumulatedCost = (db.get("accumulatedCost") + obj.costLastHour).toFixed(4) * 1;
-      db.set("accumulatedCost", obj.accumulatedCost);
       obj.rewardLastHour = await calcReward(obj, obj.accumulatedProductionLastHour);
       obj.accumulatedReward = (db.get("accumulatedReward") + obj.rewardLastHour).toFixed(4) * 1;
-      db.set("accumulatedReward", obj.accumulatedReward);
+      // Once every midnight
+      if (obj.meterDate.substr(11, 8) === "00:00:10") {
+        db.set("accumulatedCost", 0);
+        db.set("accumulatedReward", 0);
+      } else {
+        db.set("accumulatedCost", obj.accumulatedCost);
+        db.set("accumulatedReward", obj.accumulatedReward);
+      }
       db.sync();
       return obj;
     }

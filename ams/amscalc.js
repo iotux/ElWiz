@@ -54,8 +54,9 @@ const amsCalc = {
       db.set("prevDayMeterProduction", obj.lastMeterProduction);
       db.set("prevDayMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
       db.set("prevDayMeterProductionReactive", obj.lastMeterProductionReactive);
-      db.set("accumulatedCost", 0);
-      db.set("accumulatedReward", 0);
+      // Moved to calculatecost.js
+      //db.set("accumulatedCost", 0);
+      //db.set("accumulatedReward", 0);
       db.set("minPower", 9999999);
       db.set("averagePower", 0);
       db.set("maxPower", 0);
