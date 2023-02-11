@@ -9,7 +9,7 @@ services:
       - "1883:1883"
       - "9001:9001"
     volumes:
-      - ~/docker/mqtt/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ~/docker/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - ~/docker/mqtt/data:/mosquitto/data
       - ~/docker/mqtt/log:/mosquitto/log
 
