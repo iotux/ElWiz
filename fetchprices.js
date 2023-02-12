@@ -137,15 +137,15 @@ async function getPrices(dayOffset) {
             let startTime = rows[i].StartTime;
             let endTime = rows[i].EndTime;
             let curHour = startTime.split('T')[1].substr(0, 5);
-            let gridPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice
+            let gridPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
             let spotPrice = price.toString().replace(/ /g, '').replace(/(\d)\,/g, '.$1') / 100;
             spotPrice += spotPrice * spotVatPercent / 100;
             let priceObj = {
               startTime: startTime,
               endTime: endTime,
               spotPrice: spotPrice.toFixed(4) * 1, 
-              gridFixedPrice: gridPrice,
-              supplierFixedPrice: supplierPrice,
+              gridFixedPrice: gridPrice.toFixed(4) * 1,
+              supplierFixedPrice: supplierPrice.toFixed(4) * 1,
               customerPrice: undefined
             }
             oneDayPrices['hourly'].push(priceObj);

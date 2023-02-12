@@ -153,15 +153,15 @@ async function getPrices(days) {
           let nextHour = addZero(realMeat.Point[i].position._text) + ':00';
           let startTime = startDay + 'T' + curHour + ':00';
           let endTime = i === 23 ? endDay + 'T00:00:00' : startDay + 'T' + nextHour + ':00';
-          let gridPrice = (curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice).toFixed(4) * 1;
+          let gridPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
           let spotPrice = (realMeat.Point[i]["price.amount"]._text * currencyRate) / 1000;
           spotPrice += spotPrice * spotVatPercent / 100;
           let priceObj = {
             startTime: startTime,
             endTime: endTime,
             spotPrice: spotPrice.toFixed(4) * 1,
-            gridFixedPrice: gridPrice,
-            supplierFixedPrice: supplierPrice,
+            gridFixedPrice: gridPrice.toFixed(4) * 1,
+            supplierFixedPrice: supplierPrice.toFixed(4) * 1,
             customerPrice: undefined
           }
           //console.log(priceObj)

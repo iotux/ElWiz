@@ -15,11 +15,10 @@ services:
 
   elwiz:
     container_name: elwiz
-    #privileged: true
+    privileged: true
     restart: unless-stopped
     depends_on:
       - mqtt
-    #image: edenb/livemap
     build:
       context: .
       dockerfile: Dockerfile
@@ -30,7 +29,4 @@ services:
     volumes:
       - ~/docker/elwiz/config.yaml:/app/config.yaml
       - ~/docker/elwiz/data:/app/data
-      #- ~/docker/elwiz/data/powersave.json:/app/data/powersave.json
-      #- ~/docker/elwiz/data/currencies:/app/data/currencies
-      #- ~/docker/elwiz/data/prices:/app/data/prices
 
