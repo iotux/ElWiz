@@ -31,8 +31,7 @@ const amsCalc = {
       // Energy calculations
       obj.accumulatedConsumptionLastHour = (obj.lastMeterConsumption - db.get("lastMeterConsumption")).toFixed(3) * 1;
       obj.accumulatedProductionLastHour = (obj.lastMeterProduction - db.get("lastMeterProduction")).toFixed(3) * 1;
-      obj.accumulatedConsumption = (obj.lastMeterConsumption - db.get("prevDayMeterConsumption")).toFixed(3) * 1;
-      obj.accumulatedProduction = (obj.lastMeterProduction - db.get("prevDayMeterProduction")).toFixed(3) * 1;
+
       // TODO: Add Reactive?
 
       // TODO: Save Redis document
@@ -54,6 +53,10 @@ const amsCalc = {
       db.set("prevDayMeterProduction", obj.lastMeterProduction);
       db.set("prevDayMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
       db.set("prevDayMeterProductionReactive", obj.lastMeterProductionReactive);
+
+      obj.accumulatedConsumption = 0;
+      obj.accumulatedProduction = 0;
+      
       // Moved to calculatecost.js
       //db.set("accumulatedCost", 0);
       //db.set("accumulatedReward", 0);
@@ -63,6 +66,10 @@ const amsCalc = {
       obj.curDay = skewDays(0);
       obj.nextDay = skewDays(1);
       // TODO: Save Redis & Mongo document
+    } else {
+      obj.accumulatedConsumption = (obj.lastMeterConsumption - db.get("prevDayMeterConsumption")).toFixed(3) * 1;
+      obj.accumulatedProduction = (obj.lastMeterProduction - db.get("prevDayMeterProduction")).toFixed(3) * 1;
+
     }
 
     if (obj.meterDate.substr(8, 2) === "01") {
