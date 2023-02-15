@@ -12,7 +12,7 @@ password:
 meterModel: kaifa
 
 # Tibber Pulse listening topic
-topic: tibber/#
+topic: tibber
 
 # ElWiz publishing topics
 pubTopic: meter/ams
