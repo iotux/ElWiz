@@ -129,9 +129,7 @@ async function getPrices(dayOffset) {
           daily: {}
         }
 
-        if (rows[0].Columns[priceRegion].Value === '-'){
-          console.log("Day ahead prices are not ready:", skewDays(dayOffset));
-        } else {
+        if (rows[0].Columns[priceRegion].Value !== '-'){
           for (let i = 0; i < 24; i++) {
             let price = rows[i].Columns[priceRegion].Value;
             let startTime = rows[i].StartTime;
@@ -167,7 +165,10 @@ async function getPrices(dayOffset) {
             offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
           }
           writeFile(oneDayPrices, fileName);
+        } else {
+          console.log("Day ahead prices are not ready:", skewDays(dayOffset));
         }
+
       })
       .catch(function (err) {
       if (err.response) {

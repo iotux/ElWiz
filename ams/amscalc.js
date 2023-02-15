@@ -47,7 +47,7 @@ const amsCalc = {
     }
 
     if (obj.meterDate.substr(11, 8) === "00:00:10") {
-      // Once every day
+      // Once every day after midnight
       // https://youtu.be/j81Vx-0uM0k
       db.set("prevDayMeterConsumption", obj.lastMeterConsumption);
       db.set("prevDayMeterProduction", obj.lastMeterProduction);
@@ -56,10 +56,7 @@ const amsCalc = {
 
       obj.accumulatedConsumption = 0;
       obj.accumulatedProduction = 0;
-      
-      // Moved to calculatecost.js
-      //db.set("accumulatedCost", 0);
-      //db.set("accumulatedReward", 0);
+
       db.set("minPower", 9999999);
       db.set("averagePower", 0);
       db.set("maxPower", 0);
@@ -69,7 +66,6 @@ const amsCalc = {
     } else {
       obj.accumulatedConsumption = (obj.lastMeterConsumption - db.get("prevDayMeterConsumption")).toFixed(3) * 1;
       obj.accumulatedProduction = (obj.lastMeterProduction - db.get("prevDayMeterProduction")).toFixed(3) * 1;
-
     }
 
     if (obj.meterDate.substr(8, 2) === "01") {
