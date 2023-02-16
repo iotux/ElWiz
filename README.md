@@ -1,21 +1,26 @@
-# ElWiz - program for å lese data fra Tibber Pulse
+# ElWiz - et program for å lese data fra Tibber Pulse
 
 **Remark:** _This program is mainly developed for a Norwegian or nordic country audience, and this **README** is therefore written in the Norwegian language. However, the program comments are written in English for those who are not natives._
 
 ## Innhold
 
-- [Intro](#intro)
-- [Installering](#installering)
-- [Tilpasning for egen broker](#tilpasning-for-egen-lokal-broker)
-- [Oppsett av Pulse](#oppsett-av-pulse)
-- [AMS-målerens data](#ams-m%C3%A5lerens-data)
-- [Data fra Pulse](#data-fra-pulse)
-- [MQTT-data fra ElWiz](#mqtt-data-fra-elwiz)
-- [Signaler til programmet](#signaler-til-programmet)
-- [Styring av Pulse](#styring-av-pulse)
-- [Kontinuerlig drift](#kontinuerlig-drift)
-- [Home Assistant (HA) integrasjon](#home-assistant-ha-integrasjon)
-- [Referanser](#referanser)
+- [ElWiz - et program for å lese data fra Tibber Pulse](#elwiz---et-program-for-å-lese-data-fra-tibber-pulse)
+  - [Innhold](#innhold)
+  - [Intro](#intro)
+      - [Hva du trenger](#hva-du-trenger)
+      - [Kjekt å ha men ikke påkrevet](#kjekt-å-ha-men-ikke-påkrevet)
+  - [Installering](#installering)
+  - [Tilpasning for egen lokal broker](#tilpasning-for-egen-lokal-broker)
+  - [Oppsett av Pulse](#oppsett-av-pulse)
+  - [AMS-målerens data](#ams-målerens-data)
+  - [Data fra Pulse](#data-fra-pulse)
+  - [MQTT-data fra ElWiz](#mqtt-data-fra-elwiz)
+  - [Filtrering av data](#filtrering-av-data)
+  - [Signaler til programmet](#signaler-til-programmet)
+  - [Styring av Pulse](#styring-av-pulse)
+  - [Kontinuerlig drift](#kontinuerlig-drift)
+  - [Home Assistant (HA) integrasjon](#home-assistant-ha-integrasjon)
+  - [Referanser](#referanser)
 
 ## Intro
 
