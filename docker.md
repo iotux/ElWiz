@@ -43,6 +43,7 @@ protocol mqtt
 persistence true
 persistence_location /mosquitto/data/
 log_dest file /mosquitto/log/mosquitto.log
+#password_file /mosquitto/config/password.txt
 allow_anonymous true
 ```
 
