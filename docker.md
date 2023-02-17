@@ -56,10 +56,9 @@ you can pull mosquitto from **dockerhub**.
 docker run -d \
  --name mosquitto \
  --privileged \
- --privileged \
  --restart=unless-stopped \
  -e TZ=Europe/Oslo \
- -v ~/docker/mqtt/mosquitto.conf:/mosquitto:/mosquitto/config/mosquitto.conf \
+ -v ~/docker/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf \
  -v ~/docker/mqtt/password.txt:/mosquitto/password.txt \
  -v ~/docker/mqtt:/mosquitto \
  --network=host \
