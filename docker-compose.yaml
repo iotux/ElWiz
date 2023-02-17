@@ -10,6 +10,7 @@ services:
       - "9001:9001"
     volumes:
       - ~/docker/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ~/docker/mqtt/password.txt:/mosquitto/password.txt
       - ~/docker/mqtt/data:/mosquitto/data
       - ~/docker/mqtt/log:/mosquitto/log
 

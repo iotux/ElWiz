@@ -15,8 +15,8 @@ const onPlugEvent1 = async function (obj) {
   // No prices for listtype 1
   // Send to publish
   event.emit('publish1', obj)
-  //if (debug)
-  //  console.log('List1: plugselector',obj);
+  if (debug)
+    console.log('List1: plugselector',obj);
 }
 
 const onPlugEvent2 = async function (obj) {
@@ -29,8 +29,8 @@ const onPlugEvent2 = async function (obj) {
   }
   // Send to publish
   event.emit('publish2', obj)
-  //if (debug)
-  //  console.log('List2: plugselector',obj);
+  if (debug)
+    console.log('List2: plugselector',obj);
 }
 
 const onPlugEvent3 = async function (obj) {

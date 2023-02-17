@@ -60,6 +60,7 @@ docker run -d \
  --restart=unless-stopped \
  -e TZ=Europe/Oslo \
  -v ~/docker/mqtt/mosquitto.conf:/mosquitto:/mosquitto/config/mosquitto.conf \
+ -v ~/docker/mqtt/password.txt:/mosquitto/password.txt \
  -v ~/docker/mqtt:/mosquitto \
  --network=host \
  eclipse-mosquitto
