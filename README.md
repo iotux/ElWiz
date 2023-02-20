@@ -1,82 +1,90 @@
-# ElWiz - et program for å lese data fra Tibber Pulse
+# ElWiz - a program to read data from Tibber Pulse
 
-**Remark:** _This program is mainly developed for a Norwegian or nordic country audience, and this **README** is therefore written in the Norwegian language. However, the program comments are written in English for those who are not natives._
+## Contents
 
-## Innhold
-
-- [ElWiz - et program for å lese data fra Tibber Pulse](#elwiz---et-program-for-å-lese-data-fra-tibber-pulse)
-  - [Innhold](#innhold)
+- [ElWiz - a program to read data from Tibber Pulse](#elwiz---a-program-to-read-data-from-tibber-pulse)
+  - [Contents](#contents)
   - [Intro](#intro)
-      - [Hva du trenger](#hva-du-trenger)
-      - [Kjekt å ha men ikke påkrevet](#kjekt-å-ha-men-ikke-påkrevet)
-  - [Installering](#installering)
-  - [Tilpasning for egen lokal broker](#tilpasning-for-egen-lokal-broker)
-  - [Oppsett av Pulse](#oppsett-av-pulse)
-  - [AMS-målerens data](#ams-målerens-data)
-  - [Data fra Pulse](#data-fra-pulse)
-  - [MQTT-data fra ElWiz](#mqtt-data-fra-elwiz)
-  - [Filtrering av data](#filtrering-av-data)
-  - [Signaler til programmet](#signaler-til-programmet)
-  - [Styring av Pulse](#styring-av-pulse)
-  - [Kontinuerlig drift](#kontinuerlig-drift)
-  - [Home Assistant (HA) integrasjon](#home-assistant-ha-integrasjon)
-  - [Referanser](#referanser)
+      - [What you need](#what-you-need)
+      - [Nice to have but not required](#nice-to-have-but-not-required)
+  - [Installation](#installation)
+  - [Adaptation for own local broker](#adaptation-for-own-local-broker)
+  - [Setup of Pulse](#setup-of-pulse)
+  - [AMS meter data](#ams-meter-data)
+  - [Data from Pulse](#data-from-pulse)
+  - [MQTT data from ElWiz](#mqtt-data-from-elwiz)
+  - [Data filtering](#data-filtering)
+  - [Signals to the program](#signals-to-the-program)
+  - [Control of Pulse](#control-of-pulse)
+  - [Continuous operation](#continuous-operation)
+  - [Home Assistant (HA) integration](#home-assistant-ha-integration)
+  - [References](#references)
 
 ## Intro
 
-**Tibber Pulse** er en microcontroller (MCU) som leser data om strømforbruk fra en **AMS-måler**. Nedenfor er den angitt som **Pulse**. **ElWiz** bruker **Pulse** for å hente data fra **AMS-målere**.
+**Tibber Pulse** is a microcontroller (MCU) capable of reading power consumption data from an **AMS meter**.
+In the following it is referred as **Pulse**.
+**ElWiz** retrieves data from **AMS meters** by using **Pulse**.
 
-Målgruppen for **ElWiz** er personer som er interessert i **smarte hjem** og **IoT**, og som vil gjøre arbeidet selv uten avhengighet av ekserne ressurser eller skytjenester (cloud services). Formålet er å hente data fra en **AMS-måler** for å bruke det i **Home Assistant**, **OpenHAB** eller et lignende system. Programmet tolker rå binærdata fra **Pulse** og oversetter det til **JSON**-format som er enkelt å utnytte videre. Programmet bruker ikke **SSL**, og det er dermed enkelt å bruke for dem som har en ekstra PC, **Raspberry Pi** eller sin egen server hjemme. Programmet er beregnet på å gå døgnkontinuerlig, og er derfor ikke egnet til å kjøre på f. eks. en bærbar eller annen maskin som man gjerne slår av etter bruk.
+**ElWiz** is made for people who want to build a **smart home** without being dependent of external resources or cloud services. The purpose is to retrieve data from an **AMS meter** to use in **Home Assistant**, **OpenHAB** or a similar system.
 
-Brukere av **AMS-målere** blir avregnet per time. Programmet **fetchprices.js** henter **spotpriser** fra **Nordpool** kraftbørs og beregner brukerens strømkostnader time for time. For å få nytte av dette må konfigurasjonsfila **config.yaml** justeres i henhold til de takstene for strøm som brukeren betaler. **fetchprices.js** er beskrevet i detalj i [**fetchprices.md**](https://github.com/iotux/ElWiz/blob/master/fetchprices.md).
+The program interprets raw binary data from **Pulse** and translates it into easy understandable **JSON** format. The program does not use **SSL**, and it is therefore easy to use for those who have an extra PC, **Raspberry Pi** or their own server at home. The program is designed to run continuously 24 hours a day, and is therefore not suitable for running on a laptop or other machine that you like to switch off after use.
 
-**ElWiz** er skrevet i **node.js** (javascript) for Linux og består av en enkelt programfil for å gjøre det enkelt å installere og bruke, samt en fil med konfigurasjonsdata. De som vil bruke det på **Mac** eller **Windows**, må muligens gjøre noen mindre endringer i programmet. Dette gjelder eventuelt **signaler** som beskrives lenger ned.
+**ElWiz** can also run in a **Docker environment** along with an **MQTT broker** and **Home Assistant**. A separate **Docker guide** is is found 
+[**here: docker.md**](https://github.com/iotux/ElWiz/blob/master/docker.md)
 
-**ElWiz** er testet med kun tilgang til **Kaifa MA304H3E AMS-måler**. Det er mulig at det også må gjøres noen mindre endringer hvis det skal brukes på en **AMS-måler** fra en annen produsent.
+Users of **AMS meters** are billed per hour. The program **fetchprices.js** retrieves **spot prices** from the **Nordpool** power exchange and calculates the user's electricity costs hour by hour. To take advantage of this, the configuration file **config.yaml** must be adjusted according to the power supplier's tariffs. 
+**fetchprices.js** is described in detail in [**fetchprices.md**](https://github.com/iotux/ElWiz/blob/master/fetchprices.md).
 
-Nedenfor er det bekrevet hva du trenger for å installere **ElWiz** og sette opp **Pulse**. Du kan deretter sende data til **Home Assistant**, **OpenHAB**, eller lignende systemer. Det vil være opp til deg som bruker å tilpasse disse for å utnytte data fra programmet.
+**ElWiz** is written in **node.js** (javascript) for Linux and it is easy to install and use. A configuration file is available for individual adjustments. Those who want to use it on **Mac** or **Windows** may need to make some minor changes to the program. This possibly applies to **signals** which are described further down.
 
-#### Hva du trenger
+**ElWiz** is tested with only access to the **Kaifa MA304H3E AMS meter**. It is possible that some minor changes must also be made if it is to be used on an **AMS meter** from another manufacturer.
 
-- en **Tibber Pulse**
-- tilgang til en **MQTT broker**
-- Noe kjennskap til **MQTT**
-- kunne redigere enkle opplysninger i en tekstfil
+Below is described what you need to install **ElWiz** and set up **Pulse**. You can then send data to **Home Assistant**, **OpenHAB**, or similar systems. In **Home Assistant** mode **ElWiz** has builtin **auto discovery**
 
-#### Kjekt å ha men ikke påkrevet
+#### What you need
 
-- tilgang til **Home Assistant** eller annen tilsvarende plattform
-- kjennskap til programmering i **node.js** (javascript)
-- MQTT-kontrollert kaffekoker
+- a **Tibber Pulse**
+- access to an **MQTT broker**
+- Some knowledge of **MQTT**
+- be able to edit simple information in a text file
 
-## Installering
+#### Nice to have but not required
 
-For de som ikke kjenner **git**, vil det enkleste være å laste ned **ZIP-arkivet** her: https://github.com/iotux/Pulse/archive/master.zip og pakke det ut i egen katalog (mappe). Brukere av **git** kan som vanlig bruke **git clone**. Programmer må ha skrivetilgang til katalogen.
+- access to **Home Assistant** or another similar platform
+- knowledge of programming in **node.js** (javascript)
+- MQTT-controlled coffee maker
 
-Det enkleste er å bruke **git clone** for å installere programmet:
+## Installation
+
+For those who don't know **git**, it is easy to download and install from the **ZIP archive** here: https://github.com/iotux/Pulse/archive/master.zip 
+Download and extract it in its own directory (folder). Users of **git** can use **git clone** as usual. The program needs write access to the directory.
+
+The easiest is to use **git clone** to install the program:
 
 **git clone https://github.com/iotux/ElWiz.git**
 
-Deretter installeres programmet med følgende kommandoer:
+Then install the program with the following commands:
 
 **cd ElWiz**
+
 **npm install**
 
-Følgende avhengigheter blir dermed installert
+The following dependencies are thus installed
 
 ```
 * axios
 * mqtt
-* date-fns
+* date fns
 * xml-js
 * node-schedule
 * simple-json-db
 * yamljs
 ```
 
-## Tilpasning for egen lokal broker
+## Adaptation for own local broker
 
-Fila **config.yaml.sample** kopieres til **config.yaml**. Hvis Du installerer programmer på samme maskin som din lokale broker, så trenger du sannsynligvis ikke endre ytterligere i **config.yaml**. I motsatt fall vil det være å angi **IP-adressen** og eventuelt **brukernavn** og **passord** til egen **MQTT-broker**. De viktigste parametrene i konfigurasjonsfila ser slik ut:
+The file **config.yaml.sample** is copied to **config.yaml**. If you install programs on the same machine as your local broker, you probably don't need to make any further changes in **config.yaml**. Otherwise, it will be necessary to enter the **IP address** and possibly the **username** and **password** of your own **MQTT broker**. The most important parameters in the configuration file look like this:
 
 ```yaml
 ---
@@ -85,12 +93,12 @@ Fila **config.yaml.sample** kopieres til **config.yaml**. Hvis Du installerer pr
 mqttBroker: localhost
 brokerPort: 1883
 
-# Enter credetials if needed
+# Enter credentials if needed
 userName:
 password:
 
 # Listening topic
-topic: tibber/#
+topic: tibber
 
 # Topics for publishing
 pubTopic: pulse/meter
@@ -106,15 +114,15 @@ onlineMessage: Pulse is talking
 offlineMessage: Pulse is quiet
 
 # Debug mode at startup
-DEBUG: true
+DEBUG: threaten
 
 # Republish mode at startup
-REPUBLISH: true
+REPUBLIC: threaten
 
 # The next options are for Home Assistant
 # Publish to Home Assistant (defaults to true)?
 # Set this to "false" if you don't want HA auto discovery
-haPublish: true
+havePublish: true
 
 # Home Assistant sensor base topic (defaults to "elwiz/sensor")
 # This is different from "pubTopic" to separate it from basic use of ElWiz
@@ -122,7 +130,7 @@ haPublish: true
 haBaseTopic: elwiz/sensor
 
 # Publish options for list 1, 2, 3 & status
-# Setting "list3Retain" to "true" may help to
+# Setting "list3Retain" to "true" may help
 # get the messages stick on an unstable system
 list1Retain: false
 list1Qos: 0
@@ -135,122 +143,137 @@ statusRetain: false
 statusQos: 0
 ```
 
-Det er verdt å merke seg følgende:
+It is worth noting the following:
 
-**topic** under **\# Listening topics** må samsvare med det som angis i **mqtt_topic** når du konfigurerer **Pulse**. Andre endringer skal normalt ikke være påkrevet.
+**topic** under **\# Listening topics** must match what is specified in **mqtt_topic** when configuring **Pulse**. Other changes should not normally be required.
 
-Programmet har "ferdig" integrasjon for **Home Assistant** slik det er konfigurert. Ved behov for å integrere med andre systemer, kan dette gjøres med "plugins".
+The program has "ready-made" integration for **Home Assistant** as configured. For other systems some configuration changes are likely needed.
+A plugin system is used to transform **Pulse** messages to other formats.
 
-Ved behov for å gjøre endringer i hvordan **ElWiz** opererer vil det være nyttig å midlertidig gi **DEBUG** verdien **true**.
+## Setup of Pulse
 
-## Oppsett av Pulse
+The first step to connect **Pulse** to your own network is to force it into AP mode. By doing a hard reset, it will appear in the network as an access point.
+A paper clip is what is needed. **Pulse** has a small hole for resetting to factory defaults. 
+It is on the opposite side of where the micro-USB connector is.
+It is usually most appropriate to supply **Pulse** with power from a mobile charger or similar.
+When the power is connected, use an unfolded paper clip in the small hole and press until **Pulse** begins to flash rapidly (after about 5 seconds). 
+It should now be possible to find it in the network with the SSID **Tibber Pulse**.
+You must connect a PC or mobile phone to this. The password is on the back of the **Pulse** in **bold** text in a frame. When **Pulse** has accepted the connection, you can reach it in the browser at address **http://10.133.70.1**. **Pulse's** website that appears will look like this:
 
-Første steg for å koble **Pulse** til eget nett, er å tvinge den inn i AP-modus. Ved å gjøre en hard reset, vil den komme opp i nettet som et aksesspunkt. En binders er det som skal til. På sida av **Pulse** er det et lite hull. Det er på motsatt side av der hvor micro-usbkontakten er. Det er som oftest mest hensiktsmessig å forsyne **Pulse** med strøm fra en mobillader eller lignende. Når strømmen er tilkoblet, bruker man en utbrettet binders i det lille hullet og trykker inn til **Pulse** begynner å blinke hurtig (etter ca 5 sekunder). De skal nå være mulig å finne den i nettet med SSID **Tibber Pulse**. Man må koble PC eller mobiltelefon til denne. Passordet står på baksiden av **Pulse** med **fet** skrift i en ramme. Når **Pulse** har akseptert tilkoblingen, kan man nå den i nettleseren på adresse **http://10.133.70.1**. **Pulses** nettside som kommer opp vil se slik ut:
+![Pulse in AP mode](https://github.com/iotux/ElWiz/blob/master/Pulse-AP.jpg)
 
-![Pulse i AP-modus](https://github.com/iotux/ElWiz/blob/master/Pulse-AP.jpg)
+The fields **ssid** and **psk** are filled in with the name of your own WiFi router and password.
 
-Feltene **ssid** og **psk** fylles ut med navnet på egen WiFi-ruter og passord.
+The fields **mqtt_url** and **mqtt_port** are filled in with the **IP address** of your own broker and port number **1883** for use without **SSL**.
+If the broker is set up to require authentication with username and password, this is entered in the field **mqtt_url**.
 
-Feltene **mqtt_url** og **mqtt_port** fylles ut med **IP-adressen** til din egen broker og portnummer **1883** for bruk uten **SSL**. Hvis brokeren er satt opp for å kreve autentisering med brukernavn og passord, så angis dette i feltet **mqtt_url**. Hvis brukernavnet er **oladunk** og passordet er **hemmelighet1**, så angis dette slik: **oladunk:hemmelighet1@din.broker.adresse**, hvor broker-adresse kan være et **FQDN vertsnavn** eller **IP-adresse**.
+If the username is **janedoe** and the password is **secret1**, then this is specified like this:
 
-I feltet **mqtt_topic** kan du legge inn et fritt valgt navn. Det bør være forskjellig fra topic som bruker i programmet for å sende meldinger. Ettersom **tibber** er forvalgt i programmet, kan det være greit å bruke her.
+**janedoe:secret1@your.broker.address**,
 
-Feltet **mqtt_topic_sub** er et **topic** som **Pulse** abonnerer på. For å markere at **MQTT-meldinger** går motsatt veg, så kan du f. eks. bruke **rebbit** her. Dermed er du sikret mot at det kommer i konflikt med andre **MQTT-meldinger**. Så langt har jeg funnet ut at ved å sende meldingen _"reboot"_, så vil **Pulse** svare med _"Debug: rebooting"_ og starte på nytt. Hvis man f. eks. sender meldingen _"tull"_, så vil den svare med _"Debug: Unknown command 'tull'"_. Det er mer om dette i avsnittet **Styring av Pulse**.
+where broker-address can be a **FQDN hostname** or **IP adress**.
 
-Feltet **update_url** ser ut til å trenge en verdi. Jeg har brukt adressen til min egen broker her. Formålet er åpenbart for oppgradering av firmvaren i **Pulse**. Også her vil det være interessant å få informasjon hvis noen har.
+In the field **mqtt_topic** a freely chosen topic is entered. It should be different from the topic used in the program to send messages. As **tibber** is preselected in the program, it may be fine to use here.
 
-De øvrige feltene kan stå tomme med mindre du ønsker å bruke **SSL**. Når feltene er fylt ut og sendt til **Pulse** går det noen sekunder, og det bebynner å blinke grønt. Det er et tegn på at **Pulse** har etablert seg i ditt eget nett. Når det skjer, er den ikke lenger i **AP-modus**, og tilgang til web-grensesnittet er ikke lenger mulig. Når dette er klart, skal det bare være å plugge **Pulse** inn i **HAN-kontakten** på **AMS-måleren**, og **Pulse** vil begynne å levere **MQTT-meldinger**.
+The **mqtt_topic_sub** field is a **topic** that **Pulse** subscribes to. To indicate that **MQTT messages** go the opposite way, you can e.g. use **rebbit** here. This ensures that it does not conflict with other **MQTT messages**. So far I have found that by sending the message _"reboot"_, **Pulse** will respond with _"Debug: rebooting"_ and reboot. If you e.g. sends the message _"nonsense"_, then it will respond with _"Debug: Unknown command 'nonsense'"_. There is more about this in the section **Controlling Pulse**.
 
-## AMS-målerens data
+The **update_url** field seems to need a value. I have used the address of my own broker here. The purpose is obviously for upgrading the firmware in **Pulse**.
+It would be interesting to get information about this if anyone has.
 
-Data fra **AMS-måleren** kommer i 3 forskjellige varianter. **List 1, List 2**, og **List 3** referer til **NVE** sin dokumentasjon for **AMS-målere** Kort beskrevet er det slik:
+The other fields can be left empty unless you want to use **SSL**. When the fields have been filled in and sent to **Pulse**, a few seconds pass and it starts flashing green. It is a sign that **Pulse** is connectdto your own network. When that happens, it is no longer in **AP mode** and access to the web interface is no longer possible. Once this is done, simply plug the **Pulse** into the **HAN connector** of the **AMS meter** and the **Pulse** will start delivering **MQTT messages**.
 
-- **List 1** inneholder det aktuelle strømforbruket målt i kW, samt tidspunkt. Denne typen mottas i intervaller på 2 eller 2,5 sekunder.
+## AMS meter data
 
-- **List 2** inneholder i tillegg effekt, strøm og spenning som mottas i intervaller på 10 sekunder
+Data from the **AMS meter** comes in 3 different variants. **List 1, List 2**, and **List 3** refer to **NVE**'s documentation for **AMS meters**. Briefly described, it is as follows:
 
-- **List 3** inneholder i tillegg til **List 2** akkumulerte data for hittil brukt strøm. Dette mottas hver hele time.
+- **List 1** contains the relevant power consumption measured in kW, as well as the time. This type is received in 2 or 2.5 second intervals.
 
-Dette er beskrevet mer utførlig lenger nede, samt synliggjort i eksemplene nedenfor.
+- **List 2** also contains power, current and voltage which are received in intervals of 10 seconds
 
-## Data fra Pulse
+- **List 3** contains, in addition to **List 2**, accumulated data for electricity used so far. This is received every full hour.
 
-Fra **Pulse** kommer en oppstartsmelding, statusmeldinger og **AMS** målerdata. **Pulse** mangler derimot en **LastWill**-melding. En slik melding skal som regel sendes til brokeren ved oppstart av enheten. Hvis brokeren mister kontakten med enheten, vil den sende denne meldingen til abonnenter. For å kompensere for denne mangelen, er det en **"watchdog"-funksjon** i **ElWiz**. Dette er en teller som teller ned med et intervall på 1 sekund. Når programmet mottar en melding fra **Pulse**, gjenoppfrisker programmet denne telleren. Hvis data fra **Pulse** uteblir, vil telleren fortsette å telle ned. Når den får verdien 0, vil programmet sende en **MQTT-melding** som varsel på at det mangler data fra **Pulse**. Telleren er i utgangspunktet satt til 15 sekunder, men denne verdien kan endres i programkoden.
+This is described in more detail further down, as well as made visible in the examples below.
+
+## Data from Pulse
+
+From **Pulse** comes a start-up message, status messages and **AMS** meter data. **Pulse**, on the other hand, lacks a **LastWill** message. Such a message should normally be sent to the broker when the device is started.
+If the broker loses contact with the device, it will send this message to subscribers. To compensate for this shortcoming, there is a **"watchdog" feature** in **ElWiz**. This is a counter that counts down with an interval of 1 second. When the program receives a message from **Pulse**, the program refreshes this counter. If data from **Pulse** is missing, the counter will continue to count down. When it gets the value 0, the program will send an **MQTT message** as a warning that there is no data from **Pulse**. The counter is initially set to 15 seconds, but this value can be changed in the program code.
 
 ```
 // The watchdog timer
 const watchValue = 15;
 ```
 
-## MQTT-data fra ElWiz
+## MQTT data from ElWiz
 
-I **ElWiz** er rådata fra **AMS-måleren** konvertert til lesbart **JSON**-format. Det er ikke gitt at formatet passer for alle. Det er derfor laget mulighet for å "plugins" for individuelle tilpasninger.
+In **ElWiz**, the raw data from the **AMS meter** is converted to readable **JSON** format. It is not a given that the format is suitable for everyone. The possibility of "plugins" for individual adaptations has therefore been created.
 
-Brukere av **fetchprices** vil få tilgang til spotpriser. Priser fra egen leverandør angis i **config.yaml**, og kostnader blir derpå beregnet i **ElWiz**.
+Users of **fetchprices** will have access to spot prices. Prices from own suppliers are entered in **config.yaml**, and costs are then calculated in **ElWiz**.
 
-Eksempel på data prisdata fra NordPool:
+Example of price data from NordPool:
 
 ```javascript
 {
-  "lastHourCost": 1.9432,  // Local valuta
-  "spotPrice": 0.6163,     // Local valuta
-  "startTime": '2020-08-12T11:00:00',
-  "endTime": '2020-08-12T12:00:00'
+   "lastHourCost": 1.9432, // Local currency
+   "spotPrice": 0.6163, // Local currency
+   "startTime": '2020-08-12T11:00:00',
+   "endTime": '2020-08-12T12:00:00'
 }
 ```
 
-Se egen dokumentasjon i **fetchprices.md**
+See separate documentation in **fetchprices.md**
 
-## Filtrering av data
+## Data filtering
 
-Kmmer...
+TODO...
 
-## Signaler til programmet
+## Signals to the program
 
-Er du en lykkelig eier av Linux, kan du bruke signaler for å styre funksjoner i **ElWiz**. I programmer som behandler data er det obligatorisk å fange opp f. eks. **\<Ctrl C\>** eller **kill**. Formålet er å lagre data før programmet drepes. Når programmet startes, får det tildelt en prosess-ID, PID. Denne skrives ut til konsollet når programmet starter og brukes for å sende signaler til programmet. Det kan også brukes for å aktivisere endringer i **config.yaml** uten å starte programmet på nytt. Når programmet startes, skrives denne meldingen til konsollet:
+If you are a happy owner of Linux, you can use signals to control functions in **ElWiz**. In programs that process data, it is mandatory to capture e.g. **\<Ctrl C\>** or **kill**. The purpose is to save data before the program is killed. When the program is started, it is assigned a process ID (PID).
+This is printed to the console when the program starts and is used to send signals to the program. It can also be used to activate changes to **config.yaml** without restarting the application. When the program is started, this message is written to the console:
 
 ```
-ElWis is performing, PID: 32512
+ElWi is performing, PID: 32512
 ```
 
-I programmet brukes signal blant annet for å skru debugging av og på. Det gjøres ved hjelp av signalet **SIGUSR1**. Fra kommandolinja ser det slik ut:
+In the program, signals are used, among other things, to turn debugging on and off. This is done using the signal **SIGUSR1**. From the command line it looks like this:
 
 ```
 kill -USR1 12345
 ```
 
-Dette slår debuggging på hvis den er avslått, og av hvis den er påslått.
+This turns debugging on if it is turned off, and off if it is turned on.
 
-Tilgjengelige signaler:
+Available signals:
 
-- **SIGHUP** - Leser inn fila **config.yaml**
-- **SIGUSR1** - Slår debugging av eller på
-- **SIGTERM** - Lagrer fila **power.json** før programmet stoppes
-- **SIGINT** - Lagrer fila **power.json** før programmet stoppes
+- **SIGHUP** - Reading in the file **config.yaml**
+- **SIGUSR1** - Turns debugging on or off
+- **SIGTERM** - Saves the file **power.json** before stopping the program
+- **SIGINT** - Saves the file **power.json** before stopping the program
 
-Legg merke til at **SIG** fjernes fra kommandoen for å sende signaler. For **SIGTERM** ser det slik ut:
+Note that **SIG** is removed from the command to send signals. For **SIGTERM** it looks like this:
 
 ```
 kill -TERM 23456
 ```
 
-**\<Ctrl C\>** sender **SIGINT** til programmet
+**\<Ctrl C\>** sends **SIGINT** to the program
 
-## Styring av Pulse
+## Control of Pulse
 
-**Pulse** har noen funksjoner som kan styres ved hjelp av **MQTT-meldinger**. Det gjøres ved å sende meldingene med **topic** som er angitt i feltet **mqtt_topic_sub** i weg-grensesnittet. Dette er ikke dokumentert, men ved å prøve forskjellige alternativer, har jeg funnet disse funksjonene.
+**Pulse** has some features that can be controlled using **MQTT messages**. This is done by sending the messages with the **topic** specified in the **mqtt_topic_sub** field in the web interface. This is not documented, but by trying different options, I have found these functions.
 
-- reboot - Starter **Pulse** på nytt
-- update - OTA-oppdatering av styreprogram (informasjon om "update_url" mangler)
+- reboot - Restarts **Pulse**
+- update - OTA update of driver software (information about "update_url" is missing)
 
-De som bruker **mosquitto** broker, har tilgang til **mosquitto_pub** for å publisere medinger. Ved å bruke det **mqtt_topic_sub** som ble oppgitt i oppsett av **Pulse**, f. eks. **rebbit**, så vil en kommano til **Pulse** se slik ut når man sender meldinga **reboot**:
+Those who use the **mosquitto** broker have access to **mosquitto_pub** to publish opinions. By using the **mqtt_topic_sub** that was specified in the setup of **Pulse**, e.g. **rebbit**, then a command to **Pulse** will look like this when you send the message **reboot**:
 
 ```
 mosquitto_pub -h localhost -t rebbit -m reboot
-Debug: Rebooting
+Debug: Reboot
 ```
 
-Ved å sende kommandoen **update**, så vi man få dette svaret:
+By sending the **update** command, we saw this response:
 
 ```
 mosquitto_pub -h localhost -t rebbit -m "update"
@@ -258,26 +281,27 @@ Debug: Update in progress
 Debug: Firmware update failed: -1
 ```
 
-## Kontinuerlig drift
+## Continuous operation
 
-Et hendig verktøy å bruke for programmer som skal være igang døgnet rundt, er **PM2** https://pm2.keymetrics.io/
-Med **PM2** har du kontroll på stop, start, restart, automatisk start etter oppstart av PC/server, minneforbruk, logging og mye mer. Det er vel verdt bryet å ta en titt på.
+A handy tool to use for programs that must be running around the clock is **PM2** https://pm2.keymetrics.io/
+With **PM2** you have control over stop, start, restart, automatic start after starting the PC/server, memory consumption, logging and much more. It's well worth the trouble to take a look.
 
-## Home Assistant (HA) integrasjon
+## Home Assistant (HA) integration
 
-**ElWiz** har ferdig integrasjon for **HA**. En forutsetning for dette er at [Home Assistant MQTT Integration](https://www.home-assistant.io/integrations/mqtt/) er installert.
+**ElWiz** has complete auto discovery integration for **HA**. A prerequisite for this is that [Home Assistant MQTT Integration](https://www.home-assistant.io/integrations/mqtt/) is installed.
 
-Når **ElWiz** starter opp, så vil programmet "oppdages" av **HA** sin **auto discovery**-mekanisme. Dette kommer fram i listen over **Enheter** i **HA**. Der presenterer **ElWiz** seg som **ElWiz Pulse Enabler**. I panelet **Energi** kan deretter **ElWiz** registreres som hovedkilde for importert strøm.
+When **ElWiz** starts up, the program will be "discovered" by **HA**'s **auto discovery** mechanism. This appears in the list of **Units** in **HA**. There **ElWiz** presents itself as **ElWiz Pulse Enabler**. In the panel **Energy**, **ElWiz** can then be registered as the main source of imported electricity.
 
-Integrasjonen mot **HA** er beskrevet i eget dokument (**kommer**)
+The integration with **HA** is described in a separate document (**coming**)
 
-## Referanser
+## References
 
-Under kartleggingen av data fra **Tibber Pulse**, har har jeg hatt god hjelp av informasjon fra @daniel.h.iversen and @roarfred og andre innlegg i dette diskusjonsforumet https://www.hjemmeautomasjon.no/forums/topic/4255-tibber-pulse-mqtt/.
+During the mapping of data from **Tibber Pulse**, I have had good help from information from @daniel.h.iversen and @roarfred and other posts in this discussion forum https://www.hjemmeautomasjon.no/forums/topic/ 4255-tibber-pulse-mqtt/.
 
-Nedenfor er linker med nyttig informasjon for de som er interessert i dekodingen.
+Below are links with useful information for those interested in the decoding.
 
-- [Informasjon fra NVE om HAN-grensesnittet](https://github.com/roarfred/AmsToMqttBridge/blob/master/Documentation/NVE_Info_kunder_HANgrensesnitt.pdf)
-- [Dekoding i Python (av @Danielhiversen)](https://github.com/Danielhiversen/pyHanSolo/blob/master/han_solo/__init__.py)
-- [Dekoding i C (av @roarfred)](https://github.com/roarfred/AmsToMqttBridge/blob/master/Code/Arduino/KaifaTest/KaifaTest.ino)
-- [Eksempel på dekoding av data (av @roarfred)](https://github.com/roarfred/AmsToMqttBridge/blob/master/Samples/Kaifa/obisdata.md)
+- [Information from NVE about the HAN interface](https://github.com/roarfred/AmsToMqttBridge/blob/master/Documentation/NVE_Info_kunder_HANinterface.pdf)
+- [Decoding in Python (by @Danielihiversen)](https://github.com/Danielihiversen/pyHanSolo/blob/master/han_solo/__init__.py)
+- [Decoding in C (by @roarfred)](https://github.com/roarfred/AmsToMqttBridge/blob/master/Code/Arduino/KaifaTest/KaifaTest.ino)
+- [Example of decoding data (by @roarfred)](https://github.com/roarfred/AmsToMqttBridge/blob/master/Samples/Kaifa/obisdata.md)
+- 
