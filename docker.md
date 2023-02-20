@@ -103,7 +103,34 @@ docker run -d \
  --network=host \
  tuxador/elwiz
 ```
-## 5. Post installation and testing
+## 5. Getting Home Assistant from dockerhub
+**Getting Home Assistant for AMD and Intel architectures**
+```
+docker run -d \
+--name homeassistant \
+--privileged \
+--restart=unless-stopped \
+-e TZ=Europe/Oslo \
+-v ~/docker/hass:/config \
+--network=host \
+homeassistant/home-assistant
+```
+**Getting Home Assistant for Raspberry Pi**
+
+Several images are available for Raspberry Pi.
+The example shown here is for **RPi 4**.
+Change the last line accordingly for other models:
+```
+docker run -d \
+--name homeassistant \
+--privileged \
+--restart=unless-stopped \
+-e TZ=Europe/Oslo \
+-v ~/docker/hass:/config \
+--network=host \
+homeassistant/raspberrypi4-homeassistant:stable
+```
+## 6. Post installation and testing
 
 **Some useful commands to test the installation**
 

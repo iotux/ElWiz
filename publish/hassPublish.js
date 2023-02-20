@@ -62,6 +62,7 @@ const hasspublish = {
   isVirgin: true,
 
   init: function () {
+    // Run once
     if (this.isVirgin) {
       this.isVirgin = false;
       event.on('publish1', onPubEvent1);

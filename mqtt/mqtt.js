@@ -30,9 +30,11 @@ const MQTT = {
       
       this.broker = config.mqttBroker + ":" + config.brokerPort;
       this.mqttOptions = {
-        username: config.userName, password: config.password,
+        username: config.userName,
+        password: config.password,
         will: {
-          topic: config.pubNotice, payload: config.willMessage,
+          topic: config.pubNotice,
+          payload: config.willMessage,
         }
       };
 

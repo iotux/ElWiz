@@ -48,6 +48,20 @@ REPUBLISH: true
 # User has production (solar panels)
 hasProduction: false
 
+#############################################
+# Storage and cache
+# cache
+#  - node
+#  - redis
+#  
+# storage
+#  - mongodb
+#  - mariadb
+#  - custom
+#  - none
+#
+cache: redis
+storage: none
 
 #############################################
 # Possible publishing modes
@@ -56,14 +70,6 @@ hasProduction: false
 # basicPublish
 # customPublish
 #
-# cache
-#  - redis
-#  - memcached
-# storage
-#  - mongodb
-#  - mariadb
-#  - custom
-# 
 publisher: hassPublish
 
 #############################################

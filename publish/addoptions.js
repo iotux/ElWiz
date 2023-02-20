@@ -18,10 +18,12 @@ function addOptions1(obj) {
   console.log('List1: addoptions',obj);
   //forward(obj);
 }
+
 function addOptions2(obj) {
   console.log('List2: addoptions',obj);
   //forward(obj);
 }
+
 function addOptions3(obj) {
   console.log('List3: addoptions', obj);
   //forward(obj);
@@ -34,6 +36,7 @@ const publish = {
   mqttOptions: {},
 
   init: function () {
+    // Run once
     if (this.isVirgin) {
       this.isVirgin = false;
       event.on('list1', addOptions1);

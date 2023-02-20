@@ -9,24 +9,25 @@ const config = yaml.load(configFile);
 let client;
 
 /*
- *
- *
- *
+ * Publishes a plain basic object with only Pulse data
+ * and possibly price and cost information
 */
 function onPubEvent1(obj) {
   delete obj.timestamp;
-  obj.publisher = 'publish';
-  console.log('List1: publish',obj);
+  obj.publisher = 'basicPublish';
+  console.log('List1: basicPublish',obj);
   //forward(obj);
   client.publish(config.pubTopic + "/list1", JSON.stringify(obj, !config.DEBUG, 2), config.list1Opts);
 }
+
 function onPubEvent2(obj) {
-  console.log('List2: publish',obj);
+  console.log('List2: basicPublish',obj);
   //forward(obj);
   client.publish(config.pubTopic + "/list2", JSON.stringify(obj, !config.DEBUG, 2), config.list2Opts);
 }
+
 function onPubEvent3(obj) {
-  console.log('List3: publish', obj);
+  console.log('List3: basicPublish', obj);
   client.publish(config.pubTopic + "/list3", JSON.stringify(obj, !config.DEBUG, 2), config.list3Opts);
   //forward(obj);
 }
@@ -38,6 +39,7 @@ const publish = {
   mqttOptions: {},
 
   init: function () {
+    // Run once
     if (this.isVirgin) {
       this.isVirgin = false;
       event.on('publish1', onPubEvent1);

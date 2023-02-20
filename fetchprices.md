@@ -55,7 +55,7 @@ Som lokal valuta kan brukes **EUR, DKK, NOK eller SEK**. Dette settes i paramete
 priceCurrency: NOK
 ```
 Det er også viktig å angi rett region. Dette får man vite hos netteieren. 
-For **Sverige, Finnland og Danmark** har man følgende myligheter:
+For **Sverige, Finnland og Danmark** har man følgende muligheter:
 ```
 # [SE1, SE2, SE3, SE4, FI, DK1, DK2]
 # [  1,   2,   3,   4,  5,   6,   7]
