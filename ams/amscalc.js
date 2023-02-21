@@ -18,23 +18,22 @@ const amsCalc = {
 
     // Once every hour
     if (obj.meterDate.substr(14, 5) === "00:10") {
-      // Set initial values === current
-      if (db.get("prevDayMeterConsumption") === 0)
+      if (db.get("isVirgin") || db.get("isVirgin") === undefined) {
+        db.set("isVirgin", false);
+        // Set initial values = current
         db.set("prevDayMeterConsumption", obj.lastMeterConsumption);
-      if (db.get("prevDayMeterProduction") === 0)
         db.set("prevDayMeterProduction", obj.lastMeterProduction);
-      if (db.get("prevDayMeterConsumptionReactive") === 0)
         db.set("prevDayMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
-      if (db.get("prevDayMeterProductionReactive") === 0)
         db.set("prevDayMeterProductionReactive", obj.lastMeterProductionReactive);
-
+        db.set("lastMeterConsumption", obj.lastMeterConsumption);
+        db.set("lastMeterProduction", obj.lastMeterProduction);
+        db.sync();
+      }
       // Energy calculations
       obj.accumulatedConsumptionLastHour = (obj.lastMeterConsumption - db.get("lastMeterConsumption")).toFixed(3) * 1;
       obj.accumulatedProductionLastHour = (obj.lastMeterProduction - db.get("lastMeterProduction")).toFixed(3) * 1;
 
       // TODO: Add Reactive?
-
-      // TODO: Save Redis document
 
       // Save current values for next round
       db.set("lastMeterConsumption", obj.lastMeterConsumption);
@@ -42,7 +41,7 @@ const amsCalc = {
       db.set("lastMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
       db.set("lastMeterProductionReactive", obj.lastMeterProductionReactive);
 
-      // Helper (temprary)
+      // Helper (temporary)
       obj.curHour = obj.meterDate.substr(11, 5)
     }
 
@@ -62,7 +61,6 @@ const amsCalc = {
       db.set("maxPower", 0);
       obj.curDay = skewDays(0);
       obj.nextDay = skewDays(1);
-      // TODO: Save Redis & Mongo document
     } else {
       obj.accumulatedConsumption = (obj.lastMeterConsumption - db.get("prevDayMeterConsumption")).toFixed(3) * 1;
       obj.accumulatedProduction = (obj.lastMeterProduction - db.get("prevDayMeterProduction")).toFixed(3) * 1;

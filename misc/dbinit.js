@@ -1,11 +1,18 @@
 const fs = require("fs");
 const JSONdb = require('simple-json-db');
+const yaml = require("yamljs");
+const configFile = "./config.yaml";
+const config = yaml.load(configFile);
+
+const { createClient } = require('redis');
+const client = createClient();
 
 // TODO: make a better storage spec
 const savePath ='./data'
 const energyFile = savePath + '/powersave.json'
 
 const energySavings = {
+  "isVirgin": true,
   "lastMeterConsumption": 0,
   "lastMeterProduction": 0,
   "lastMeterConsumptionReactive": 0,
@@ -24,7 +31,7 @@ const energySavings = {
 };
 
 const db = new JSONdb(energyFile, {}, { jsonSpaces: 2, syncOnWrite: true });
-function dbInit(file, data) { 
+async function dbInit(file, data) { 
   if (fs.existsSync(file)) {
     let savings = fs.readFileSync(file);
     db.JSON(JSON.parse(savings));

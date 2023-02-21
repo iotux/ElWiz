@@ -197,9 +197,9 @@ async function run() {
   await retireDays(keepDays);
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
-    for (let i = (keepDays - 1) * -1; i <= 0; i++) {
-      await getPrices(i);
-    }
+  }
+  for (let i = (keepDays - 1) * -1; i <= 0; i++) {
+    await getPrices(i);
   }
   await getPrices(1)
 }
