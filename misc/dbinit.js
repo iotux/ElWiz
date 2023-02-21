@@ -4,9 +4,6 @@ const yaml = require("yamljs");
 const configFile = "./config.yaml";
 const config = yaml.load(configFile);
 
-const { createClient } = require('redis');
-const client = createClient();
-
 // TODO: make a better storage spec
 const savePath ='./data'
 const energyFile = savePath + '/powersave.json'

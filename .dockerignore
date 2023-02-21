@@ -8,3 +8,5 @@ config.yaml
 # Lagring av siste akkumulerte forbruk
 powersave.*
 tmp/*
+# Ignore .md files
+*.md
