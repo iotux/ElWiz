@@ -94,8 +94,8 @@ mqttBroker: localhost
 brokerPort: 1883
 
 # Enter credentials if needed
-userName:
-password:
+userName: 
+password: 
 
 # Listening topic
 topic: tibber

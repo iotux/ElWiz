@@ -34,4 +34,3 @@ ENTRYPOINT ["pm2", "--no-daemon", "start"]
 CMD ["pm2run.json"]
 #CMD ["pm2run-nordpool.json"]
 #CMD ["pm2run-entsoe.json"]
-
