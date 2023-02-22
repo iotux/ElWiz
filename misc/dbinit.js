@@ -18,10 +18,6 @@ const energySavings = {
   "prevDayMeterProduction": 0,
   "prevDayMeterConsumptionReactive": 0,
   "prevDayMeterProductionReactive": 0,
-  "accumulatedCost": 0,
-  "accumulatedReward": 0,
-  "costLastHour": 0,
-  "rewardLastHour": 0,
   "minPower": 9999999,
   "maxPower": 0,
   "averagePower": 0
