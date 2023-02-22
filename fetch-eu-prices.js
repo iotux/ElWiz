@@ -5,12 +5,15 @@
 const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios') //.default;
+const { createClient } = require('redis');
 const mqtt = require("mqtt");
 const convert = require('xml-js');
 const { format } = require('date-fns')
 const { exit } = require('process');
 const { runInContext } = require('vm');
 const config = yaml.load("config.yaml");
+
+const client = createClient();
 
 const debug = config.DEBUG
 const keepDays = config.keepDays;
@@ -131,9 +134,12 @@ function entsoeUrl(token, periodStart, periodEnd) {
     + "&periodEnd=" + periodEnd;
 }
 
-async function getPrices(days) {
-  if (!fs.existsSync(savePath + "/prices-" + skewDays(days) + ".json")) {
-    let url = entsoeUrl(token, entsoeDate(days), entsoeDate(days + 1));
+async function getPrices(dayOffset) {
+  if (!fs.existsSync(savePath + "/prices-" + skewDays(dayOffset) + ".json")) {
+    let url = entsoeUrl(token, entsoeDate(dayOffset), entsoeDate(dayOffset + 1));
+    let fileName = savePath + '/prices-' + skewDays(dayOffset) + '.json';
+    let redisKey = "prices-" + skewDays(dayOffset);
+
     await request.get(url, reqOpts).then(function (body) {
       let result = convert.xml2js(body.data, { compact: true, spaces: 4 });
       if (result.Publication_MarketDocument !== undefined) {
@@ -181,11 +187,12 @@ async function getPrices(days) {
           offPeakPrice2: (calcAvg(22, 24, oneDayPrices['hourly'])).toFixed(4) * 1,
         }
         //let date = oneDayPrices['hourly'][0].startTime.substr(0, 10) + ".json";
-        let file = savePath + '/prices-' + skewDays(days) + '.json';
-        fs.writeFileSync(file, JSON.stringify(oneDayPrices, false, 2));
-        console.log("Price file saved:", file);
+
+        client.set(redisKey, oneDayPrices);
+        fs.writeFileSync(fileName, JSON.stringify(oneDayPrices, false, 2));
+        console.log("Price file saved:", fileName);
       } else {
-        console.log("Day ahead prices are not ready", skewDays(days));
+        console.log("Day ahead prices are not ready", skewDays(dayOffset));
       }
     }).catch(function (err) {
       if (err.response) {
@@ -211,6 +218,8 @@ async function init() {
 }
 
 async function run() {
+  client.on('error', err => console.log('Redis Client Error', err));
+  await client.connect();
   if (!fs.existsSync(currencyDirectory)) {
     console.log("No currency file present");
     console.log('Please run "./fetch-eu-currencies.js"');

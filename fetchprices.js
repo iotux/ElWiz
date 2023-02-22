@@ -5,9 +5,12 @@
 const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios');
+const { createClient } = require('redis');
 const { format } = require('date-fns');
 const { setWeekWithOptions } = require('date-fns/fp');
 const config = yaml.load("config.yaml");
+
+const client = createClient();
 
 const keepDays = config.keepDays;
 const priceCurrency = config.priceCurrency;
@@ -109,12 +112,13 @@ async function retireDays(offset) {
 
 function writeFile(prices, fileName) {
   //let fileName = savePath + "/prices-" + skewDays(offset) + ".json"
-    fs.writeFileSync(fileName, JSON.stringify(prices, false, 2));
+  fs.writeFileSync(fileName, JSON.stringify(prices, false, 2));
     console.log("Price file saved:", fileName);
 };
 
 async function getPrices(dayOffset) {
   let fileName = savePath + "/prices-" + skewDays(dayOffset) + ".json";
+  let redisKey = "prices-" + skewDays(dayOffset);
   if (!fs.existsSync(fileName)) {
     let url = nordPoolUri + uriDate(dayOffset);
     //console.log('NordPool: ',url);
@@ -164,6 +168,7 @@ async function getPrices(dayOffset) {
             offPeakPrice1: (offPeakPrice1 += offPeakPrice1 * spotVatPercent / 100).toFixed(4) * 1,
             offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
           }
+          client.set(redisKey, JSON.stringify(oneDayPrices));
           writeFile(oneDayPrices, fileName);
         } else {
           console.log("Day ahead prices are not ready:", skewDays(dayOffset));
@@ -194,6 +199,8 @@ async function init() {
 }
 
 async function run() {
+  client.on('error', err => console.log('Redis Client Error', err));
+  await client.connect();
   await retireDays(keepDays);
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
@@ -201,7 +208,9 @@ async function run() {
   for (let i = (keepDays - 1) * -1; i <= 0; i++) {
     await getPrices(i);
   }
-  await getPrices(1)
+  await getPrices(1);
+  // Bails out
+  // await client.disconnect();
 }
 
 init();
@@ -213,3 +222,4 @@ if (runNodeSchedule) {
 } else {
   run();
 }
+
