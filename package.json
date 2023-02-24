@@ -4,6 +4,7 @@
     "date-fns": "^2.29.3",
     "mqtt": "^4.3.7",
     "node-schedule": "^2.1.0",
+    "redis": "^4.6.4",
     "simple-json-db": "^2.0.0",
     "xml-js": "^1.6.11",
     "yamljs": "^0.3.0"
