@@ -55,7 +55,7 @@ if (runNodeSchedule) {
 
 const currencyFile = currencyDirectory + '/currencies-latest.json';
 
-const baseUrl = "https://transparency.entsoe.eu/api";
+const baseUrl = "https://web-api.tp.entsoe.eu/api";
 const token = config.priceAccessToken;
 
 let reqOpts = {
