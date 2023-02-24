@@ -78,7 +78,9 @@ async function getCurrencies() {
     })
 }
 
-function init() {
+async function init() {
+  client.on('error', err => console.log('Redis Client Error', err));
+  await client.connect();
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
   }
