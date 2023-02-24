@@ -6,11 +6,13 @@ const fs = require('fs');
 const yaml = require("yamljs");
 const convert = require('xml-js');
 const request = require('axios');
-
+const { createClient } = require('redis');
 const config = yaml.load("config.yaml");
 
 const savePath = config.currencyDirectory;
 const debug = config.DEBUG;
+
+const client = createClient();
 
 const namePrefix = 'currencies-';
 const url = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
@@ -56,8 +58,12 @@ async function getCurrencies() {
         "rates": getEuroRates( root.Cube)
       }
 
+      let redisKey = namePrefix + obj['date'];
+      client.set(redisKey, JSON.stringify(obj));
       let fileName = savePath + '/' + namePrefix + obj['date'] + '.json';
       fs.writeFileSync(fileName, JSON.stringify(obj, false, 2));
+      redisKey = namePrefix + 'latest';
+      client.set(redisKey, JSON.stringify(obj));
       fileName = savePath + '/' + namePrefix + 'latest.json';
       fs.writeFileSync(fileName, JSON.stringify(obj, false, 2));
       if (debug) {
@@ -75,12 +81,13 @@ async function getCurrencies() {
 function init() {
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
-    getCurrencies();
   }
+  getCurrencies();
 }
 
 init();
 if (runNodeSchedule) {
+  console.log>("Fetch currency rates scheduling started..")
   schedule.scheduleJob(runSchedule, getCurrencies);
 } else {
   getCurrencies();

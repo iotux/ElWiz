@@ -6,7 +6,6 @@ const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios') //.default;
 const { createClient } = require('redis');
-const mqtt = require("mqtt");
 const convert = require('xml-js');
 const { format } = require('date-fns')
 const { exit } = require('process');
@@ -55,6 +54,9 @@ if (runNodeSchedule) {
 
 const currencyFile = currencyDirectory + '/currencies-latest.json';
 
+// For testing puposes
+// const baseUrl = "https://web-api.tp-iop.entsoe.eu/api"
+// For production
 const baseUrl = "https://web-api.tp.entsoe.eu/api";
 const token = config.priceAccessToken;
 
@@ -126,7 +128,7 @@ function calcAvg(start, end, obj) {
 }
 
 function entsoeUrl(token, periodStart, periodEnd) {
-  return baseUrl + "?documentType=A44"
+  return baseUrl + "?docclientumentType=A44"
     + "&in_Domain=10YNO-3--------J"
     + "&out_Domain=10YNO-3--------J"
     + "&securityToken=" + token
@@ -188,7 +190,7 @@ async function getPrices(dayOffset) {
         }
         //let date = oneDayPrices['hourly'][0].startTime.substr(0, 10) + ".json";
 
-        client.set(redisKey, oneDayPrices);
+        client.set(redisKey, JSON.stringify(oneDayPrices));
         fs.writeFileSync(fileName, JSON.stringify(oneDayPrices, false, 2));
         console.log("Price file saved:", fileName);
       } else {
