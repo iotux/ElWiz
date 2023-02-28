@@ -8,7 +8,6 @@ const config = yaml.load(configFile);
 const priceDir = '.' + config.priceDirectory;
 //const priceDir = config.priceDirectory;
 
-let isVirgin = true;
 let dayPrices = {}
 let nextDayPrices = {}
 
@@ -42,13 +41,10 @@ const getPrices = async (date) => {
 }
 
 async function priceInit() {
-  if (isVirgin) {
-    isVirgin = false;
-    dayPrices = await getPrices(skewDays(0))
-    //console.log(dayPrices);
-    nextDayPrices = await getPrices(skewDays(1));
-    //console.log(nextDayPrices)
-  }
+  dayPrices = await getPrices(skewDays(0))
+  //console.log(dayPrices);
+  nextDayPrices = await getPrices(skewDays(1));
+  //console.log(nextDayPrices)
 }
 
 // Format: 2022-10-30T17:31:50
