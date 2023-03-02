@@ -33,9 +33,8 @@ const getPrices = (name) => {
 // As a set of two days prices is needed, a fallback
 // to use same day prices as next day prices
 const getPrices = async (date) => {
-  let redis;
   if (useRedis) {
-    res = await client.get("prices-" + date);
+    let res = await client.get("prices-" + date);
     if (res === undefined)
       res = await client.get("prices-" + skewDays(0));
     return JSON.parse(res);
