@@ -10,6 +10,9 @@ const priceDir = '.' + config.priceDirectory;
 
 let dayPrices = {}
 let nextDayPrices = {}
+let useRedis = config.cache = 'redis';
+let client;
+let isVirgin = true;
 
 /********************************
 // TypeError: fs.exitsSync is not a function
@@ -31,11 +34,18 @@ const getPrices = (name) => {
 // to use same day prices as next day prices
 const getPrices = async (date) => {
   let ret;
-  try {
-    return await require(priceDir + "/prices-" + date + ".json");
-  } catch (err) {
-    if (err) {
-      return await require(priceDir + "/prices-" + skewDays(0) + ".json");
+  if (useRedis) {
+    ret = await client.get("prices-" + date);
+    if (ret === undefined)
+      ret = await client.get("prices-" + skewDays(0));
+    return ret;
+  } else {
+    try {
+      return await require(priceDir + "/prices-" + date + ".json");
+    } catch (err) {
+      if (err) {
+        return await require(priceDir + "/prices-" + skewDays(0) + ".json");
+      }
     }
   }
 }
@@ -49,6 +59,16 @@ async function priceInit() {
 
 // Format: 2022-10-30T17:31:50
 async function mergePrices(list, obj) {
+  if (isVirgin) {
+    if (useRedis) {
+      const redis = require('redis');
+      client = redis.createClient(6379, 'localhost');
+      client.on("error", (error) => console.error(`Redis error : ${error}`));
+      client.on("connect", () => console.log('Redis connected...'));
+      await client.connect();
+    }
+    isVirgin = false;
+  }
   if (list === 'list3') {
     //const idx = getHour();
     const idx = obj.meterDate.split('T')[1].substr(0, 2) * 1;
