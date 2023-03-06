@@ -12,8 +12,6 @@ const { exit } = require('process');
 const { runInContext } = require('vm');
 const config = yaml.load("config.yaml");
 
-const client = createClient();
-
 const debug = config.DEBUG
 const keepDays = config.keepDays;
 const currencyDirectory = config.currencyDirectory;
@@ -34,6 +32,7 @@ const dayHoursEnd = config.dayHoursEnd;
 const energyDayPrice = config.energyDayPrice;
 const energyNightPrice = config.energyNightPrice;
 const savePath = config.priceDirectory;
+const useRedis = (config.cache === 'redis');
 
 let gridDayHourPrice;
 let gridNightHourPrice;
@@ -50,6 +49,12 @@ if (runNodeSchedule) {
   runSchedule = new schedule.RecurrenceRule();
   runSchedule.hour = scheduleHours;
   runSchedule.minute = scheduleMinutes;
+}
+
+let client;
+if (useRedis) {
+  const { createClient } = require('redis');
+  client = createClient();
 }
 
 const currencyFile = currencyDirectory + '/currencies-latest.json';
@@ -189,8 +194,8 @@ async function getPrices(dayOffset) {
           offPeakPrice2: (calcAvg(22, 24, oneDayPrices['hourly'])).toFixed(4) * 1,
         }
         //let date = oneDayPrices['hourly'][0].startTime.substr(0, 10) + ".json";
-
-        client.set(redisKey, JSON.stringify(oneDayPrices));
+        if (useRedis)
+          client.set(redisKey, JSON.stringify(oneDayPrices));
         fs.writeFileSync(fileName, JSON.stringify(oneDayPrices, false, 2));
         console.log("Price file saved:", fileName);
       } else {
@@ -220,8 +225,10 @@ async function init() {
 }
 
 async function run() {
-  client.on('error', err => console.log('Redis Client Error', err));
-  await client.connect();
+  if (useRedis) {
+    client.on('error', err => console.log('Redis Client Error', err));
+    await client.connect();
+  }
   if (!fs.existsSync(currencyDirectory)) {
     console.log("No currency file present");
     console.log('Please run "./fetch-eu-currencies.js"');
@@ -236,6 +243,8 @@ async function run() {
     await getPrices(i);
   }
   await getPrices(1)
+  if (useRedis)
+    client.quit();
 }
 
 init();

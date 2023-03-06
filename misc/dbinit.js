@@ -1,5 +1,6 @@
 const fs = require("fs");
 const JSONdb = require('simple-json-db');
+const cache = require('../misc/cache.js');
 const yaml = require("yamljs");
 const configFile = "./config.yaml";
 const config = yaml.load(configFile);
@@ -7,6 +8,8 @@ const config = yaml.load(configFile);
 // TODO: make a better storage spec
 const savePath ='./data'
 const energyFile = savePath + '/powersave.json'
+
+let useRedis = config.cache = 'redis';
 
 const energySavings = {
   "isVirgin": true,

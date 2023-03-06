@@ -8,9 +8,9 @@ const config = yaml.load(configFile);
 const priceDir = '.' + config.priceDirectory;
 //const priceDir = config.priceDirectory;
 
+const useRedis = (config.cache === 'redis');
 let dayPrices = {}
 let nextDayPrices = {}
-let useRedis = config.cache = 'redis';
 let client;
 let isVirgin = true;
 
@@ -35,8 +35,11 @@ const getPrices = (name) => {
 const getPrices = async (date) => {
   if (useRedis) {
     let res = await client.get("prices-" + date);
-    if (res === null)
+    console.log('Next day result:', date, res);
+    if (res === null) {
       res = await client.get("prices-" + skewDays(0));
+      console.log('Current day result:', skewDays(0), res);
+    }
     return JSON.parse(res);
   } else {
     try {

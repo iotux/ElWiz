@@ -1,9 +1,9 @@
 
 const { createClient } = require('redis');
-const client = createClient();
-client.on('error', err) {
-  console.log('Redis Client Error', err);
-}
+const client = createClient(6379, 'localhost');
+
+client.on("error", (error) => console.error(`Redis error : ${error}`));
+client.on("connect", () => console.log('Redis connected...'));
 
 const cache = {
   isVirgin: true,
@@ -17,7 +17,7 @@ const cache = {
   },
 
   set: async function (key, obj) {
-    client.set(key, JSON.stringify(obj));
+    await client.set(key, JSON.stringify(obj));
   },
 
   get: async function (key) {

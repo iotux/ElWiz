@@ -5,12 +5,9 @@
 const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios');
-const { createClient } = require('redis');
 const { format } = require('date-fns');
 const { setWeekWithOptions } = require('date-fns/fp');
 const config = yaml.load("config.yaml");
-
-const client = createClient();
 
 const keepDays = config.keepDays;
 const priceCurrency = config.priceCurrency;
@@ -31,6 +28,7 @@ const dayHoursEnd = config.dayHoursEnd;
 const energyDayPrice = config.energyDayPrice;
 const energyNightPrice = config.energyNightPrice;
 const savePath = config.priceDirectory;
+const useRedis = (config.cache === 'redis');
 
 let gridDayHourPrice;
 let gridNightHourPrice;
@@ -47,6 +45,12 @@ if (runNodeSchedule) {
   runSchedule = new schedule.RecurrenceRule();
   runSchedule.hour = scheduleHours;
   runSchedule.minute = scheduleMinutes;
+}
+
+let client;
+if (useRedis) {
+  const { createClient } = require('redis');
+  client = createClient();
 }
 
 let nordPool = {
@@ -168,7 +172,8 @@ async function getPrices(dayOffset) {
             offPeakPrice1: (offPeakPrice1 += offPeakPrice1 * spotVatPercent / 100).toFixed(4) * 1,
             offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
           }
-          client.set(redisKey, JSON.stringify(oneDayPrices));
+          if (useRedis)
+            client.set(redisKey, JSON.stringify(oneDayPrices));
           writeFile(oneDayPrices, fileName);
         } else {
           console.log("Day ahead prices are not ready:", skewDays(dayOffset));
@@ -199,8 +204,10 @@ async function init() {
 }
 
 async function run() {
-  client.on('error', err => console.log('Redis Client Error', err));
-  await client.connect();
+  if (useRedis) {
+    client.on('error', err => console.log('Redis Client Error', err));
+    await client.connect();
+  }
   await retireDays(keepDays);
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
@@ -209,8 +216,8 @@ async function run() {
     await getPrices(i);
   }
   await getPrices(1);
-  // Bails out
-  // await client.disconnect();
+  if (useRedis)
+    await client.quit();
 }
 
 init();
