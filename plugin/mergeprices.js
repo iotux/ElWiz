@@ -35,10 +35,10 @@ const getPrices = (name) => {
 const getPrices = async (date) => {
   if (useRedis) {
     let res = await client.get("prices-" + date);
-    console.log('Next day result:', date, res);
+    //console.log('Next day result:', date, res);
     if (res === null) {
       res = await client.get("prices-" + skewDays(0));
-      console.log('Current day result:', skewDays(0), res);
+      //console.log('Current day result:', skewDays(0), res);
     }
     return JSON.parse(res);
   } else {

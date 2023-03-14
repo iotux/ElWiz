@@ -6,10 +6,11 @@ const configFile = "./config.yaml";
 const config = yaml.load(configFile);
 
 // TODO: make a better storage spec
-const savePath ='./data'
-const energyFile = savePath + '/powersave.json'
+const savePath = config.savePath; //'./data/'
+const cacheName = 'powersave';
+const cacheFile = savePath + cacheName + '.json'
 
-let useRedis = config.cache = 'redis';
+let useRedis = (config.cache === 'redis');
 
 const energySavings = {
   "isVirgin": true,
@@ -28,20 +29,31 @@ const energySavings = {
   "averagePower": 0
 };
 
-const db = new JSONdb(energyFile, {}, { jsonSpaces: 2, syncOnWrite: true });
-async function dbInit(file, data) { 
-  if (fs.existsSync(file)) {
-    let savings = fs.readFileSync(file);
-    db.JSON(JSON.parse(savings));
+let db;
+
+async function dbInit(name, data) { 
+  if (useRedis) {
+    db = new cache(name, {syncOnWrite: true})
+    if (db.JSON() === null) {
+      db.JSON(JSON.parse(data));
+      db.sync();
+    }
   } else {
-    if (!fs.existsSync(savePath))
-      fs.mkdirSync(savePath, { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(data, false, 2))
-    db.JSON(data);
-    db.sync();
+    const cacheFile = savePath + name + '.json'
+    db = new JSONdb(cacheFile, { jsonSpaces: 2, syncOnWrite: true });
+    if (fs.existsSync(cacheFile)) {
+      let savings = fs.readFileSync(cacheFile);
+      db.JSON(JSON.parse(savings));
+    } else {
+      if (!fs.existsSync(savePath))
+        fs.mkdirSync(savePath, { recursive: true });
+      //fs.writeFileSync(cacheFile, JSON.stringify(data, false, 2))
+      db.JSON(data);
+      db.sync();
+    }
   }
 }
-dbInit(energyFile, energySavings);
+dbInit(cacheName, energySavings);
 console.log(db.JSON())
 
 module.exports = db;

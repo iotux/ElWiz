@@ -52,12 +52,13 @@ const calculateCost = {
         obj.accumulatedCost = 0;
         obj.accumulatedReward = 0;
       } else {
-        obj.accumulatedCost = (db.get("accumulatedCost") + obj.costLastHour).toFixed(4) * 1;
-        obj.accumulatedReward = (db.get("accumulatedReward") + obj.rewardLastHour).toFixed(4) * 1;
+        obj.accumulatedCost = (await db.get("accumulatedCost") + obj.costLastHour).toFixed(4) * 1;
+        obj.accumulatedReward = (await db.get("accumulatedReward") + obj.rewardLastHour).toFixed(4) * 1;
       }
-      db.set("accumulatedCost", obj.accumulatedCost);
-      db.set("accumulatedReward", obj.accumulatedReward);
-      db.sync();
+      await db.set("accumulatedCost", obj.accumulatedCost);
+      await db.set("accumulatedReward", obj.accumulatedReward);
+      await db.sync();
+      console.log(db.JSON())
       return obj;
     }
   },
