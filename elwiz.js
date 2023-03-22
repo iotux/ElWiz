@@ -94,7 +94,13 @@ const pulse = {
         if (buf[0] === 0x7e) {  // 0x7e, 126, "~"
           // Raw buffer meter data
           // Check for valid data
-          if (buf.length === buf[2] + 2) {
+          //
+          // 2023-03-22/ralm
+          // On Aidon the length is in both buf[1] and buf[2] 
+          //
+          // if (buf.length === buf[2] + 2) {
+          if (buf.length === ((buf[1] & 0x0F) * 256 + buf[2] + 2)) {
+          
             // Renew watchdog timer
             pulse.timerValue = watchValue;
             pulse.timerExpired = false;

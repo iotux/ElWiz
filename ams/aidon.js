@@ -155,6 +155,8 @@ const listHandler = async function (buf) {
   let result = await listDecode(hex)
   let listObject = result['data'];
   let list = result['listType'];
+  // 2023-03-22/ralm
+  // Should not this next step be selectable using config.yaml
   if (list === 'list3')
     obj = await amsCalc.calc(listObject);
   await event.emit(list, obj);
