@@ -13,9 +13,11 @@ const debug = config.DEBUG;
 let len;
 let obj = new Object();
 
+/*
 function getMinPower(pow) {
   if (db.get('minPower') === undefined || db.get('minPower') > pow){
     db.set('minPower', pow);
+    db.sync();
   }
   return db.get('minPower');
 };
@@ -23,21 +25,23 @@ function getMinPower(pow) {
 function getMaxPower(pow) {
   if (db.get('maxPower') === undefined || db.get('maxPower') < pow) {
     db.set('maxPower', pow);
+    db.sync();
   }
   return db.get('maxPower');
 };
+*/
 
 const listDecode = async function (msg) {
   let listType = 1;
   let elements = 0;
   let index = msg.indexOf("FF800000") + 8
-  elements = await hex2Dec(msg.substr((index + 2), 2))
+  elements = hex2Dec(msg.substr((index + 2), 2))
   obj = {};
   obj.timestamp = getAmsTime(msg, 38)
 
   if (elements === 1) {
     listType = 'list1'
-    obj.power = await hex2Dec(msg.substr(index + 6, 8)) / 1000;
+    obj.power = hex2Dec(msg.substr(index + 6, 8)) / 1000;
   };
 
   if (elements >= 9) {
@@ -83,7 +87,7 @@ const listDecode = async function (msg) {
     //console.log('Index type 3', index)
     listType = 'list3'
 
-    obj.meterDate = await getAmsTime(msg, index += 12);
+    obj.meterDate = getAmsTime(msg, index += 12);
     index += 14;
     obj.lastMeterConsumption = hex2Dec(msg.substr(index += 12, 8)) / 1000;
     obj.lastMeterProduction = hex2Dec(msg.substr(index += 10, 8)) / 1000;
@@ -91,10 +95,12 @@ const listDecode = async function (msg) {
     obj.lastMeterProductionReactive = hex2Dec(msg.substr(index += 10, 8)) / 1000;
   };
 
+  /*
   obj.minPower = await getMinPower(obj.power);
   obj.maxPower = await getMaxPower(obj.power);
   // TODO: calculate average
   obj.averagePower = 0;
+  */
   let ret = { "data": obj, "list": listType }
   return ret;
 };
@@ -104,9 +110,9 @@ const listHandler = async function (buf) {
   let result = await listDecode(hex)
   let listObject = result['data'];
   let list = result['list'];
-  if (list === 'list3')
-    obj = await amsCalc.calc(listObject);
-  await event.emit(list, obj);
+  //if (list === 'list3')
+  obj = await amsCalc.calc(list, listObject);
+  event.emit(list, obj);
 };
 
 event.on('pulse', listHandler)

@@ -32,7 +32,7 @@ const dayHoursEnd = config.dayHoursEnd;
 const energyDayPrice = config.energyDayPrice;
 const energyNightPrice = config.energyNightPrice;
 const savePath = config.priceDirectory;
-const useRedis = (config.cache === 'redis');
+const useRedis = (config.cacheModule === 'redis-cache');
 
 let gridDayHourPrice;
 let gridNightHourPrice;
@@ -69,7 +69,7 @@ let reqOpts = {
   method: "get",
   headers: {
     'accept': 'application/xml',
-    'Content-Type': 'text/xml',
+    'Content-Type': 'application/xml',
   },
 }
 
@@ -133,7 +133,7 @@ function calcAvg(start, end, obj) {
 }
 
 function entsoeUrl(token, periodStart, periodEnd) {
-  return baseUrl + "?docclientumentType=A44"
+  return baseUrl + "?documentType=A44"
     + "&in_Domain=10YNO-3--------J"
     + "&out_Domain=10YNO-3--------J"
     + "&securityToken=" + token

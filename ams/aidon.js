@@ -41,6 +41,7 @@ function hex2DecSign(hex) {
   return dec;
 }
 
+/*
 function getMinPower(pow) {
   if (db.get('minPower') === undefined || db.get('minPower') > pow){
     db.set('minPower', pow);
@@ -54,6 +55,7 @@ function getMaxPower(pow) {
   }
   return db.get('maxPower');
 };
+*/
 
 const listDecode = async function (buf) {
   let msg = new Object();
@@ -139,13 +141,16 @@ const listDecode = async function (buf) {
 
   if (Object.getOwnPropertyNames(obj.data).length === 0) {
     console.error("Raw data packet exception : ", JSON.stringify(msg));
-  } else {
+  } 
+  /*
+  else {
     //if (debug) console.log(obj)
     obj.data.minPower = await getMinPower(obj.data.power);
     obj.data.maxPower = await getMaxPower(obj.data.power);
     // TODO: calculate average
     obj.averagePower = 0;
   }
+  */
   //if (debug) console.log(obj)
   return obj;
 };
@@ -155,9 +160,9 @@ const listHandler = async function (buf) {
   let result = await listDecode(hex)
   let listObject = result['data'];
   let list = result['listType'];
-  if (list === 'list3')
-    obj = await amsCalc.calc(listObject);
-  await event.emit(list, obj);
+  //if (list === 'list3')
+  obj = await amsCalc.calc(listObject);
+  event.emit(list, obj);
 };
 
 event.on('pulse', listHandler)

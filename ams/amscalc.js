@@ -8,68 +8,95 @@ const config = yaml.load(configFile);
 
 const debug = config.DEBUG;
 
+async function getMinPower(pow) {
+  if (await db.get('minPower') === undefined || await db.get('minPower') > pow){
+    await db.set('minPower', pow);
+  }
+  return await db.get('minPower');
+};
+
+async function getMaxPower(pow) {
+  if (await db.get('maxPower') === undefined || await db.get('maxPower') < pow) {
+    await db.set('maxPower', pow);
+  }
+  return await db.get('maxPower');
+};
+
 const amsCalc = {
 
-  calc: function (obj) {
+  calc: async function (list, obj) {
     // TODO: Calculate min/max/average here
-    //db.set('minPower', obj.minPower);
-    //db.set('maxPower', obj.maxPower);
-    //db.set('averagePower', obj.averagePower);
+    obj.minPower = await getMinPower(obj.power);
+    obj.maxPower = await getMaxPower(obj.power);
+    // TODO: calculate average
+    obj.averagePower = 0;
+  
+    await db.set('minPower', obj.minPower);
+    await db.set('maxPower', obj.maxPower);
+    await db.set('averagePower', obj.averagePower);
 
     // Once every hour
-    if (obj.meterDate.substr(14, 5) === "00:10") {
-      if (db.get("isVirgin") || db.get("isVirgin") === undefined) {
-        db.set("isVirgin", false);
-        // Set initial values = current
-        db.set("prevDayMeterConsumption", obj.lastMeterConsumption);
-        db.set("prevDayMeterProduction", obj.lastMeterProduction);
-        db.set("prevDayMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
-        db.set("prevDayMeterProductionReactive", obj.lastMeterProductionReactive);
-        db.set("lastMeterConsumption", obj.lastMeterConsumption);
-        db.set("lastMeterProduction", obj.lastMeterProduction);
-        db.sync();
+    if (list === 'list3') {
+      if (obj.meterDate.substr(14, 5) === "00:10") {
+        if (await db.get("isVirgin") || await db.get("isVirgin") === undefined) {
+          await db.set("isVirgin", false);
+          // Set initial values = current
+          await db.set("prevDayMeterConsumption", obj.lastMeterConsumption);
+          await db.set("prevDayMeterProduction", obj.lastMeterProduction);
+          await db.set("prevDayMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
+          await db.set("prevDayMeterProductionReactive", obj.lastMeterProductionReactive);
+          await db.set("lastMeterConsumption", obj.lastMeterConsumption);
+          await db.set("lastMeterProduction", obj.lastMeterProduction);
+          //await db.sync();
+        }
+        // Energy calculations
+        obj.accumulatedConsumptionLastHour = (obj.lastMeterConsumption - await db.get("lastMeterConsumption")).toFixed(3) * 1;
+        obj.accumulatedProductionLastHour = (obj.lastMeterProduction - await db.get("lastMeterProduction")).toFixed(3) * 1;
+  
+        // TODO: Add Reactive?
+  
+        // Save current values for next round
+        await db.set("lastMeterConsumption", obj.lastMeterConsumption);
+        await db.set("lastMeterProduction", obj.lastMeterProduction);
+        await db.set("lastMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
+        await db.set("lastMeterProductionReactive", obj.lastMeterProductionReactive);
+  
+        // Helper (temporary)
+        obj.curHour = obj.meterDate.substr(11, 5)
       }
-      // Energy calculations
-      obj.accumulatedConsumptionLastHour = (obj.lastMeterConsumption - db.get("lastMeterConsumption")).toFixed(3) * 1;
-      obj.accumulatedProductionLastHour = (obj.lastMeterProduction - db.get("lastMeterProduction")).toFixed(3) * 1;
-
-      // TODO: Add Reactive?
-
-      // Save current values for next round
-      db.set("lastMeterConsumption", obj.lastMeterConsumption);
-      db.set("lastMeterProduction", obj.lastMeterProduction);
-      db.set("lastMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
-      db.set("lastMeterProductionReactive", obj.lastMeterProductionReactive);
-
-      // Helper (temporary)
-      obj.curHour = obj.meterDate.substr(11, 5)
+  
+      if (obj.meterDate.substr(11, 8) === "00:00:10") {
+        // Once every day after midnight
+        // https://youtu.be/j81Vx-0uM0k
+        await db.set("prevDayMeterConsumption", obj.lastMeterConsumption);
+        await db.set("prevDayMeterProduction", obj.lastMeterProduction);
+        await db.set("prevDayMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
+        await db.set("prevDayMeterProductionReactive", obj.lastMeterProductionReactive);
+  
+        obj.accumulatedConsumption = 0;
+        obj.accumulatedProduction = 0;
+  
+        await db.set("minPower", 9999999);
+        await db.set("averagePower", 0);
+        await db.set("maxPower", 0);
+        obj.curDay = skewDays(0);
+        obj.nextDay = skewDays(1);
+      } else {
+        obj.accumulatedConsumption = (obj.lastMeterConsumption - await db.get("prevDayMeterConsumption")).toFixed(3) * 1;
+        obj.accumulatedProduction = (obj.lastMeterProduction - await db.get("prevDayMeterProduction")).toFixed(3) * 1;
+      }
+  
+      if (obj.meterDate.substr(8, 2) === "01") {
+        // TODO: Monthly summary to Mongo
+      }
     }
 
-    if (obj.meterDate.substr(11, 8) === "00:00:10") {
-      // Once every day after midnight
-      // https://youtu.be/j81Vx-0uM0k
-      db.set("prevDayMeterConsumption", obj.lastMeterConsumption);
-      db.set("prevDayMeterProduction", obj.lastMeterProduction);
-      db.set("prevDayMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
-      db.set("prevDayMeterProductionReactive", obj.lastMeterProductionReactive);
-
-      obj.accumulatedConsumption = 0;
-      obj.accumulatedProduction = 0;
-
-      db.set("minPower", 9999999);
-      db.set("averagePower", 0);
-      db.set("maxPower", 0);
-      obj.curDay = skewDays(0);
-      obj.nextDay = skewDays(1);
-    } else {
-      obj.accumulatedConsumption = (obj.lastMeterConsumption - db.get("prevDayMeterConsumption")).toFixed(3) * 1;
-      obj.accumulatedProduction = (obj.lastMeterProduction - db.get("prevDayMeterProduction")).toFixed(3) * 1;
+    if (list === 'list2') {
+      // Syncing at every 10th seconds may be overkill
+      // but may be useful for min/max/avg data
+      await db.sync();
+      //console.log('amscalc', await db.JSON())
     }
-
-    if (obj.meterDate.substr(8, 2) === "01") {
-      // TODO: Monthly summary to Mongo
-    }
-    db.sync();
 
     return obj;
   }

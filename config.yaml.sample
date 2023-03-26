@@ -51,8 +51,8 @@ hasProduction: false
 #############################################
 # Storage and cache
 # cache
-#  - node
-#  - redis
+#  - file-cache
+#  - redis-cache
 #  
 # storage
 #  - mongodb
@@ -60,7 +60,7 @@ hasProduction: false
 #  - custom
 #  - none
 #
-cache: redis
+cacheModule: redis-cache
 storage: none
 
 #############################################
@@ -122,6 +122,7 @@ scheduleEuMinutes: [45]
 
 # Where to store currency and price data
 # relative to the program directory
+savePath: ./data/
 currencyDirectory: ./data/currencies
 priceDirectory: ./data/prices
 
@@ -152,11 +153,18 @@ priceCurrency: NOK
 # Ask your local supplier if in doubt.
 priceRegion: 12
 
+# Those who use the "fetch-eu-prices" program
+# need to set the correct zone here.
+# See the "entsoezones.yaml" file
+countryCode: NO3
+
+########################################
+# Electric power price calculation
 # Change the following values according
 # to your electric power supplier's invoice
 # Different rate models may require changes to program
 # Suppliers usually adds a fixed dayly OR monthly price
-# Use the ones that apply and set the others to 0.0 
+# Use the ones that apply and set the others to 0.0  
 supplierKwhPrice: 0.0
 supplierDayPrice: 0.0
 supplierMonthPrice: 0.0
@@ -164,14 +172,15 @@ supplierVatPercent: 0.0
 
 # Spot market prices are without VAT
 # A VAT percent is usually needed for private households
+# Change accordingly
 spotVatPercent: 25.0
 
 # Network cost
 # Network fixed prices
-gridKwhPrice: 0.0
-gridDayPrice: 0.0
-gridMonthPrice: 0.0
 gridVatPercent: 0.0
+gridKwhPrice: 0.0
+gridMonthPrice: 0.0
+gridDayPrice: 0.0
 
 #
 energyTax: 0.0

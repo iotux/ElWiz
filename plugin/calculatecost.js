@@ -58,7 +58,7 @@ const calculateCost = {
       await db.set("accumulatedCost", obj.accumulatedCost);
       await db.set("accumulatedReward", obj.accumulatedReward);
       await db.sync();
-      console.log(db.JSON())
+      console.log('calculatecost', await db.JSON())
       return obj;
     }
   },

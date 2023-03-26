@@ -28,7 +28,7 @@ const dayHoursEnd = config.dayHoursEnd;
 const energyDayPrice = config.energyDayPrice;
 const energyNightPrice = config.energyNightPrice;
 const savePath = config.priceDirectory;
-const useRedis = (config.cache === 'redis');
+const useRedis = (config.cacheModule === 'redis-cache');
 
 let gridDayHourPrice;
 let gridNightHourPrice;

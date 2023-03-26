@@ -9,11 +9,17 @@ const { calculateCost } = require("./calculatecost.js");
 const config = yaml.load(configFile);
 const debug = config.DEBUG;
 
+const useRedis = (config.cache === 'redis');
+
 let publisher = require("../publish/" + config.publisher + ".js")
 
 const onPlugEvent1 = async function (obj) {
   // No prices for listtype 1
   // Send to publish
+  if (useRedis)
+    obj.cache = 'redis'
+  else 
+    obj.cache = 'file'
   event.emit('publish1', obj)
   if (debug)
     console.log('List1: plugselector',obj);
@@ -28,6 +34,10 @@ const onPlugEvent2 = async function (obj) {
     }
   }
   // Send to publish
+  if (useRedis)
+    obj.cache = 'redis'
+  else 
+    obj.cache = 'file'
   event.emit('publish2', obj)
   if (debug)
     console.log('List2: plugselector',obj);
@@ -41,6 +51,10 @@ const onPlugEvent3 = async function (obj) {
     }
   }
   // Send to publish
+  if (useRedis)
+    obj.cache = 'redis'
+  else 
+    obj.cache = 'file'
   event.emit('publish3', obj)
   if (debug)
     console.log('List3: plugselector',obj);
