@@ -60,7 +60,7 @@ hasProduction: false
 #  - custom
 #  - none
 #
-cacheModule: redis-cache
+cacheModule: file-cache
 storage: none
 
 #############################################
