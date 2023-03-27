@@ -187,6 +187,33 @@ module.exports = class FileCache {
     await this.saveFileData();
   }
   
+    /**
+   * Fetch the file object.
+   */
+    async fetch() {
+      if (Object.keys(this.data).length === 0)
+        await this.fetchFileData();
+      return this.data;
+    }
+  
+  /**
+   * Initialize the file object.
+   */
+    async init(data){
+      if (data) {
+        try {
+          await JSON.parse(JSON.stringify(data));
+          this.data = data;
+          await this.saveFileData();
+          console.log('Object saved to file');
+        } catch (err) {
+          throw new Error('Parameter is not a valid JSON object.');
+        }
+      }
+      return this.data;
+    }
+  
+  
   async JSON(data){
     if (data) {
       try {

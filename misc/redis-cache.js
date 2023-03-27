@@ -68,7 +68,7 @@ module.exports = class RedisCache {
       await this.client.connect();
     })();
   
-  } // Constructor
+  } // Constructor
 
     /**
    * Check if data is an empty object
@@ -189,8 +189,31 @@ module.exports = class RedisCache {
    * Save the Redis object and disconnect.
    */
   async close(){
-    await this.saveRedisData();
+    await this.saveRedisData();
     await this.client.quit();
+  }
+
+  /**
+   * Fetch the Redis object.
+   */
+  async fetch() {
+    if (Object.keys(this.data).length === 0)
+      await this.fetchRedisData();
+    return this.data;
+  }
+
+  async init(data){
+    if (data) {
+      try {
+        await JSON.parse(JSON.stringify(data));
+        this.data = data;
+        await this.saveRedisData();
+        console.log('Object saved to Redis');
+      } catch (err) {
+        throw new Error('Parameter is not a valid JSON object.');
+      }
+    }
+    return this.data;
   }
 
   async JSON(data){

@@ -28,8 +28,8 @@ async function dbInit(name, data) {
   // savePath is mandatory when using file-cache
   const db = new cache(name, {syncOnWrite: false, savepath: savePath})
   if (await db.isEmpty()) {
-    // Call to db.JSON with 'data' argument is automatically synced
-    await db.JSON(data);
+    // Call to db.init() with 'data' argument is automatically synced
+    await db.init(data);
   }
 }
 
