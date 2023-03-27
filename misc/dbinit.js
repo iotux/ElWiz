@@ -1,11 +1,15 @@
 const yaml = require("yamljs");
+const UniCache = require('../misc/unicache.js');
 const configFile = "./config.yaml";
 const config = yaml.load(configFile);
 
-const savePath = config.savePath; //'./data/'
-const cacheModule = config.cacheModule
-const cache = require('../misc/' + cacheModule + '.js');
 const cacheName = 'powersave';
+const cacheOptions = {
+  cacheType: config.cacheType, // ('redis' || 'file')
+  syncOnWrite: false,
+  syncInterval: 5,
+  savePath: config.savePath    // Mandatory for cacheType: 'file'
+}
 
 const energySavings = {
   "isVirgin": true,
@@ -24,16 +28,23 @@ const energySavings = {
   "averagePower": 0
 };
 
-async function dbInit(name, data) { 
+let db;
+
+async function dbInit(name, options, data) { 
   // savePath is mandatory when using file-cache
-  const db = new cache(name, {syncOnWrite: false, savepath: savePath})
+  db = new UniCache(name, options);
+
   if (await db.isEmpty()) {
     // Call to db.init() with 'data' argument is automatically synced
     await db.init(data);
   }
+  
+  db.fetch().then(function(data) {
+    console.log('Data loaded', data)
+  })
 }
 
-dbInit(cacheName, energySavings);
-console.log(db.JSON())
+dbInit(cacheName, cacheOptions, energySavings);
+
 
 module.exports = db;

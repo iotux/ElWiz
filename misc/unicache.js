@@ -136,7 +136,6 @@ module.exports = class UniCache {
    * Write data storage.
    */
   async saveCacheData() {
-    console.log('Enter saveCacheData', this.data)
     if (this.cacheType === 'redis') {
       await this.client.set(this.redisKey, JSON.stringify(this.data));
     } else {

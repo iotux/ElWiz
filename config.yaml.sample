@@ -5,8 +5,8 @@ mqttBroker: localhost
 brokerPort: 1883
 
 # Enter credentials if needed
-userName: 
-password: 
+userName:
+password:
 
 # meterModel can be kaifa, aidon or kamstrup
 meterModel: kaifa
@@ -51,8 +51,8 @@ hasProduction: false
 #############################################
 # Storage and cache
 # cache
-#  - file-cache
-#  - redis-cache
+#  - file
+#  - redis
 #  
 # storage
 #  - mongodb
@@ -60,7 +60,7 @@ hasProduction: false
 #  - custom
 #  - none
 #
-cacheModule: file-cache
+cacheType: redis
 storage: none
 
 #############################################

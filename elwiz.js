@@ -39,7 +39,6 @@ const pulse = {
     // Likewise a <Ctrl C> will do
     process.on("SIGINT", function () {
       console.log("\nGot SIGINT, power saved");
-      //db.JSON();
       db.sync();
       process.exit(0);
     });
@@ -47,7 +46,6 @@ const pulse = {
     // A "kill -TERM <process ID> will save the last cumulative power before killing the process
     process.on("SIGTERM", function () {
       console.log("\nGot SIGTERM, power saved");
-      //db.JSON()
       db.sync();
       process.exit(0);
     });
@@ -56,7 +54,6 @@ const pulse = {
     process.on("SIGHUP", function () {
       console.log("\nGot SIGHUP, config loaded");
       C = yaml.load(configFile);
-      //db.JSON()
       db.sync();
       pulse.init();
     });
@@ -127,5 +124,3 @@ const pulse = {
 pulse.init();
 pulse.run();
 notice.run();
-//plugSelector.init()
-//if (plugin) plugin.run();
