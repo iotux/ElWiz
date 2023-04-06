@@ -5,68 +5,46 @@ const configFile = "./config.yaml";
 
 const config = yaml.load(configFile);
 
-const {
-  gridKwhPrice,
-  supplierKwhPrice,
-  energyTax,
-  gridKwhReward,
-} = config;
+const spotVatPercent = config.spotVatPercent;
+const gridVatPercent = config.gridVatPercent;
+const gridKwhPrice = config.gridKwhPrice;
 
-/**
- * Calculate the reward for the given kWh.
- * @param {Object} obj - The object containing necessary information.
- * @param {number} kWh - The kilowatt-hours to calculate the reward for.
- * @returns {number} - The calculated reward.
- */
+const supplierVatPercent = config.supplierVatPercent;
+const supplierKwhPrice = config.supplierKwhPrice;
+
+const energyTax = config.energyTax;
+
+const gridKwhReward = config.gridKwhReward;
+
+// TODO: priceObject
+
 async function calcReward(obj, kWh) {
   // TODO: complete this
   return kWh * gridKwhReward;
 }
 
-/**
- * Calculate the price for the given kWh.
- * @param {Object} obj - The object containing necessary information.
- * @param {number} kWh - The kilowatt-hours to calculate the price for.
- * @returns {number} - The calculated price.
- */
 async function calcPrice(obj, kWh) {
-  console.log('calcPrice', kWh, obj)
   // Actual price per kWh this hour (experimental)
-  let price = (obj.gridFixedPrice + obj.supplierFixedPrice) / kWh;
+  let price = (obj.gridPrice + obj.supplierPrice) / kWh;
   price += (gridKwhPrice + supplierKwhPrice + energyTax);
   price += obj.spotPrice;
-  console.log('calcPrice price', price)
-  return parseFloat(price.toFixed(4));
+  return price.toFixed(4) * 1;
 }
 
-/**
- * Calculate the cost for the given kWh.
- * @param {Object} obj - The object containing necessary information.
- * @param {number} kWh - The kilowatt-hours to calculate the cost for.
- * @returns {number} - The calculated cost
- */
 async function calcCost(obj, kWh) {
   // Cost this hour
-  let cost = (obj.gridFixedPrice + obj.supplierFixedPrice);
+  let cost = (obj.gridPrice + obj.supplierPrice);
   cost += (gridKwhPrice + supplierKwhPrice + energyTax) * kWh;
   cost += obj.spotPrice * kWh
-  return parseFloat(cost.toFixed(4));
+  return cost.toFixed(4) * 1;
 }
 
 const calculateCost = {
-  /**
-   * Calculate cost, price, and reward for the given list and object.
-   * @param {string} list - The list identifier, currently supporting 'list3' only.
-   * @param {Object} obj - The object containing necessary information.
-   * @returns {Object} - The updated object with calculated cost, price, and reward.
-  */
-  calc: async function (list, obj) {
-    if (list === 'list1' || list === 'list2') return obj;
 
+  calc: async function (list, obj) {
     // List3 is run once every hour
     if (list === 'list3') {
       obj.customerPrice = await calcPrice(obj, obj.accumulatedConsumptionLastHour);
-      console.log('calcolateCost calc', obj)
       obj.costLastHour = await calcCost(obj, obj.accumulatedConsumptionLastHour);
       obj.rewardLastHour = await calcReward(obj, obj.accumulatedProductionLastHour);
       // Once every midnight
@@ -75,16 +53,14 @@ const calculateCost = {
         obj.accumulatedReward = 0;
       } else {
         obj.accumulatedCost = (await db.get("accumulatedCost") + obj.costLastHour).toFixed(4) * 1;
-        obj.accumulatedReward = await db.get("accumulatedReward") + parseFloat(obj.rewardLastHour.toFixed(4));
+        obj.accumulatedReward = (await db.get("accumulatedReward") + obj.rewardLastHour).toFixed(4) * 1;
       }
       await db.set("accumulatedCost", obj.accumulatedCost);
       await db.set("accumulatedReward", obj.accumulatedReward);
       await db.sync();
-      await console.log('calculatecost - db.fetch', await db.fetch());
-      await console.log('calculatecost - obj', obj);
-      console.log('calcolateCost calc end', obj)
+      console.log('calculatecost', await db.JSON())
+      return obj;
     }
-    return obj;
   },
 };
 

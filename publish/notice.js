@@ -1,81 +1,66 @@
-const yaml = require('yamljs');
+
+const yaml = require("yamljs");
+
 const { event } = require('../misc/misc.js');
-const { upTime, getMacAddress } = require('../misc/util.js');
 const Mqtt = require('../mqtt/mqtt.js');
 
-const configFile = './config.yaml';
+const configFile = "./config.yaml";
 const config = yaml.load(configFile);
 
 let client;
 
-/**
- * Formats status data.
+/*
  *
- * @param {Object} obj - The status object.
- * @returns {Object} - Formatted status data.
- */
-function formatStatusData(obj) {
-  return {
+ *
+ *
+*/
+function status(obj) {
+  // Do something
+  let data = {
     tibberVersion: obj.Build,
     hardWare: obj.Hw,
-    ID: obj.ID,
-    //MAC: getMacAddress(obj.ID),
-    //upTime: upTime(obj.Uptime),
+    ID: json.ID,
+    MAC: getMacAddress(obj.ID),
+    upTime: upTime(obj.Uptime),
     SSID: obj.ssid,
     rssi: obj.rssi,
-    wifiFail: obj.wififail,
-  };
+    wifiFail: obj.wififail
+  }
+  if (config.DEBUG)
+    console.log("onStatus:", data);
 }
 
-/**
- * Handles status events.
- *
- * @param {Object} obj - The status object.
- */
 function onStatus(obj) {
-  const statusData = formatStatusData(obj);
-
-  if (config.DEBUG) {
-    console.log('onStatus:', statusData);
-  }
-
-  client.publish(config.pubStatus, JSON.stringify(statusData, !config.DEBUG, 2), config.statOpts);
+  //let m = obj.toString();
+  let msg = JSON.parse(obj);
+  let status = msg.status;
+  //if (config.republish && pulse.pulseStatus !== undefined)
+    client.publish(config.pubStatus, JSON.stringify(status, !config.DEBUG, 2), config.statOpts);
+  if (config.DEBUG)
+    console.log("Notice: Pulse status: " + config.pubStatus + " ", JSON.parse(obj));
 }
 
-/**
- * Handles hello events.
- *
- * @param {Object} obj - The hello object.
- */
 function onHello(obj) {
+  //if (config.republish)
   client.publish(config.pubNotice, config.greetMessage, config.statOpts);
-
-  if (config.DEBUG) {
-    console.log('Notice: Pulse is starting: ' + config.pubNotice);
-  }
+  if (config.DEBUG)
+    console.log("Notice: Pulse is starting: " + config.pubNotice + " ", msg);
 }
 
-/**
- * Handles notice events.
- *
- * @param {Object} obj - The notice object.
- */
 function onNotice(obj) {
-  client.publish(config.pubNotice, JSON.stringify(obj), config.statOpts);
-
-  if (config.DEBUG) {
-    console.log('Notice: Event message: ' + config.pubNotice, JSON.stringify(obj, !config.DEBUG, 2));
-  }
+  //if (config.republish)
+    //client.publish(config.pubNotice, msg, pulse.statOpts);
+    client.publish(config.pubNotice, JSON.stringify(obj), config.statOpts);
+  if (config.DEBUG)
+    console.log("Notice: Event message: " + config.pubNotice + " ", JSON.stringify(obj, !config.DEBUG, 2));
 }
 
 const notice = {
+  // Plugin constants
   isVirgin: true,
   broker: undefined,
   mqttOptions: {},
 
-  /**
-   * Initializes the notice module.
-   */
   init: function () {
     if (this.isVirgin) {
       this.isVirgin = false;
@@ -84,17 +69,10 @@ const notice = {
       event.on('notice', onNotice);
       client = Mqtt.mqttClient();
     }
-  },
-
-  /**
-   * Runs the notice module with the given list and object.
-   *
-   * @param {Array} list - The list of items.
-   * @param {Object} obj - The object containing data.
-   */
+  },    
   run: function (list, obj) {
-    this.init();
-  },
-};
+    this.init()
+  }
+}
 
 module.exports = notice;

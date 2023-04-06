@@ -5,12 +5,9 @@
 const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios');
-const Mqtt = require('./mqtt/mqtt.js');
 const { format } = require('date-fns');
 const { setWeekWithOptions } = require('date-fns/fp');
 const config = yaml.load("config.yaml");
-const priceTopic = config.priceTopic;
-const mqttClient = Mqtt.mqttClient();
 
 const keepDays = config.keepDays;
 const priceCurrency = config.priceCurrency;
@@ -31,7 +28,7 @@ const dayHoursEnd = config.dayHoursEnd;
 const energyDayPrice = config.energyDayPrice;
 const energyNightPrice = config.energyNightPrice;
 const savePath = config.priceDirectory;
-const useRedis = (config.cacheType === 'redis');
+const useRedis = (config.cacheModule === 'redis-cache');
 
 let gridDayHourPrice;
 let gridNightHourPrice;
@@ -50,10 +47,10 @@ if (runNodeSchedule) {
   runSchedule.minute = scheduleMinutes;
 }
 
-let redisClient;
+let client;
 if (useRedis) {
   const { createClient } = require('redis');
-  redisClient = createClient();
+  client = createClient();
 }
 
 let nordPool = {
@@ -134,7 +131,6 @@ async function getPrices(dayOffset) {
         let data = body.data.data;
         let rows = data.Rows;
         let oneDayPrices = {
-          priceDate: skewDays(dayOffset),
           priceProvider: 'Nord Pool',
           priceProviderUrl: url,
           hourly: [],
@@ -176,17 +172,10 @@ async function getPrices(dayOffset) {
             offPeakPrice1: (offPeakPrice1 += offPeakPrice1 * spotVatPercent / 100).toFixed(4) * 1,
             offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
           }
-          if (useRedis) {
-            redisClient.set(redisKey, JSON.stringify(oneDayPrices));
-            console.log('fetchprices: prices sent to Redis -', skewDays(dayOffset))
-          } else {
-            writeFile(oneDayPrices, fileName);
-            console.log('fetchprices: prices stored as', 'prices-' + skewDays(dayOffset) +'.json')
-          }
-          if (dayOffset === 0 || dayOffset === 1)
-            mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, !config.DEBUG, 2), { retain: true, qos: 1 });
-          mqttClient.publish(priceTopic + '/' + skewDays(dayOffset === 1 ? dayOffset - 2 : dayOffset - 1), '');
-          } else {
+          if (useRedis)
+            client.set(redisKey, JSON.stringify(oneDayPrices));
+          writeFile(oneDayPrices, fileName);
+        } else {
           console.log("Day ahead prices are not ready:", skewDays(dayOffset));
         }
 
@@ -216,8 +205,8 @@ async function init() {
 
 async function run() {
   if (useRedis) {
-    redisClient.on('error', err => console.log('Redis Client Error', err));
-    await redisClient.connect();
+    client.on('error', err => console.log('Redis Client Error', err));
+    await client.connect();
   }
   await retireDays(keepDays);
   if (!fs.existsSync(savePath)) {
@@ -228,7 +217,7 @@ async function run() {
   }
   await getPrices(1);
   if (useRedis)
-    await redisClient.quit();
+    await client.quit();
 }
 
 init();

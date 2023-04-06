@@ -1,124 +1,126 @@
 #!/usr/bin/env node
 
-const { exit } = require("process");
-const yaml = require("yamljs");
-const Mqtt = require("./mqtt/mqtt.js");
-const notice = require("./publish/notice.js");
-const db = require("./misc/dbinit.js");
-const { event } = require("./misc/misc.js");
-require("./plugin/plugselector.js");
-
 const programName = "ElWiz";
 const programPid = process.pid;
+const { exit } = require("process");
+const yaml = require("yamljs");
+const Mqtt = require('./mqtt/mqtt.js');
+const notice = require('./publish/notice.js');
+const db = require('./misc/dbinit.js');
+const { event } = require('./misc/misc.js');
+require('./plugin/plugselector.js');
 const configFile = "./config.yaml";
 const config = yaml.load(configFile);
-const meter = `./ams/${config.meterModel}.js`;
+
+// This will load a pulse AMS driver
+// according to config setting
+const meter = './ams/' + config.meterModel + '.js'
 const ams = require(meter);
+
 const watchValue = 15;
 
-class Pulse {
-  constructor() {
+const pulse = {
+  init: function () {
+    setInterval(pulse.watch, 1000);
+    console.log(programName + " is performing, PID: ", programPid);
+
     this.debug = config.DEBUG;
-  }
 
-  init() {
-    setInterval(() => this.watch(), 1000);
-    console.log(`${programName} is performing, PID: `, programPid);
+    pulse.client = Mqtt.mqttClient();
 
-    this.client = Mqtt.mqttClient();
-
-    this.client.on("connect", () => {
-      this.client.subscribe(config.topic, (err) => {
-        if (err) {
-          console.log("Subscription error");
-        }
+    pulse.client.on("connect", function () {
+      pulse.client.subscribe(config.topic, function (err) {
+        if (err) { console.log("Subscription error"); }
       });
-      this.client.publish(config.pubNotice, config.greetMessage);
+      pulse.client.publish(config.pubNotice, config.greetMessage);
     });
 
-    this.setupSignalHandlers();
-  }
+    // A "kill -INT <process ID> will save the last cumulative power before killing the process
+    // Likewise a <Ctrl C> will do
+    process.on("SIGINT", function () {
+      console.log("\nGot SIGINT, power saved");
+      db.sync();
+      process.exit(0);
+    });
 
-  setupSignalHandlers() {
-    process.on("SIGINT", this.handleSignal.bind(this, "SIGINT"));
-    process.on("SIGTERM", this.handleSignal.bind(this, "SIGTERM"));
-    process.on("SIGHUP", this.handleSignal.bind(this, "SIGHUP"));
-    process.on("SIGUSR1", this.handleSignal.bind(this, "SIGUSR1"));
-  }
+    // A "kill -TERM <process ID> will save the last cumulative power before killing the process
+    process.on("SIGTERM", function () {
+      console.log("\nGot SIGTERM, power saved");
+      db.sync();
+      process.exit(0);
+    });
 
-  handleSignal(signal) {
-    switch (signal) {
-      case "SIGINT":
-      case "SIGTERM":
-        console.log(`\nGot ${signal}, power saved`);
-        db.sync();
-        process.exit(0);
-        break;
-      case "SIGHUP":
-        console.log(`\nGot ${signal}, config loaded`);
-        this.config = yaml.load(configFile);
-        db.sync();
-        this.init();
-        break;
-      case "SIGUSR1":
-        this.debug = !this.debug;
-        console.log(`\nGot ${signal}, debug ${this.debug ? "ON" : "OFF"}`);
-        break;
-    }
-  }
+    // A "kill -HUP <process ID> will read the stored last cumulative power file
+    process.on("SIGHUP", function () {
+      console.log("\nGot SIGHUP, config loaded");
+      C = yaml.load(configFile);
+      db.sync();
+      pulse.init();
+    });
 
-  watch() {
-    if (!this.timerExpired) {
+    // A "kill -USR1 <process ID>  will toggle debugging
+    process.on("SIGUSR1", function () {
+      pulse.debug = !pulse.debug;
+      console.log("\nGot SIGUSR1, debug %s", pulse.debug ? "ON" : "OFF");
+    });
+  }, // init()
+
+  watch: function () {
+    if (!this.timerExpired)
       this.timerValue--;
-    }
     if (this.timerValue <= 0 && !this.timerExpired) {
-      event.emit("notice", config.offlineMessage);
+      // Publish Pulse offline message
+      event.emit('notice', config.offlineMessage);
+      // Make sure that RIP message only fires once
       this.timerExpired = true;
       this.timerValue = 0;
       console.log("Pulse is offline!");
     }
-  }
+  },
 
-  run() {
-    this.client.on("message", (topic, message) => {
+  run: function () {
+    pulse.client.on("message", function (topic, message) {
       if (topic === config.topic) {
         let buf = Buffer.from(message);
-        this.processMessage(buf);
-      }
-    });
-  }
+        // JSON data
+        if (buf[0] === 0x7b) { // 0x7b, 123, "{" = Pulse status
+          let msg = message.toString();
+          event.emit('status', msg);
+        } else
 
-  processMessage(buf) {
-    const messageType = buf[0];
+        if (buf[0] === 0x7e) {  // 0x7e, 126, "~"
+          // Raw buffer meter data
+          // Check for valid data
+          //
+          // 2023-03-22/ralm
+          // On Aidon the length is in both buf[1] and buf[2] 
+          //
+          // if (buf.length === buf[2] + 2) {
+          if (buf.length === ((buf[1] & 0x0F) * 256 + buf[2] + 2)) {
+          
+            // Renew watchdog timer
+            pulse.timerValue = watchValue;
+            pulse.timerExpired = false;
+            // Send Pulse data to list decoder
+            event.emit('pulse', buf)
+          } // End valid data
+        } else
 
-    if (messageType === 0x7b) {
-      let msg = buf.toString();
-      event.emit("status", msg);
-    } else if (messageType === 0x7e) {
-      this.processMeterData(buf);
-    } else if (messageType === "H") {
-      let msg = buf.toString();
-      event.emit("hello", msg);
-    } else {
-      let msg = buf.toString();
-      event.emit("notice", msg);
-    }
-  }
+        if (buf[0] === "H") {
+          // pulse Pulse sender bare "Hello" ved oppstart
+          let msg = message.toString();
+          event.emit('hello', msg);
+        } 
+          
+        else {
+          let msg = message.toString();
+          event.emit('notice', msg);
+        }
+      } // topic === "tibber"
+    }); // client.on()    
+  } // run()
+}; // pulse()
 
-  processMeterData(buf) {
-    const dataLength = (buf[1] & 0x0F) * 256 + buf[2] + 2;
-
-    if (buf.length === dataLength) {
-      this.timerValue = watchValue;
-      this.timerExpired = false;
-      // Send Pulse data to list decoder
-      event.emit('pulse', buf)
-    } // End valid data
-  }
-}
-
-const pulse = new Pulse();
 pulse.init();
 pulse.run();
 notice.run();
-
