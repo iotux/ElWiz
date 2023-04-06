@@ -3,12 +3,11 @@
 node_modules/
 # Data directory
 data/*
-testing/
 hex/
 .vscode/
 tibberdump.js
-# Konfigurasjon av lokalt tilpassede data
+# Local configuration
 config.yaml
-# Lagring av siste akkumulerte forbruk
-powersave.*
+# Testing and temporary files
+testing/
 tmp/*
