@@ -206,7 +206,7 @@ async function getPrices(dayOffset) {
           console.log('fetch-eu-prices: prices stored as', 'prices-' + skewDays(dayOffset) +'.json')
         }
         if (dayOffset === 0 || dayOffset === 1)
-          mqttClient.publish(priceTopic + skewDays(dayOffset), JSON.stringify(oneDayPrices, !config.DEBUG, 2), { retain: true, qos: 1 });
+          mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, !config.DEBUG, 2), { retain: true, qos: 1 });
         mqttClient.publish(priceTopic + '/' + skewDays(dayOffset === 1 ? dayOffset - 2 : dayOffset - 1), '');
       } else {
         console.log("Day ahead prices are not ready", skewDays(dayOffset));
