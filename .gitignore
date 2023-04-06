@@ -5,6 +5,7 @@ node_modules/
 data/*
 testing/
 hex/
+.vscode/
 tibberdump.js
 # Konfigurasjon av lokalt tilpassede data
 config.yaml
