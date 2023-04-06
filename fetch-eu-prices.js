@@ -5,12 +5,15 @@
 const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios') //.default;
+const Mqtt = require('./mqtt/mqtt.js');
 const { createClient } = require('redis');
 const convert = require('xml-js');
 const { format } = require('date-fns')
 const { exit } = require('process');
 const { runInContext } = require('vm');
 const config = yaml.load("config.yaml");
+const priceTopic = config.priceTopic;
+const mqttClient = Mqtt.mqttClient();
 
 const debug = config.DEBUG
 const keepDays = config.keepDays;
@@ -32,7 +35,7 @@ const dayHoursEnd = config.dayHoursEnd;
 const energyDayPrice = config.energyDayPrice;
 const energyNightPrice = config.energyNightPrice;
 const savePath = config.priceDirectory;
-const useRedis = (config.cacheModule === 'redis-cache');
+const useRedis = (config.cacheType === 'redis');
 
 let gridDayHourPrice;
 let gridNightHourPrice;
@@ -51,10 +54,10 @@ if (runNodeSchedule) {
   runSchedule.minute = scheduleMinutes;
 }
 
-let client;
+let redisClient;
 if (useRedis) {
   const { createClient } = require('redis');
-  client = createClient();
+  redisClient = createClient();
 }
 
 const currencyFile = currencyDirectory + '/currencies-latest.json';
@@ -156,6 +159,7 @@ async function getPrices(dayOffset) {
         let minPrice = 9999;
         let maxPrice = 0;
         let oneDayPrices = {
+          priceDate: skewDays(dayOffset),
           priceProvider: 'ENTSO-E',
           priceProviderUrl: url,
           hourly: [],
@@ -194,10 +198,16 @@ async function getPrices(dayOffset) {
           offPeakPrice2: (calcAvg(22, 24, oneDayPrices['hourly'])).toFixed(4) * 1,
         }
         //let date = oneDayPrices['hourly'][0].startTime.substr(0, 10) + ".json";
-        if (useRedis)
-          client.set(redisKey, JSON.stringify(oneDayPrices));
+        if (useRedis) {
+          redisClient.set(redisKey, JSON.stringify(oneDayPrices));
+          console.log('fetch-eu-prices: prices sent to Redis -', skewDays(dayOffset))
+        } else {
         fs.writeFileSync(fileName, JSON.stringify(oneDayPrices, false, 2));
-        console.log("Price file saved:", fileName);
+          console.log('fetch-eu-prices: prices stored as', 'prices-' + skewDays(dayOffset) +'.json')
+        }
+        if (dayOffset === 0 || dayOffset === 1)
+          mqttClient.publish(priceTopic + skewDays(dayOffset), JSON.stringify(oneDayPrices, !config.DEBUG, 2), { retain: true, qos: 1 });
+        mqttClient.publish(priceTopic + '/' + skewDays(dayOffset === 1 ? dayOffset - 2 : dayOffset - 1), '');
       } else {
         console.log("Day ahead prices are not ready", skewDays(dayOffset));
       }
@@ -226,8 +236,8 @@ async function init() {
 
 async function run() {
   if (useRedis) {
-    client.on('error', err => console.log('Redis Client Error', err));
-    await client.connect();
+    redisClient.on('error', err => console.log('Redis Client Error', err));
+    await redisClient.connect();
   }
   if (!fs.existsSync(currencyDirectory)) {
     console.log("No currency file present");
@@ -244,7 +254,7 @@ async function run() {
   }
   await getPrices(1)
   if (useRedis)
-    client.quit();
+    redisClient.quit();
 }
 
 init();

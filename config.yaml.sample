@@ -120,6 +120,9 @@ scheduleHours: [14,16,18,20,22]
 scheduleMinutes: [15]
 scheduleEuMinutes: [45]
 
+# Topic for sending prices as MQTT message
+priceTopic: elwiz/prices
+
 # Where to store currency and price data
 # relative to the program directory
 savePath: ./data/

@@ -9,9 +9,9 @@ const { calculateCost } = require("./calculatecost.js");
 const config = yaml.load(configFile);
 const debug = config.DEBUG;
 
-const useRedis = (config.cache === 'redis');
+//const useRedis = (config.cache === 'redis');
 
-let publisher = require("../publish/" + config.publisher + ".js")
+let publisher = require("../publish/" + config.publisher + ".js");
 
 const onPlugEvent1 = async function (obj) {
   // No prices for listtype 1
@@ -24,35 +24,47 @@ const onPlugEvent1 = async function (obj) {
 }
 
 const onPlugEvent2 = async function (obj) {
-  let res;
   if (config.computePrices) {
-    let obj1 = await mergePrices("list2", obj)
+    obj = await mergePrices("list2", obj)
     if (config.calculateCost) {
-      res = await calculateCost.calc("list2", obj1)
+      obj = await calculateCost.calc("list2", obj)
     }
   }
   // Send to publish
   event.emit('publish2', obj)
   if (debug) {
-    obj.cache = config.cacheType;
     console.log('List2: plugselector',obj);
   }
 }
 
 const onPlugEvent3 = async function (obj) {
   if (config.computePrices) {
-    await mergePrices("list3", obj)
+    try {
+    obj = await mergePrices("list3", obj);
+    } catch(error){
+      console.log('calling mergePrices', error)
+    }
     if (config.calculateCost) {
-      await calculateCost.calc("list3", obj)
+      try {
+        obj = await calculateCost.calc("list3", obj);
+      } catch(error) {
+        console.log('onPlugEvent3 calling calculateCost', error)
+      }
     }
   }
-  // Send to publish
-  event.emit('publish3', obj)
+  
+  try {
+    // Send to publish
+    event.emit('publish3', obj);
+  } catch (error) {
+    console.error('Error while emitting publish3 event:', error);
+  }
   if (debug) {
-    obj.cache = config.cacheType;
     console.log('List3: plugselector',obj);
   }
-}
+};
+
+
 
 const plugSelector = {
   // Plugin constants
