@@ -14,10 +14,6 @@ const list2Opts = { retain: config.list2Retain, qos: config.list2Qos };
 const list3Opts = { retain: config.list3Retain, qos: config.list3Qos };
 let client;
 
-function timeConvert(time){
-  return time.substr(0, 10) + " " + time.substr(11, 8) + ".000";
-}
-
 /*
  *
 */
@@ -37,7 +33,6 @@ function onPubEvent2(obj) {
   delete obj.meterVersion
   delete obj.meterID
   delete obj.meterModel
-  obj.timestamp = timeConvert(obj.timestamp)
   obj.publisher = 'hassPublish';
   if (debug)
     console.log('List2: hassPublish', obj);
@@ -53,12 +48,6 @@ function onPubEvent3(obj) {
   delete obj.meterVersion
   delete obj.meterID
   delete obj.meterModel
-  obj.timestamp = timeConvert(obj.timestamp)
-  obj.meterDate = timeConvert(obj.meterDate)
-  obj.startTime = timeConvert(obj.startTime)
-  obj.endTime = timeConvert(obj.endTime)
-  obj.startTimeDay2 = timeConvert(obj.startTimeDay2)
-  obj.endTimeDay2 = timeConvert(obj.endTimeDay2)
   obj.publisher = 'hassPublish';
   if (debug)
     console.log('List3: hassPublish', obj);
