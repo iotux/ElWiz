@@ -44,13 +44,14 @@ function onPubEvent2(obj) {
 }
 
 function onPubEvent3(obj) {
+  console.log('hasspublish: onPubEvent', obj)
   delete obj.meterVersion
   delete obj.meterID
   delete obj.meterModel
   obj.publisher = 'hassPublish';
   if (debug)
     console.log('List3: hassPublish', obj);
-  //client.publish(haBaseTopic + "/state", JSON.stringify(obj, !config.DEBUG, 2), list3Opts);
+  // client.publish(haBaseTopic + "/state", JSON.stringify(obj, !config.DEBUG, 2), list3Opts);
   // Unfold JSON object
   for (const [key, value] of Object.entries(obj)) {
     client.publish(haBaseTopic + key + "/state", JSON.stringify(value, !config.DEBUG, 2), list3Opts);
@@ -58,7 +59,6 @@ function onPubEvent3(obj) {
 }
 
 const hasspublish = {
-  // Plugin constants
   isVirgin: true,
 
   init: function () {

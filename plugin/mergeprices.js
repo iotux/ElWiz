@@ -1,123 +1,94 @@
 const fs = require("fs");
 const yaml = require("yamljs");
+const Mqtt = require("../mqtt/mqtt.js");
 const configFile = "./config.yaml";
 //const { event } = require('../misc/misc.js')
-const { getHour, skewDays } = require('../misc/util.js');
+const { skewDays } = require('../misc/util.js');
 
 const config = yaml.load(configFile);
-const priceDir = '.' + config.priceDirectory;
-//const priceDir = config.priceDirectory;
+const priceTopic = config.priceTopic;
 
-const useRedis = (config.cache === 'redis');
+const mqttClient = Mqtt.mqttClient();
+
 let dayPrices = {}
 let nextDayPrices = {}
-let client;
-let isVirgin = true;
 
-/********************************
-// TypeError: fs.exitsSync is not a function
-const getPrices = (name) => {
-  let ret;
-  if (fs.exitsSync(priceDir + "/prices-" + name + ".json"))
-    ret = require(priceDir + "/prices-" + name + ".json");
-  else 
-    ret = require(priceDir + "/prices-" + skewDays(0) + ".json");
-  //console.log(ret);
-  return ret;
-}
-*********************************
-*/
-
-// The next day prices are not available between
-// midnight and some time in the afternoon
-// As a set of two days prices is needed, a fallback
-// to use same day prices as next day prices
-const getPrices = async (date) => {
-  if (useRedis) {
-    let res = await client.get("prices-" + date);
-    //console.log('Next day result:', date, res);
-    if (res === null) {
-      res = await client.get("prices-" + skewDays(0));
-      //console.log('Current day result:', skewDays(0), res);
+mqttClient.on("connect", () => {
+  mqttClient.subscribe(priceTopic + '/#', (err) => {
+    if (err) {
+      console.log("Subscription error");
     }
-    return JSON.parse(res);
-  } else {
+  });
+});
+
+mqttClient.on("message", (topic, message) => {
+  const today = skewDays(0);
+  const tomorrow = skewDays(1);
+  let [topic1, topic2, date] = topic.split('/')
+  if (topic1 + '/' + topic2 === 'elwiz/prices') {
+    let msg;
     try {
-      return await require(priceDir + "/prices-" + date + ".json");
-    } catch (err) {
-      if (err) {
-        return await require(priceDir + "/prices-" + skewDays(0) + ".json");
-      }
+      msg = JSON.parse(message.toString());
+    } catch (error) {
+      console.log('mergeprices MQTT', error)
     }
-  }
-}
 
-async function priceInit() {
-  dayPrices = await getPrices(skewDays(0))
-  //console.log(dayPrices);
-  nextDayPrices = await getPrices(skewDays(1));
-  //console.log(nextDayPrices)
-}
+    if (date == today) {
+      dayPrices = msg;
+      // If today's price date is present, nextDayPrices
+      // are not available yet, so set them equal to dayPrices
+      nextDayPrices = dayPrices;
+    } else if (date == tomorrow) {
+      nextDayPrices = msg; 
+    }    
+    console.log('dayPrices loaded =====>', dayPrices);
+    console.log('nextDayPrices loaded =====>', nextDayPrices);
+  }  
+});
 
-// Format: 2022-10-30T17:31:50
+/**
+ * Merge price information from day and next day prices into an object
+ * @param {string} list - The list identifier
+ * @param {Object} obj - The object to which price information will be added
+ * @returns {Promise<Object>} - The merged object with price information
+ */
 async function mergePrices(list, obj) {
-  if (isVirgin) {
-    if (useRedis) {
-      const redis = require('redis');
-      client = redis.createClient(6379, 'localhost');
-      client.on("error", (error) => console.error(`Redis error : ${error}`));
-      client.on("connect", () => console.log('Redis connected...'));
-      await client.connect();
-    }
-    isVirgin = false;
-  }
-  if (list === 'list3') {
-    //const idx = getHour();
-    const idx = obj.meterDate.split('T')[1].substr(0, 2) * 1;
-    await priceInit().then(() => {
-    // Today prices
-      //console.log(dayPrices['hourly'][idx])
-      obj.startTime = dayPrices['hourly'][idx].startTime;
-      obj.endTime = dayPrices['hourly'][idx].endTime;
-      obj.spotPrice = dayPrices['hourly'][idx].spotPrice;
-      obj.gridPrice = dayPrices['hourly'][idx].gridFixedPrice;
-      obj.supplierPrice = dayPrices['hourly'][idx].supplierFixedPrice;
-      obj.customerPrice = dayPrices['hourly'][idx].customerPrice;
-      obj.minPrice = dayPrices['daily'].minPrice;
-      obj.maxPrice = dayPrices['daily'].maxPrice;
-      obj.avgPrice = dayPrices['daily'].avgPrice;
-      obj.peakPrice = dayPrices['daily'].peakPrice;
-      obj.offPeakPrice1 = dayPrices['daily'].offPeakPrice1;
-      obj.offPeakPrice2 = dayPrices['daily'].offPeakPrice2;
-      // Next day prices
-      obj.startTimeDay2 = nextDayPrices['hourly'][idx].startTime;
-      obj.endTimeDay2 = nextDayPrices['hourly'][idx].endTime;
-      obj.spotPriceDay2 = nextDayPrices['hourly'][idx].spotPrice;
-      obj.gridPriceDay2 = nextDayPrices['hourly'][idx].gridFixedPrice;
-      obj.supplierPriceDay2 = nextDayPrices['hourly'][idx].supplierFixedPrice;
-      obj.customerPriceDay2 = nextDayPrices['hourly'][idx].customerPrice;
-      obj.minPriceDay2 = nextDayPrices['daily'].minPrice;
-      obj.maxPriceDay2 = nextDayPrices['daily'].maxPrice;
-      obj.avgPriceDay2 = nextDayPrices['daily'].avgPrice;
-      obj.peakPriceDay2 = nextDayPrices['daily'].peakPrice;
-      obj.offPeakPrice1Day2 = nextDayPrices['daily'].offPeakPrice1;
-      obj.offPeakPrice2Day2 = nextDayPrices['daily'].offPeakPrice2;
-    }).then((err) => {
-      if(err !== undefined)
-        console.log('Error: mergePrices', e)
-      return (err)
-    })
-  }
-  /*
-  if (list === 'list1')
-    event.emit('plug1', obj)
-  if (list === 'list2')
-    event.emit('plug2', obj)
-  if (list === 'list3')
-    event.emit('plug3', obj)
-  */
-  return obj;
-}
+  if (list === 'list1' || list === 'list2') return obj;
+  if (list === "list3") {
+    const hourlyProperties = ['startTime', 'endTime', 'spotPrice', 'gridFixedPrice', 'supplierFixedPrice', 'customerPrice'];
+    const dailyProperties = ['minPrice', 'maxPrice', 'avgPrice', 'peakPrice', 'offPeakPrice1', 'offPeakPrice2'];
 
-//module.exports = { getPrices, mergePrices };
+    // Date format: 2022-10-30T17:31:50
+    const idx = obj.meterDate.substr(11, 2) * 1;
+
+    if (obj.meterDate.substr(11, 8) === "00:00:10") {
+      // Update the day prices to the next day prices if the time has passed midnight.
+      dayPrices = nextDayPrices;
+    }
+
+    // Refactored code merges the price information
+    // from both days into one object using Object.assign()
+    // Add today's prices to the object
+    //Object.assign(obj, { ...dayPrices["hourly"][idx], ...dayPrices["daily"] });
+    // Add tomorrow's prices to the object
+    //Object.assign(obj, { ...nextDayPrices["hourly"][idx], ...nextDayPrices["daily"] });
+
+    //obj[`${prop}Day2`] = nextDayPrices['daily'][prop];
+    //obj[`${prop}Day2`] = nextDayPrices['hourly'][idx][prop];
+    hourlyProperties.forEach(prop => { obj[prop] = dayPrices['hourly'][idx][prop]; });
+    dailyProperties.forEach(prop => { obj[prop] = dayPrices['daily'][prop]; });
+    hourlyProperties.forEach(prop => { obj[`${prop}Day2`] = nextDayPrices['hourly'][idx][prop]; });
+    dailyProperties.forEach(prop => { obj[`${prop}Day2`] = nextDayPrices['daily'][prop]; });
+  }
+  /**
+   * Removed this code as it is not related to
+   * merging prices and can be moved elsewhere
+   * if (list === 'list1') event.emit('plug1', obj)
+   * if (list === 'list2') event.emit('plug2', obj)
+   * if (list === 'list3') event.emit('plug3', obj)
+   */
+  console.log('mergeprices ===>', list, obj)
+  return obj;
+}  
+
 module.exports = { mergePrices };
