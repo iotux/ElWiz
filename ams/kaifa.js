@@ -93,7 +93,15 @@ const listHandler = async function (buf) {
     let result = await listDecode(hex);
     let listObject = result['data'];
     let list = result['list'];
-
+    if (config.amsDebug) {
+      if (list === 'list1') {
+        event.emit('hex1', hex)
+      } else if ( list === 'list2') {
+        event.emit('hex2', hex)
+      } else if ( list === 'list3') {
+        event.emit('hex3', hex)
+      }
+    }
     obj = await amsCalc.calc(list, listObject);
     event.emit(list, obj);
 };

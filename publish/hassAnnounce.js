@@ -66,6 +66,9 @@ const hassAnnounce = async function () {
   announce = hassDevice('Max power since midnight', 'max_power_since_midnight', 'power', 'measurement', 'kW', 'maxPower');
   client.publish(haTopic + "maxPower/config", JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
+  announce = hassDevice('Average power since midnight', 'avg_power_since_midnight', 'power', 'measurement', 'kW', 'avgPower');
+  client.publish(haTopic + "avgPower/config", JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
+
   announce = hassDevice('Voltage phase 1', 'voltage_phase_1', 'voltage', 'measurement', 'V', 'voltagePhase1');
   client.publish(haTopic + "voltagePhase1/config", JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
