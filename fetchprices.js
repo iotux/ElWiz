@@ -215,10 +215,11 @@ async function init() {
 }
 
 async function run() {
-  if (useRedis) {
+  if (useRedis && !redisClient.isOpen){
     redisClient.on('error', err => console.log('Redis Client Error', err));
     await redisClient.connect();
   }
+
   await retireDays(keepDays);
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
@@ -234,9 +235,9 @@ async function run() {
 init();
 
 if (runNodeSchedule) {
-  run();
   console.log("Fetch prices scheduling started...");
   schedule.scheduleJob(runSchedule, run)
+  run();
 } else {
   run();
 }

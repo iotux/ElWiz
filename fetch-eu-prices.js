@@ -235,10 +235,11 @@ async function init() {
 }
 
 async function run() {
-  if (useRedis) {
+  if (useRedis && !redisClient.isOpen){
     redisClient.on('error', err => console.log('Redis Client Error', err));
     await redisClient.connect();
   }
+
   if (!fs.existsSync(currencyDirectory)) {
     console.log("No currency file present");
     console.log('Please run "./fetch-eu-currencies.js"');
@@ -260,10 +261,10 @@ async function run() {
 init();
 
 if (runNodeSchedule) {
-  // First a single run to init prices
-  run();
   console.log("Fetch prices scheduling started...");
   schedule.scheduleJob(runSchedule, run)
+  // First a single run to init prices
+  run();
 } else {
   run();
 }
