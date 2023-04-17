@@ -20,7 +20,7 @@ const nordPoolUri =  "https://www.nordpoolgroup.com/api/marketdata/page/10/" + p
 const spotVatPercent = config.spotVatPercent;
 const supplierDayPrice = config.supplierDayPrice;
 const supplierMonthPrice = config.supplierMonthPrice;
-const supplierVatPercent = config.supplierVatPercent; 
+const supplierVatPercent = config.supplierVatPercent;
 
 const gridDayPrice = config.gridDayPrice;
 const gridMonthPrice = config.gridMonthPrice;
@@ -108,25 +108,48 @@ function skewDays(offset) {
   return ret;
 }
 
-async function retireDays(offset) {
-  // Count offset days backwards
-  while (fs.existsSync(savePath + "/prices-" + skewDays(offset * -1) + ".json")) {
-    fs.unlinkSync(savePath + "/prices-" + skewDays(offset * -1) + ".json");
-    console.log("Price file removed:", savePath + "/prices-" + skewDays(offset * -1) + ".json")
-    offset++;
+function getFileName (offset){
+  return savePath + "/prices-" + skewDays(offset) + ".json";
+}
+
+function getRedisKey (offset)  {
+  return "prices-" + skewDays(offset);
+}
+
+async function hasDayPrice(dayOffset) {
+  if (useRedis) {
+    return (await redisClient.get(getRedisKey(dayOffset)) !== null);
+  } else {
+    return fs.existsSync(getFileName(dayOffset))
   }
 }
 
-function writeFile(prices, fileName) {
-  //let fileName = savePath + "/prices-" + skewDays(offset) + ".json"
-  fs.writeFileSync(fileName, JSON.stringify(prices, false, 2));
-    console.log("Price file saved:", fileName);
+async function retireDays(offset) {
+  // Count offset days backwards
+  offset *= -1;
+  let finished = false;
+  while (!finished) {
+    if (await hasDayPrice(offset)) {
+      if (useRedis) {
+        await redisClient.del(getRedisKey(offset));
+        console.log("Redis data removed:", getRedisKey(offset));
+      } else {
+        fs.unlinkSync(getFileName(offset));
+        console.log("Price file removed:", offset, getFileName(offset));
+      }
+    }
+    offset--;
+    finished = (await hasDayPrice(offset) === false);
+  }
+}
+
+function writeFile(prices, dayOffset) {
+  fs.writeFileSync(getFileName(dayOffset), JSON.stringify(prices, false, 2));
+    console.log("Price file saved:", getFileName(dayOffset));
 };
 
 async function getPrices(dayOffset) {
-  let fileName = savePath + "/prices-" + skewDays(dayOffset) + ".json";
-  let redisKey = "prices-" + skewDays(dayOffset);
-  if (!fs.existsSync(fileName)) {
+  if (!await hasDayPrice(dayOffset)) {
     let url = nordPoolUri + uriDate(dayOffset);
     //console.log('NordPool: ',url);
     await request(url, nordPool)
@@ -153,21 +176,21 @@ async function getPrices(dayOffset) {
             let priceObj = {
               startTime: startTime,
               endTime: endTime,
-              spotPrice: spotPrice.toFixed(4) * 1, 
+              spotPrice: spotPrice.toFixed(4) * 1,
               gridFixedPrice: gridPrice.toFixed(4) * 1,
               supplierFixedPrice: supplierPrice.toFixed(4) * 1,
               customerPrice: undefined
             }
             oneDayPrices['hourly'].push(priceObj);
           }
-  
+
           let minPrice = (rows[24].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
           let maxPrice = (rows[25].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
           let avgPrice = (rows[26].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
           let peakPrice = (rows[27].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
           let offPeakPrice1 = (rows[28].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
           let offPeakPrice2 = (rows[29].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/\,/g, '.') * 0.001);
-  
+
           oneDayPrices['daily'] = {
             minPrice: (minPrice += minPrice * spotVatPercent / 100).toFixed(4) * 1,
             maxPrice: (maxPrice += maxPrice * spotVatPercent / 100).toFixed(4) * 1,
@@ -177,11 +200,11 @@ async function getPrices(dayOffset) {
             offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
           }
           if (useRedis) {
-            redisClient.set(redisKey, JSON.stringify(oneDayPrices));
+            redisClient.set(getRedisKey(dayOffset), JSON.stringify(oneDayPrices));
             console.log('fetchprices: prices sent to Redis -', skewDays(dayOffset))
           } else {
-            writeFile(oneDayPrices, fileName);
-            console.log('fetchprices: prices stored as', 'prices-' + skewDays(dayOffset) +'.json')
+            writeFile(oneDayPrices, getFileName(dayOffset));
+            console.log('fetchprices: prices stored as', getFileName(dayOffset))
           }
           if (dayOffset === 0 || dayOffset === 1)
             mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, !config.DEBUG, 2), { retain: true, qos: 1 });
@@ -212,14 +235,14 @@ async function init() {
   supplierPrice = supplierDayPrice / 24;
   supplierPrice += supplierMonthPrice / 720;
   supplierPrice += supplierPrice * supplierVatPercent / 100;
-}
 
-async function run() {
-  if (useRedis && !redisClient.isOpen){
+  if (useRedis) {
     redisClient.on('error', err => console.log('Redis Client Error', err));
     await redisClient.connect();
   }
+}
 
+async function run() {
   await retireDays(keepDays);
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
@@ -228,8 +251,6 @@ async function run() {
     await getPrices(i);
   }
   await getPrices(1);
-  if (useRedis)
-    await redisClient.quit();
 }
 
 init();
