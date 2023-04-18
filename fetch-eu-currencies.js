@@ -1,4 +1,4 @@
-#!/usr/bin/env nodeuseRedis
+#!/usr/bin/env node
 
 "use strict"
 
