@@ -39,11 +39,9 @@ mqttClient.on("message", (topic, message) => {
       // are not available yet, so set them equal to dayPrices
       nextDayPrices = dayPrices;
     } else if (date == tomorrow) {
-      nextDayPrices = msg; 
-    }    
-    console.log('dayPrices loaded =====>', dayPrices);
-    console.log('nextDayPrices loaded =====>', nextDayPrices);
-  }  
+      nextDayPrices = msg;
+    }
+  }
 });
 
 /**
@@ -89,6 +87,6 @@ async function mergePrices(list, obj) {
    */
   console.log('mergeprices ===>', list, obj)
   return obj;
-}  
+}
 
 module.exports = { mergePrices };
