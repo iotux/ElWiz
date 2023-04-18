@@ -18,7 +18,7 @@ const onPlugEvent1 = async function (obj) {
   // Send to publish
   event.emit('publish1', obj)
   if (debug) {
-    obj.cache = config.cacheType;
+    obj.cache = config.cacheType || 'file';
     console.log('List1: plugselector',obj);
   }
 }
@@ -52,7 +52,7 @@ const onPlugEvent3 = async function (obj) {
       }
     }
   }
-  
+
   try {
     // Send to publish
     event.emit('publish3', obj);
