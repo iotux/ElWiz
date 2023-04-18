@@ -8,7 +8,8 @@ const { hex2Dec, hex2Ascii, getAmsTime } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
 const config = yaml.load(configFile);
-const debug = config.DEBUG;
+const debug = config.DEBUG || false;
+const amsDebug = config.amsDebug || false;
 
 let len;
 let obj = new Object();
@@ -93,7 +94,7 @@ const listHandler = async function (buf) {
     let result = await listDecode(hex);
     let listObject = result['data'];
     let list = result['list'];
-    if (config.amsDebug) {
+    if (amsDebug) {
       if (list === 'list1') {
         event.emit('hex1', hex)
       } else if ( list === 'list2') {

@@ -13,7 +13,9 @@ const { formatISO } = require('date-fns');
 
 // Load broker and topics preferences from config file
 const config = yaml.load(configFile);
-const debug = config.DEBUG;
+const debug = config.DEBUG || false;
+const amsDebug = config.amsDebug || false;
+
 
 // Aidon constants
 const AIDON_CONSTANTS = {
@@ -138,6 +140,15 @@ async function listHandler(buf) {
   let result = await listDecode(hex);
   let listObject = result['data'];
   let list = result['listType'];
+  if (amsDebug) {
+    if (list === 'list1') {
+      event.emit('hex1', hex)
+    } else if ( list === 'list2') {
+      event.emit('hex2', hex)
+    } else if ( list === 'list3') {
+      event.emit('hex3', hex)
+    }
+  }
   obj = await amsCalc.calc(listObject);
   event.emit(list, obj);
 }
