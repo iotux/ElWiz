@@ -71,7 +71,7 @@ module.exports = class UniCache {
       })();
     } else {
       this.path = options.savePath;
-      this.filePath = this.path + this.cacheName + '.json'
+      this.filePath = this.path + '/' + this.cacheName + '.json'
 
       if (!fs.existsSync(this.path)) {
         fs.mkdirSync(this.path, { recursive: true });

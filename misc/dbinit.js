@@ -12,7 +12,7 @@ const cacheOptions = {
   cacheType: config.cacheType || 'file',
   syncOnWrite: false,
   syncInterval: 5,
-  savePath: config.savePath
+  savePath: config.savePath || './data'
 };
 
 // Initial energy savings data
