@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env nodeuseRedis
 
 "use strict"
 
@@ -6,18 +6,17 @@ const fs = require('fs');
 const yaml = require("yamljs");
 const convert = require('xml-js');
 const request = require('axios');
-const { createClient } = require('redis');
 const config = yaml.load("config.yaml");
 
 const savePath = config.currencyDirectory;
 const debug = config.DEBUG;
-
-const client = createClient();
+const cacheType = config.cacheType || 'file';
+const useRedis = (cacheType === 'redis');
 
 const namePrefix = 'currencies-';
 const url = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 
-const runNodeSchedule = config.runNodeSchedule;
+const runNodeSchedule = config.runNodeSchedule || true;
 // Currency rates are available around 16:00 hours
 const scheduleHours = config.scheduleHours;
 const scheduleMinutes = config.scheduleMinutes;
@@ -29,6 +28,12 @@ if (runNodeSchedule) {
   runSchedule = new schedule.RecurrenceRule();
   runSchedule.hour = scheduleHours;
   runSchedule.minute = scheduleMinutes;
+}
+
+let redisClient;
+if (useRedis) {
+  const { createClient } = require('redis');
+  redisClient = createClient();
 }
 
 let options = {
@@ -59,11 +64,11 @@ async function getCurrencies() {
       }
 
       let redisKey = namePrefix + obj['date'];
-      client.set(redisKey, JSON.stringify(obj));
+      redisClient.set(redisKey, JSON.stringify(obj));
       let fileName = savePath + '/' + namePrefix + obj['date'] + '.json';
       fs.writeFileSync(fileName, JSON.stringify(obj, false, 2));
       redisKey = namePrefix + 'latest';
-      client.set(redisKey, JSON.stringify(obj));
+      redisClient.set(redisKey, JSON.stringify(obj));
       fileName = savePath + '/' + namePrefix + 'latest.json';
       fs.writeFileSync(fileName, JSON.stringify(obj, false, 2));
       if (debug) {
@@ -79,18 +84,20 @@ async function getCurrencies() {
 }
 
 async function init() {
-  client.on('error', err => console.log('Redis Client Error', err));
-  await client.connect();
+  if (useRedis && !redisClient.isOpen){
+    redisClient.on('error', err => console.log('Redis Client Error', err));
+    await redisClient.connect();
+  }
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
   }
-  getCurrencies();
 }
 
 init();
 if (runNodeSchedule) {
   console.log>("Fetch currency rates scheduling started..")
   schedule.scheduleJob(runSchedule, getCurrencies);
+  getCurrencies();
 } else {
   getCurrencies();
 }

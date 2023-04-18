@@ -1,5 +1,5 @@
 ---
-# The IP address or hostname 
+# The IP address or hostname
 # of your favorite MQTT broker
 mqttBroker: localhost
 brokerPort: 1883
@@ -53,7 +53,7 @@ hasProduction: false
 # cache
 #  - file
 #  - redis
-#  
+#
 # storage
 #  - mongodb
 #  - mariadb
@@ -96,9 +96,9 @@ priceAccessToken: <insert your token here>
 
 # Days to keep data files
 # Files older tham "keepDays" are deleted
-keepDays: 7 
+keepDays: 7
 
-# Windows and Docker users without cron 
+# Windows and Docker users without cron
 # want to use the "node-schedule" module.
 # Set the following to "true" if that is the case.
 # Cron users should set it to "false".
@@ -110,7 +110,7 @@ runNodeSchedule: true
 # program. Likewise, the <scheduleEuMinutes> is
 # for the "fetch-eu-prices" program.
 # The same scheduling is recommended for cron users
-# According to floating iformation, the prices
+# According to information flfoating around, the prices
 # are available about 13:00 CET/CEST from
 # Nord Pool, while the prices from ENTSO-E
 # is available about 14:00 CET/CEST
@@ -151,7 +151,7 @@ priceCurrency: NOK
 # [   8,       9,     10,    11,      12,     13]
 # Find your region and insert here.
 # Ask your local supplier if in doubt.
-priceRegion: 12
+priceRegion: 8
 
 # Those who use the "fetch-eu-prices" program
 # need to set the correct zone here.
@@ -164,7 +164,7 @@ countryCode: NO3
 # to your electric power supplier's invoice
 # Different rate models may require changes to program
 # Suppliers usually adds a fixed dayly OR monthly price
-# Use the ones that apply and set the others to 0.0  
+# Use the ones that apply and set the others to 0.0
 supplierKwhPrice: 0.0
 supplierDayPrice: 0.0
 supplierMonthPrice: 0.0

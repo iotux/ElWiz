@@ -24,7 +24,7 @@ const priceRegion = config.priceRegion;
 const spotVatPercent = config.spotVatPercent;
 const supplierDayPrice = config.supplierDayPrice;
 const supplierMonthPrice = config.supplierMonthPrice;
-const supplierVatPercent = config.supplierVatPercent; 
+const supplierVatPercent = config.supplierVatPercent;
 
 const gridDayPrice = config.gridDayPrice;
 const gridMonthPrice = config.gridMonthPrice;
@@ -35,7 +35,8 @@ const dayHoursEnd = config.dayHoursEnd;
 const energyDayPrice = config.energyDayPrice;
 const energyNightPrice = config.energyNightPrice;
 const savePath = config.priceDirectory;
-const useRedis = (config.cacheType === 'redis');
+const cacheType = config.cacheType || 'file';
+const useRedis = (cacheType === 'redis');
 
 let gridDayHourPrice;
 let gridNightHourPrice;
@@ -114,6 +115,46 @@ function skewDays(days) {
   return ret;
 }
 
+function getFileName (offset){
+  return savePath + "/prices-" + skewDays(offset) + ".json";
+}
+
+function getRedisKey (offset)  {
+  return "prices-" + skewDays(offset);
+}
+
+async function hasDayPrice(dayOffset) {
+  if (useRedis) {
+    return (await redisClient.get(getRedisKey(dayOffset)) !== null);
+  } else {
+    return fs.existsSync(getFileName(dayOffset))
+  }
+}
+
+async function retireDays(offset) {
+  // Count offset days backwards
+  offset *= -1;
+  let finished = false;
+  while (!finished) {
+    if (await hasDayPrice(offset)) {
+      if (useRedis) {
+        await redisClient.del(getRedisKey(offset));
+        console.log("Redis data removed:", getRedisKey(offset));
+      } else {
+        fs.unlinkSync(getFileName(offset));
+        console.log("Price file removed:", offset, getFileName(offset));
+      }
+    }
+    offset--;
+    finished = (await hasDayPrice(offset) === false);
+  }
+}
+
+function writeFile(prices, dayOffset) {
+  fs.writeFileSync(getFileName(dayOffset), JSON.stringify(prices, false, 2));
+    console.log("Price file saved:", getFileName(dayOffset));
+};
+
 function entsoeDate(days) {
   // Returns UTC time in Entsoe format
   let oneDay = 86400000; // 24 * 60 * 60 * 1000
@@ -147,9 +188,6 @@ function entsoeUrl(token, periodStart, periodEnd) {
 async function getPrices(dayOffset) {
   if (!fs.existsSync(savePath + "/prices-" + skewDays(dayOffset) + ".json")) {
     let url = entsoeUrl(token, entsoeDate(dayOffset), entsoeDate(dayOffset + 1));
-    let fileName = savePath + '/prices-' + skewDays(dayOffset) + '.json';
-    let redisKey = "prices-" + skewDays(dayOffset);
-
     await request.get(url, reqOpts).then(function (body) {
       let result = convert.xml2js(body.data, { compact: true, spaces: 4 });
       if (result.Publication_MarketDocument !== undefined) {
@@ -188,7 +226,7 @@ async function getPrices(dayOffset) {
           maxPrice = spotPrice > maxPrice ? spotPrice : maxPrice
           //console.log(oneDayPrices)
         }
-  
+
         oneDayPrices['daily'] = {
           minPrice: (minPrice += minPrice * spotVatPercent / 100).toFixed(4) * 1,
           maxPrice: (maxPrice += maxPrice * spotVatPercent / 100).toFixed(4) * 1,
@@ -199,11 +237,11 @@ async function getPrices(dayOffset) {
         }
         //let date = oneDayPrices['hourly'][0].startTime.substr(0, 10) + ".json";
         if (useRedis) {
-          redisClient.set(redisKey, JSON.stringify(oneDayPrices));
+          redisClient.set(getRedisKey(dayOffset), JSON.stringify(oneDayPrices));
           console.log('fetch-eu-prices: prices sent to Redis -', skewDays(dayOffset))
         } else {
-        fs.writeFileSync(fileName, JSON.stringify(oneDayPrices, false, 2));
-          console.log('fetch-eu-prices: prices stored as', 'prices-' + skewDays(dayOffset) +'.json')
+          fs.writeFileSync(getFileName(dayOffset), JSON.stringify(oneDayPrices, false, 2));
+          console.log('fetch-eu-prices: prices stored as', getFileName(dayOffset));
         }
         if (dayOffset === 0 || dayOffset === 1)
           mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, !config.DEBUG, 2), { retain: true, qos: 1 });
@@ -232,14 +270,13 @@ async function init() {
   supplierPrice = supplierDayPrice / 24;
   supplierPrice += supplierMonthPrice / 720;
   supplierPrice += supplierPrice * supplierVatPercent / 100;
-}
-
-async function run() {
-  if (useRedis && !redisClient.isOpen){
+  if (useRedis) {
     redisClient.on('error', err => console.log('Redis Client Error', err));
     await redisClient.connect();
   }
+}
 
+async function run() {
   if (!fs.existsSync(currencyDirectory)) {
     console.log("No currency file present");
     console.log('Please run "./fetch-eu-currencies.js"');
@@ -247,6 +284,8 @@ async function run() {
   } else {
     currencyRate = getCurrency(priceCurrency);
   }
+
+  await retireDays(keepDays);
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
   }
@@ -254,15 +293,13 @@ async function run() {
     await getPrices(i);
   }
   await getPrices(1)
-  if (useRedis)
-    redisClient.quit();
 }
 
 init();
 
 if (runNodeSchedule) {
   console.log("Fetch prices scheduling started...");
-  schedule.scheduleJob(runSchedule, run)
+  schedule.scheduleJob(runSchedule, run);
   // First a single run to init prices
   run();
 } else {

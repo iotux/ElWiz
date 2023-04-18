@@ -31,7 +31,8 @@ const dayHoursEnd = config.dayHoursEnd;
 const energyDayPrice = config.energyDayPrice;
 const energyNightPrice = config.energyNightPrice;
 const savePath = config.priceDirectory;
-const useRedis = (config.cacheType === 'redis');
+const cacheType = config.cacheType || 'file';
+const useRedis = (cacheType === 'redis');
 
 let gridDayHourPrice;
 let gridNightHourPrice;
@@ -64,13 +65,6 @@ let nordPool = {
   },
   json: true
   //method: 'GET'
-};
-
-const daysInMonth = [undefined, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-let oneDayPrices = {
-  hourly: [],
-  daily: {}
 };
 
 function addZero(num) {
@@ -257,7 +251,8 @@ init();
 
 if (runNodeSchedule) {
   console.log("Fetch prices scheduling started...");
-  schedule.scheduleJob(runSchedule, run)
+  schedule.scheduleJob(runSchedule, run);
+  // First a single run to init prices
   run();
 } else {
   run();

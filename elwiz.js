@@ -18,7 +18,7 @@ const watchValue = 15;
 
 class Pulse {
   constructor() {
-    this.debug = config.DEBUG;
+    this.debug = config.DEBUG || false;
   }
 
   init() {

@@ -1,5 +1,4 @@
 const fs = require("fs");
-const { createClient } = require("redis");
 
 /**
  * Get properties from an object using a key string with dot notation.
@@ -55,6 +54,7 @@ module.exports = class UniCache {
     this.data = {};
 
     if (this.cacheType === 'redis') {
+      const { createClient } = require("redis");
       this.redisKey = this.cacheName;
       (async () => {
         this.client = createClient(6379, 'localhost');
@@ -97,7 +97,7 @@ module.exports = class UniCache {
        return (Object.keys(data).length === 0 && Object.keys(this.data).length === 0)
      }
    }
- 
+
    /**
     * Synchronizes the cache data with the underlying storage.
     * @returns {Promise<void>} A promise that resolves when the synchronization is complete.
@@ -105,7 +105,7 @@ module.exports = class UniCache {
    async sync() {
      await this.saveCacheData();
    }
- 
+
    /**
     * Fetches cache data from the underlying storage.
     * @returns {Promise<void>} A promise that resolves when the cache data is fetched.
@@ -121,7 +121,7 @@ module.exports = class UniCache {
        this.data = data;
      }
    }
- 
+
    /**
     * Saves cache data to the underlying storage.
     * @returns {Promise<void>} A promise that resolves when the cache data is saved.
@@ -133,7 +133,7 @@ module.exports = class UniCache {
        fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), "utf-8");
      }
    }
- 
+
    /**
     * Checks if a key exists in the cache.
     * @param {string} key - The key to check for.
@@ -142,7 +142,7 @@ module.exports = class UniCache {
    async has(key) {
      return Boolean(await getProperties(this.data, key));
    }
- 
+
    /**
     * Retrieves the value of a key from the cache.
     * @param {string} key - The key to retrieve.
@@ -151,7 +151,7 @@ module.exports = class UniCache {
    async get(key) {
      return await getProperties(this.data, key);r
    }
- 
+
    /**
     * Sets the value of a key in the cache.
     * @param {string} key - The key to set.
@@ -163,21 +163,21 @@ module.exports = class UniCache {
      if (this.options.syncOnWrite)
        await this.saveCacheData();
    }
- 
+
      /**
     * Delete data for a key from the Redis object.
-    * @param {string} key 
+    * @param {string} key
     */
    async delete(key){
      delete this.data[key];
      if (this.options.syncOnWrite)
        await this.saveCacheData();
    }
- 
+
    /**
     * Add a number to a key in the database.
-    * @param {string} key 
-    * @param {number} count 
+    * @param {string} key
+    * @param {number} count
     */
    async add(key, count){
      if(!this.data[key]) this.data[key] = 0;
@@ -185,11 +185,11 @@ module.exports = class UniCache {
      if (this.options.syncOnWrite)
        await this.saveCacheData();
    }
- 
+
    /**
     * Subtract a number to a key in the database.
-    * @param {string} key 
-    * @param {number} count 
+    * @param {string} key
+    * @param {number} count
     */
    async subtract(key, count){
      if(!this.data[key]) this.data[key] = 0;
@@ -197,11 +197,11 @@ module.exports = class UniCache {
      if (this.options.syncOnWrite)
        await this.saveCacheData();
    }
- 
+
      /**
     * Push an element to a key in the Redis object.
-    * @param {string} key 
-    * @param {*} element 
+    * @param {string} key
+    * @param {*} element
     */
    async push(key, element){
      if (!this.data[key]) this.data[key] = [];
@@ -209,7 +209,7 @@ module.exports = class UniCache {
      if (this.options.syncOnWrite)
        await this.saveCacheData();
    }
- 
+
    /**
     * Clear the Redis object.
     */
@@ -218,7 +218,7 @@ module.exports = class UniCache {
      if (this.options.syncOnWrite)
        await this.saveCacheData();
    }
- 
+
    /**
     * Save the Redis object and disconnect.
     */
@@ -226,7 +226,7 @@ module.exports = class UniCache {
      await this.saveCacheData();
      await this.client.quit();
    }
- 
+
    /**
     * Fetch the Redis object.
     */
@@ -235,7 +235,7 @@ module.exports = class UniCache {
        await this.fetchCacheData();
      return this.data;
    }
-   
+
      /**
     * Initialize the Redis object.
     */
@@ -252,7 +252,7 @@ module.exports = class UniCache {
      }
      return this.data;
    }
- 
+
    /**
     * Initialize the Redis object or retrieve from storage.
     */

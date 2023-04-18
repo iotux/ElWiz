@@ -9,7 +9,7 @@ const config = yaml.load(configFile);
 // Cache configuration
 const cacheName = 'powersave';
 const cacheOptions = {
-  cacheType: config.cacheType,
+  cacheType: config.cacheType || 'file',
   syncOnWrite: false,
   syncInterval: 5,
   savePath: config.savePath
