@@ -30,12 +30,10 @@ async function calcReward(obj, kWh) {
  * @returns {number} - The calculated price.
  */
 async function calcPrice(obj, kWh) {
-  console.log('calcPrice', kWh, obj)
   // Actual price per kWh this hour (experimental)
   let price = (obj.gridFixedPrice + obj.supplierFixedPrice) / kWh;
   price += (gridKwhPrice + supplierKwhPrice + energyTax);
   price += obj.spotPrice;
-  console.log('calcPrice price', price)
   return parseFloat(price.toFixed(4));
 }
 
@@ -66,7 +64,6 @@ const calculateCost = {
     // List3 is run once every hour
     if (list === 'list3') {
       obj.customerPrice = await calcPrice(obj, obj.accumulatedConsumptionLastHour);
-      console.log('calcolateCost calc', obj)
       obj.costLastHour = await calcCost(obj, obj.accumulatedConsumptionLastHour);
       obj.rewardLastHour = await calcReward(obj, obj.accumulatedProductionLastHour);
       // Once every midnight
@@ -80,9 +77,6 @@ const calculateCost = {
       await db.set("accumulatedCost", obj.accumulatedCost);
       await db.set("accumulatedReward", obj.accumulatedReward);
       await db.sync();
-      await console.log('calculatecost - db.fetch', await db.fetch());
-      await console.log('calculatecost - obj', obj);
-      console.log('calcolateCost calc end', obj)
     }
     return obj;
   },
