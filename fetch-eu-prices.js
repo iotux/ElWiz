@@ -277,6 +277,9 @@ async function init() {
 }
 
 async function run() {
+  // With scheduled run, It may help to avoid missing currencies
+  if (runNodeSchedule)
+    await delay(1000); // 1 second
   if (!fs.existsSync(currencyDirectory)) {
     console.log("No currency file present");
     console.log('Please run "./fetch-eu-currencies.js"');
@@ -296,8 +299,6 @@ init();
 
 if (runNodeSchedule) {
   console.log("Fetch prices scheduling started...");
-  // With scheduled run, It may help to avoid missing currencies
-  await delay(1000); // 1 second
   schedule.scheduleJob(runSchedule, run);
   // First a single run to init prices
   run();
