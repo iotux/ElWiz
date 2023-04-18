@@ -28,7 +28,7 @@ mqttClient.on("message", (topic, message) => {
   if (topic1 + '/' + topic2 === 'elwiz/prices') {
     let msg;
     try {
-      msg = JSON.parse(message.toString());
+      msg = message.toString();
     } catch (error) {
       console.log('mergeprices MQTT', error)
     }
