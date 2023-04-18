@@ -137,11 +137,6 @@ async function retireDays(offset) {
   }
 }
 
-function writeFile(prices, dayOffset) {
-  fs.writeFileSync(getFileName(dayOffset), JSON.stringify(prices, false, 2));
-    console.log("Price file saved:", getFileName(dayOffset));
-};
-
 async function getPrices(dayOffset) {
   if (!await hasDayPrice(dayOffset)) {
     let url = nordPoolUri + uriDate(dayOffset);
@@ -197,7 +192,7 @@ async function getPrices(dayOffset) {
             redisClient.set(getRedisKey(dayOffset), JSON.stringify(oneDayPrices));
             console.log('fetchprices: prices sent to Redis -', skewDays(dayOffset))
           } else {
-            writeFile(oneDayPrices, getFileName(dayOffset));
+            fs.writeFileSync(getFileName(dayOffset), JSON.stringify(oneDayPrices, false, 2));
             console.log('fetchprices: prices stored as', getFileName(dayOffset))
           }
           if (dayOffset === 0 || dayOffset === 1)
@@ -230,6 +225,9 @@ async function init() {
   supplierPrice += supplierMonthPrice / 720;
   supplierPrice += supplierPrice * supplierVatPercent / 100;
 
+  if (!fs.existsSync(savePath)) {
+    fs.mkdirSync(savePath, { recursive: true });
+  }
   if (useRedis) {
     redisClient.on('error', err => console.log('Redis Client Error', err));
     await redisClient.connect();
@@ -238,9 +236,6 @@ async function init() {
 
 async function run() {
   await retireDays(keepDays);
-  if (!fs.existsSync(savePath)) {
-    fs.mkdirSync(savePath, { recursive: true });
-  }
   for (let i = (keepDays - 1) * -1; i <= 0; i++) {
     await getPrices(i);
   }

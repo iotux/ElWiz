@@ -78,6 +78,8 @@ let reqOpts = {
 
 let currencyRate;
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 function addZero(num) {
   if (num * 1 <= 9) {
     return "0" + num;
@@ -148,11 +150,6 @@ async function retireDays(offset) {
     finished = (await hasDayPrice(offset) === false);
   }
 }
-
-function writeFile(prices, dayOffset) {
-  fs.writeFileSync(getFileName(dayOffset), JSON.stringify(prices, false, 2));
-    console.log("Price file saved:", getFileName(dayOffset));
-};
 
 function entsoeDate(days) {
   // Returns UTC time in Entsoe format
@@ -269,6 +266,10 @@ async function init() {
   supplierPrice = supplierDayPrice / 24;
   supplierPrice += supplierMonthPrice / 720;
   supplierPrice += supplierPrice * supplierVatPercent / 100;
+
+  if (!fs.existsSync(savePath)) {
+    fs.mkdirSync(savePath, { recursive: true });
+  }
   if (useRedis) {
     redisClient.on('error', err => console.log('Redis Client Error', err));
     await redisClient.connect();
@@ -281,23 +282,22 @@ async function run() {
     console.log('Please run "./fetch-eu-currencies.js"');
     // exit(0); // This results in frequent pm2 restarts
   } else {
-    currencyRate = getCurrency(priceCurrency);
-  }
+    currencyRate = await getCurrency(priceCurrency);
 
-  await retireDays(keepDays);
-  if (!fs.existsSync(savePath)) {
-    fs.mkdirSync(savePath, { recursive: true });
+    await retireDays(keepDays);
+    for (let i = (keepDays - 1) * -1; i <= 0; i++) {
+      await getPrices(i);
+    }
+    await getPrices(1)
   }
-  for (let i = (keepDays - 1) * -1; i <= 0; i++) {
-    await getPrices(i);
-  }
-  await getPrices(1)
 }
 
 init();
 
 if (runNodeSchedule) {
   console.log("Fetch prices scheduling started...");
+  // With scheduled run, It may help to avoid missing currencies
+  await delay(1000); // 1 second
   schedule.scheduleJob(runSchedule, run);
   // First a single run to init prices
   run();

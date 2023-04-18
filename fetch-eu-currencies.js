@@ -63,14 +63,18 @@ async function getCurrencies() {
         "rates": getEuroRates( root.Cube)
       }
 
-      let redisKey = namePrefix + obj['date'];
-      redisClient.set(redisKey, JSON.stringify(obj));
-      let fileName = savePath + '/' + namePrefix + obj['date'] + '.json';
-      fs.writeFileSync(fileName, JSON.stringify(obj, false, 2));
-      redisKey = namePrefix + 'latest';
-      redisClient.set(redisKey, JSON.stringify(obj));
-      fileName = savePath + '/' + namePrefix + 'latest.json';
-      fs.writeFileSync(fileName, JSON.stringify(obj, false, 2));
+      let strObj = JSON.stringify(obj, null, 2);
+      if (useRedis) {
+        let redisKey = namePrefix + obj['date'];
+        redisClient.set(redisKey, strObj);
+        redisKey = namePrefix + 'latest';
+        redisClient.set(redisKey, strObj);
+      } else {
+        let fileName = savePath + '/' + namePrefix + obj['date'] + '.json';
+        fs.writeFileSync(fileName, strObj);
+        fileName = savePath + '/' + namePrefix + 'latest.json';
+        fs.writeFileSync(fileName, strObj);
+      }
       if (debug) {
         console.log(JSON.stringify(obj, !debug, 2))
       }

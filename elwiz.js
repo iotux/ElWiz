@@ -16,12 +16,15 @@ const meter = `./ams/${config.meterModel}.js`;
 const ams = require(meter);
 const watchValue = 15;
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 class Pulse {
   constructor() {
     this.debug = config.DEBUG || false;
   }
 
   init() {
+    delay(1500); // Delay 1.5 secs, waiting for prices
     setInterval(() => this.watch(), 1000);
     console.log(`${programName} is performing, PID: `, programPid);
 
