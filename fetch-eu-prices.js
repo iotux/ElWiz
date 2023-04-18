@@ -182,7 +182,7 @@ function entsoeUrl(token, periodStart, periodEnd) {
 }
 
 async function getPrices(dayOffset) {
-  if (!fs.existsSync(savePath + "/prices-" + skewDays(dayOffset) + ".json")) {
+  if (!await hasDayPrice(dayOffset)) {
     let url = entsoeUrl(token, entsoeDate(dayOffset), entsoeDate(dayOffset + 1));
     await request.get(url, reqOpts).then(function (body) {
       let result = convert.xml2js(body.data, { compact: true, spaces: 4 });
