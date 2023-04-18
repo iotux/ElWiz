@@ -6,7 +6,6 @@ const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios') //.default;
 const Mqtt = require('./mqtt/mqtt.js');
-const { createClient } = require('redis');
 const convert = require('xml-js');
 const { format } = require('date-fns')
 const { exit } = require('process');
