@@ -122,7 +122,7 @@ scheduleEuMinutes: [45]
 
 # Where to store currency and price data
 # relative to the program directory
-savePath: ./data/
+savePath: ./data
 currencyDirectory: ./data/currencies
 priceDirectory: ./data/prices
 
