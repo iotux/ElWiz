@@ -195,7 +195,7 @@ async function getPrices(dayOffset) {
         let oneDayPrices = {
           priceDate: skewDays(dayOffset),
           priceProvider: 'ENTSO-E',
-          priceProviderUrl: url,
+          priceProviderUrl: entsoeUrl('*****',entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
           hourly: [],
           daily: {}
         }
