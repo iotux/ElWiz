@@ -7,11 +7,11 @@ const yaml = require("yamljs");
 const request = require('axios');
 const Mqtt = require('./mqtt/mqtt.js');
 const { format } = require('date-fns');
-const { setWeekWithOptions } = require('date-fns/fp');
 const config = yaml.load("config.yaml");
 const priceTopic = config.priceTopic;
 const mqttClient = Mqtt.mqttClient();
 
+const debug = config.DEBUG || false;
 const keepDays = config.keepDays;
 const priceCurrency = config.priceCurrency;
 const priceRegion = config.priceRegion;
@@ -137,6 +137,16 @@ async function retireDays(offset) {
   }
 }
 
+async function savePrices(offset, obj) {
+  if (useRedis) {
+    await redisClient.set(getRedisKey(offset), JSON.stringify(obj, !debug, 2));
+    console.log('fetchprices: prices sent to Redis -', skewDays(offset));
+  } else {
+    fs.writeFileSync(getFileName(offset), JSON.stringify(obj, !debug, 2));
+    console.log('fetchprices: prices stored as', getFileName(offset));
+  }
+}
+
 async function getPrices(dayOffset) {
   if (!await hasDayPrice(dayOffset)) {
     let url = nordPoolUri + uriDate(dayOffset);
@@ -188,15 +198,20 @@ async function getPrices(dayOffset) {
             offPeakPrice1: (offPeakPrice1 += offPeakPrice1 * spotVatPercent / 100).toFixed(4) * 1,
             offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
           }
+          savePrices(dayOffset, oneDayPrices);
+          /*
           if (useRedis) {
-            redisClient.set(getRedisKey(dayOffset), JSON.stringify(oneDayPrices));
-            console.log('fetchprices: prices sent to Redis -', skewDays(dayOffset))
+            redisClient.set(getRedisKey(dayOffset), JSON.stringify(oneDayPrices, !debug, 2));
+            console.log('fetchprices: prices sent to Redis -', skewDays(dayOffset));
           } else {
-            fs.writeFileSync(getFileName(dayOffset), JSON.stringify(oneDayPrices, false, 2));
-            console.log('fetchprices: prices stored as', getFileName(dayOffset))
+            fs.writeFileSync(getFileName(dayOffset), JSON.stringify(oneDayPrices, !debug, 2));
+            console.log('fetchprices: prices stored as', getFileName(dayOffset));
           }
+          */
+          // Publish today and next day prices
           if (dayOffset === 0 || dayOffset === 1)
-            mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, !config.DEBUG, 2), { retain: true, qos: 1 });
+            mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, null, 2), { retain: true, qos: 1 });
+          // Remove previous retained prices
           mqttClient.publish(priceTopic + '/' + skewDays(dayOffset === 1 ? dayOffset - 2 : dayOffset - 1), '');
           } else {
           console.log("Day ahead prices are not ready:", skewDays(dayOffset));
