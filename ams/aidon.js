@@ -1,7 +1,6 @@
 const yaml = require("yamljs");
 const configFile = "./config.yaml";
 const amsCalc = require('../ams/amscalc.js');
-const db = require('../misc/dbinit.js');
 const { event } = require('../misc/misc.js');
 const {
   hex2Dec,
@@ -60,76 +59,71 @@ async function listDecode(buf) {
 
   for (const key in AIDON_CONSTANTS) {
     const constant = AIDON_CONSTANTS[key];
-    const dataIndex = hasData(msg.data, constant);
-    if (dataIndex > -1) {
+    const index = hasData(msg.data, constant);
+    if (index > -1) {
       switch (key) {
         case 'METER_VERSION':
-          obj.data.meterVersion = hex2Ascii(msg.data.substr(dataIndex, 22));
+          obj.data.meterVersion = hex2Ascii(msg.data.substring(index, index + 22));
           obj.listType = 'list2';
           break;
         case 'METER_ID':
-          obj.data.meterID = hex2Ascii(msg.data.substr(dataIndex, 32));
+          obj.data.meterID = hex2Ascii(msg.data.substring(index, index + 32));
           break;
         case 'METER_MODEL':
-          obj.data.meterModel = hex2Ascii(msg.data.substr(dataIndex, 8));
+          obj.data.meterModel = hex2Ascii(msg.data.substring(index, index + 8));
           break;
         case 'POWER':
-          obj.data.power = hex2Dec(msg.data.substr(dataIndex, 8)) / 1000;
+          obj.data.power = hex2Dec(msg.data.substring(index, index + 8)) / 1000;
           break;
         case 'POWER_PRODUCTION':
-          obj.data.powerProduction = hex2Dec(msg.data.substr(dataIndex, 8)) / 1000;
+          obj.data.powerProduction = hex2Dec(msg.data.substring(index, index + 8)) / 1000;
           break;
         case 'POWER_REACTIVE':
-          obj.data.powerReactive = hex2Dec(msg.data.substr(dataIndex, 8)) / 1000;
+          obj.data.powerReactive = hex2Dec(msg.data.substring(index, index + 8)) / 1000;
           break;
         case 'POWER_PRODUCTION_REACTIVE':
-          obj.data.powerProductionReactive = hex2Dec(msg.data.substr(dataIndex, 8)) / 1000;
+          obj.data.powerProductionReactive = hex2Dec(msg.data.substring(index, index + 8)) / 1000;
           break;
         case 'CURRENT_L1':
-          obj.data.currentL1 = hex2DecSign(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.currentL1 = hex2DecSign(msg.data.substring(index, index + 4)) / 10;
           break;
         case 'CURRENT_L2':
-          obj.data.currentL2 = hex2DecSign(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.currentL2 = hex2DecSign(msg.data.substring(index, index + 4)) / 10;
           break;
         case 'CURRENT_L3':
-          obj.data.currentL3 = hex2DecSign(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.currentL3 = hex2DecSign(msg.data.substring(index, index + 4)) / 10;
           break;
         case 'VOLTAGE_PHASE_1':
-          obj.data.voltagePhase1 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.voltagePhase1 = hex2Dec(msg.data.substring(index, index + 4)) / 10;
           break;
         case 'VOLTAGE_PHASE_2':
-          obj.data.voltagePhase2 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.voltagePhase2 = hex2Dec(msg.data.substring(index, index + 4)) / 10;
           break;
         case 'VOLTAGE_PHASE_3':
-          obj.data.voltagePhase3 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.voltagePhase3 = hex2Dec(msg.data.substring(index, index + 4)) / 10;
           break;
         case 'DATE':
-          let i = dataIndex;
+          let i = index;
           obj.data.meterDate = getAmsTime(msg.data, i);
           obj.listType = 'list3';
           break;
         case 'LAST_METER_CONSOMPTION':
-          obj.data.lastMeterConsumption = hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
+          obj.data.lastMeterConsumption = hex2Dec(msg.data.substring(index, index + 8)) / 100;
           break;
         case 'LAST_METER_PRODUCTION':
-          obj.data.lastMeterProduction = hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
+          obj.data.lastMeterProduction = hex2Dec(msg.data.substring(index, index + 8)) / 100;
           break;
         case 'LAST_METER_CONSOMPTION_REACTIVE':
-          obj.data.lastMeterConsumptionReactive = hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
+          obj.data.lastMeterConsumptionReactive = hex2Dec(msg.data.substring(index, index + 8)) / 100;
           break;
         case 'LAST_METER_PRODUCTION_REACTIVE':
-          obj.data.lastMeterProductionReactive = hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
+          obj.data.lastMeterProductionReactive = hex2Dec(msg.data.substring(index, index + 8)) / 100;
           break;
       }
     }
   }
-
-  if (Object.getOwnPropertyNames(obj.data).length === 0) {
-    console.error("Raw data packet exception : ", JSON.stringify(msg));
-  }
-
-  return obj;
 }
+
 
 /**
  * Handles the list data by decoding it and emitting an event.
