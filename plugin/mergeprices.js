@@ -6,7 +6,7 @@ const configFile = "./config.yaml";
 const { skewDays } = require('../misc/util.js');
 
 const config = yaml.load(configFile);
-const priceTopic = config.priceTopic;
+const priceTopic = config.priceTopic || 'elwiz/prices';
 
 const mqttClient = Mqtt.mqttClient();
 

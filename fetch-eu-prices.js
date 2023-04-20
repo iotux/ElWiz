@@ -241,12 +241,9 @@ async function getPrices(dayOffset) {
           offPeakPrice1: (calcAvg(0, 6, oneDayPrices['hourly'])).toFixed(4) * 1,
           offPeakPrice2: (calcAvg(22, 24, oneDayPrices['hourly'])).toFixed(4) * 1,
         }
+
         savePrices(dayOffset, oneDayPrices);
 
-        // Publish today and next day prices
-        if (dayOffset === 0 || dayOffset === 1)
-          mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
-        // Remove previous retained prices
       } else {
         console.log("Day ahead prices are not ready", skewDays(dayOffset));
       }
@@ -257,6 +254,11 @@ async function getPrices(dayOffset) {
       }
     })
   }
+  // Unconditionally publish today and next day prices
+  if (dayOffset === 0 || dayOffset === 1) {
+    mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
+ }
+
 }
 
 mqttClient.on("connect", () => {

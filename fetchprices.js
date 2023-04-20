@@ -204,14 +204,6 @@ async function getPrices(dayOffset) {
 
           savePrices(dayOffset, oneDayPrices);
 
-          // Publish today and next day prices
-          if (dayOffset === 0 || dayOffset === 1)
-            mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
-          // Remove previous retained prices
-          //if (dayOffset <= 0) {
-          //  mqttClient.publish(priceTopic + '/' + skewDays(dayOffset - 1), '', { retain: true });
-          //  console.log('Removed retained message:', priceTopic + '/' + skewDays(dayOffset - 1))
-          //}
         } else {
           console.log("Day ahead prices are not ready:", skewDays(dayOffset));
         }
@@ -223,10 +215,10 @@ async function getPrices(dayOffset) {
       }
     })
   }
-  //if (dayOffset === 0) {
-  //  await mqttClient.publish(priceTopic + '/' + skewDays(dayOffset - 1), '', { retain: true });
-  //  console.log('Removed retained Message', priceTopic + '/' + skewDays(dayOffset - 1))
-  //}
+  // Unconditionally publish today and next day prices
+  if (dayOffset === 0 || dayOffset === 1) {
+     mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
+  }
 }
 
 mqttClient.on("connect", () => {
