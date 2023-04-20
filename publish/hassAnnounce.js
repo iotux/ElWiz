@@ -5,8 +5,12 @@ const Mqtt = require('../mqtt/mqtt.js');
 const configFile = "./config.yaml";
 const config = yaml.load(configFile);
 
+const debug = config.DEBUG || false;
+const hasProduction = config.hasProduction || false;
 const haBaseTopic = config.haBaseTopic + '/';
-const hasProduction = config.hasProduction;
+const haTopic = config.haAnnounceTopic + '/';
+
+const client = Mqtt.mqttClient();
 
 const hassDevice = function (name, uniqueId, devClass, staClass, unitOfMeasurement, stateTopic, secondDay = false) {
   let isTimestamp = (devClass === '')
@@ -32,11 +36,8 @@ const hassDevice = function (name, uniqueId, devClass, staClass, unitOfMeasureme
 };
 
 const hassAnnounce = async function () {
-  const haTopic = config.haAnnounceTopic + '/';
   const pubOpts = { qos: 1, retain: true }
-  const debug = config.DEBUG;
-  const client = Mqtt.mqttClient();
- 
+
   //  hassDevice(name, uniqueId, devClass, stateClass, uom, stateTopic)
   let announce = hassDevice('Last meter consumption', 'last_meter_consumption', 'energy', 'total_increasing', 'kWh', 'lastMeterConsumption');
   client.publish(haTopic + "lastMeterConsumption/config", JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
@@ -156,7 +157,7 @@ const hassAnnounce = async function () {
 
   // Set retain flag (pubOpts) on status message to let HA find it after a stop/restart
   client.publish(haBaseTopic + "status", "online", pubOpts);
- 
+
 }; // hassAnnounce()
 
 module.exports = { hassAnnounce };

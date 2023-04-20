@@ -43,7 +43,6 @@ function onPubEvent2(obj) {
 }
 
 function onPubEvent3(obj) {
-  console.log('hasspublish: onPubEvent', obj)
   delete obj.meterVersion
   delete obj.meterID
   delete obj.meterModel

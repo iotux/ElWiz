@@ -6,36 +6,45 @@ const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios') //.default;
 const Mqtt = require('./mqtt/mqtt.js');
-const convert = require('xml-js');
 const { format } = require('date-fns')
-const { exit } = require('process');
-const { runInContext } = require('vm');
 const config = yaml.load("config.yaml");
-const priceTopic = config.priceTopic;
-const mqttClient = Mqtt.mqttClient();
 
-const debug = config.DEBUG
-const keepDays = config.keepDays;
-const currencyDirectory = config.currencyDirectory;
-const priceCurrency = config.priceCurrency;
-const priceRegion = config.priceRegion;
+// Specific for ENTSO-E
+const convert = require('xml-js');
+const { exit } = require('process');
+// For testing puposes
+// const baseUrl = "https://web-api.tp-iop.entsoe.eu/api"
+// For production
+const baseUrl = "https://web-api.tp.entsoe.eu/api";
+const token = config.priceAccessToken;
+//const priceRegion = config.priceRegion || 8;
+const priceCurrency = config.priceCurrency || './data/prices';
+const currencyDirectory = config.currencyDirectory || './data/currencies';
+const currencyFile = currencyDirectory + '/currencies-latest.json';
 
-const spotVatPercent = config.spotVatPercent;
-const supplierDayPrice = config.supplierDayPrice;
-const supplierMonthPrice = config.supplierMonthPrice;
-const supplierVatPercent = config.supplierVatPercent;
+// Common constants
+const debug = config.DEBUG || false;
+const priceTopic = config.priceTopic || 'elwiz/prices';
+const keepDays = config.keepDays || 7;
 
-const gridDayPrice = config.gridDayPrice;
-const gridMonthPrice = config.gridMonthPrice;
-const gridVatPercent = config.gridVatPercent;
+const spotVatPercent = config.spotVatPercent || 0;
+const supplierDayPrice = config.supplierDayPrice || 0;
+const supplierMonthPrice = config.supplierMonthPrice || 0;
+const supplierVatPercent = config.supplierVatPercent || 0;
 
-const dayHoursStart = config.dayHoursStart;
-const dayHoursEnd = config.dayHoursEnd;
-const energyDayPrice = config.energyDayPrice;
-const energyNightPrice = config.energyNightPrice;
+const gridDayPrice = config.gridDayPrice || 0;
+const gridMonthPrice = config.gridMonthPrice || 0;
+const gridVatPercent = config.gridVatPercent  || 0;
+
+const dayHoursStart = config.dayHoursStart | '06:00';
+const dayHoursEnd = config.dayHoursEnd || '22:00';
+const energyDayPrice = config.energyDayPrice || 0;
+const energyNightPrice = config.energyNightPrice || 0;
 const savePath = config.priceDirectory;
 const cacheType = config.cacheType || 'file';
 const useRedis = (cacheType === 'redis');
+
+const mqttClient = Mqtt.mqttClient();
 
 let gridDayHourPrice;
 let gridNightHourPrice;
@@ -59,14 +68,6 @@ if (useRedis) {
   const { createClient } = require('redis');
   redisClient = createClient();
 }
-
-const currencyFile = currencyDirectory + '/currencies-latest.json';
-
-// For testing puposes
-// const baseUrl = "https://web-api.tp-iop.entsoe.eu/api"
-// For production
-const baseUrl = "https://web-api.tp.entsoe.eu/api";
-const token = config.priceAccessToken;
 
 let reqOpts = {
   method: "get",
@@ -151,6 +152,16 @@ async function retireDays(offset) {
   }
 }
 
+async function savePrices(offset, obj) {
+  if (useRedis) {
+    await redisClient.set(getRedisKey(offset), JSON.stringify(obj, debug ? null : undefined, 2));
+    console.log('fetchprices: prices sent to Redis -', skewDays(offset));
+  } else {
+    fs.writeFileSync(getFileName(offset), JSON.stringify(obj, debug ? null : undefined, 2));
+    console.log('fetchprices: prices stored as', getFileName(offset));
+  }
+}
+
 function entsoeDate(days) {
   // Returns UTC time in Entsoe format
   let oneDay = 86400000; // 24 * 60 * 60 * 1000
@@ -212,8 +223,7 @@ async function getPrices(dayOffset) {
             endTime: endTime,
             spotPrice: spotPrice.toFixed(4) * 1,
             gridFixedPrice: gridPrice.toFixed(4) * 1,
-            supplierFixedPrice: supplierPrice.toFixed(4) * 1,
-            customerPrice: undefined
+            supplierFixedPrice: supplierPrice.toFixed(4) * 1
           }
           //console.log(priceObj)
           oneDayPrices['hourly'].push(priceObj);
@@ -231,17 +241,12 @@ async function getPrices(dayOffset) {
           offPeakPrice1: (calcAvg(0, 6, oneDayPrices['hourly'])).toFixed(4) * 1,
           offPeakPrice2: (calcAvg(22, 24, oneDayPrices['hourly'])).toFixed(4) * 1,
         }
-        //let date = oneDayPrices['hourly'][0].startTime.substr(0, 10) + ".json";
-        if (useRedis) {
-          redisClient.set(getRedisKey(dayOffset), JSON.stringify(oneDayPrices));
-          console.log('fetch-eu-prices: prices sent to Redis -', skewDays(dayOffset))
-        } else {
-          fs.writeFileSync(getFileName(dayOffset), JSON.stringify(oneDayPrices, false, 2));
-          console.log('fetch-eu-prices: prices stored as', getFileName(dayOffset));
-        }
+        savePrices(dayOffset, oneDayPrices);
+
+        // Publish today and next day prices
         if (dayOffset === 0 || dayOffset === 1)
-          mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, !config.DEBUG, 2), { retain: true, qos: 1 });
-        mqttClient.publish(priceTopic + '/' + skewDays(dayOffset === 1 ? dayOffset - 2 : dayOffset - 1), '');
+          mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
+        // Remove previous retained prices
       } else {
         console.log("Day ahead prices are not ready", skewDays(dayOffset));
       }
@@ -253,6 +258,26 @@ async function getPrices(dayOffset) {
     })
   }
 }
+
+mqttClient.on("connect", () => {
+  mqttClient.subscribe(priceTopic + '/#', (err) => {
+    if (err) {
+      console.log("Subscription error");
+    }
+  });
+});
+
+mqttClient.on("message", (topic, message) => {
+  const today = skewDays(0);
+  const tomorrow = skewDays(1);
+  let [topic1, topic2, date] = topic.split('/')
+  if (topic1 + '/' + topic2 === 'elwiz/prices') {
+    if (date < today) {
+      // Remove previous retained messages
+      mqttClient.publish(priceTopic + '/' + date, '', { retain: true });
+    }
+  }
+});
 
 async function init() {
   let price = gridDayPrice / 24;

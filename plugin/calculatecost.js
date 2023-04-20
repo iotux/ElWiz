@@ -34,7 +34,8 @@ async function calcPrice(obj, kWh) {
   let price = (obj.gridFixedPrice + obj.supplierFixedPrice) / kWh;
   price += (gridKwhPrice + supplierKwhPrice + energyTax);
   price += obj.spotPrice;
-  return parseFloat(price.toFixed(4));
+  return await price.toFixed(4) * 1;
+  //return parseFloat(price.toFixed(4));
 }
 
 /**
@@ -48,7 +49,8 @@ async function calcCost(obj, kWh) {
   let cost = (obj.gridFixedPrice + obj.supplierFixedPrice);
   cost += (gridKwhPrice + supplierKwhPrice + energyTax) * kWh;
   cost += obj.spotPrice * kWh
-  return parseFloat(cost.toFixed(4));
+  return await cost.toFixed(4) * 1;
+  //return parseFloat(cost.toFixed(4));
 }
 
 const calculateCost = {

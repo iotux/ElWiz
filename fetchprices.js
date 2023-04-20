@@ -8,31 +8,35 @@ const request = require('axios');
 const Mqtt = require('./mqtt/mqtt.js');
 const { format } = require('date-fns');
 const config = yaml.load("config.yaml");
-const priceTopic = config.priceTopic;
-const mqttClient = Mqtt.mqttClient();
 
-const debug = config.DEBUG || false;
-const keepDays = config.keepDays;
-const priceCurrency = config.priceCurrency;
-const priceRegion = config.priceRegion;
+// Specific for Nord Pool
+const priceCurrency = config.priceCurrency || './data/prices';
 const nordPoolUri =  "https://www.nordpoolgroup.com/api/marketdata/page/10/" + priceCurrency + "/";
+const priceRegion = config.priceRegion || 8;
 
-const spotVatPercent = config.spotVatPercent;
-const supplierDayPrice = config.supplierDayPrice;
-const supplierMonthPrice = config.supplierMonthPrice;
-const supplierVatPercent = config.supplierVatPercent;
+// Common constants
+const debug = config.DEBUG || false;
+const priceTopic = config.priceTopic || 'elwiz/prices';
+const keepDays = config.keepDays || 7;
 
-const gridDayPrice = config.gridDayPrice;
-const gridMonthPrice = config.gridMonthPrice;
-const gridVatPercent = config.gridVatPercent;
+const spotVatPercent = config.spotVatPercent || 0;
+const supplierDayPrice = config.supplierDayPrice || 0;
+const supplierMonthPrice = config.supplierMonthPrice || 0;
+const supplierVatPercent = config.supplierVatPercent || 0;
 
-const dayHoursStart = config.dayHoursStart;
-const dayHoursEnd = config.dayHoursEnd;
-const energyDayPrice = config.energyDayPrice;
-const energyNightPrice = config.energyNightPrice;
+const gridDayPrice = config.gridDayPrice || 0;
+const gridMonthPrice = config.gridMonthPrice || 0;
+const gridVatPercent = config.gridVatPercent  || 0;
+
+const dayHoursStart = config.dayHoursStart | '06:00';
+const dayHoursEnd = config.dayHoursEnd || '22:00';
+const energyDayPrice = config.energyDayPrice || 0;
+const energyNightPrice = config.energyNightPrice || 0;
 const savePath = config.priceDirectory;
 const cacheType = config.cacheType || 'file';
 const useRedis = (cacheType === 'redis');
+
+const mqttClient = Mqtt.mqttClient();
 
 let gridDayHourPrice;
 let gridNightHourPrice;
@@ -139,10 +143,10 @@ async function retireDays(offset) {
 
 async function savePrices(offset, obj) {
   if (useRedis) {
-    await redisClient.set(getRedisKey(offset), JSON.stringify(obj, !debug, 2));
+    await redisClient.set(getRedisKey(offset), JSON.stringify(obj, debug ? null : undefined, 2));
     console.log('fetchprices: prices sent to Redis -', skewDays(offset));
   } else {
-    fs.writeFileSync(getFileName(offset), JSON.stringify(obj, !debug, 2));
+    fs.writeFileSync(getFileName(offset), JSON.stringify(obj, debug ? null : undefined, 2));
     console.log('fetchprices: prices stored as', getFileName(offset));
   }
 }
@@ -177,8 +181,7 @@ async function getPrices(dayOffset) {
               endTime: endTime,
               spotPrice: spotPrice.toFixed(4) * 1,
               gridFixedPrice: gridPrice.toFixed(4) * 1,
-              supplierFixedPrice: supplierPrice.toFixed(4) * 1,
-              customerPrice: undefined
+              supplierFixedPrice: supplierPrice.toFixed(4) * 1
             }
             oneDayPrices['hourly'].push(priceObj);
           }
@@ -198,25 +201,20 @@ async function getPrices(dayOffset) {
             offPeakPrice1: (offPeakPrice1 += offPeakPrice1 * spotVatPercent / 100).toFixed(4) * 1,
             offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
           }
+
           savePrices(dayOffset, oneDayPrices);
-          /*
-          if (useRedis) {
-            redisClient.set(getRedisKey(dayOffset), JSON.stringify(oneDayPrices, !debug, 2));
-            console.log('fetchprices: prices sent to Redis -', skewDays(dayOffset));
-          } else {
-            fs.writeFileSync(getFileName(dayOffset), JSON.stringify(oneDayPrices, !debug, 2));
-            console.log('fetchprices: prices stored as', getFileName(dayOffset));
-          }
-          */
+
           // Publish today and next day prices
           if (dayOffset === 0 || dayOffset === 1)
-            mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, null, 2), { retain: true, qos: 1 });
+            mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
           // Remove previous retained prices
-          mqttClient.publish(priceTopic + '/' + skewDays(dayOffset === 1 ? dayOffset - 2 : dayOffset - 1), '');
-          } else {
+          //if (dayOffset <= 0) {
+          //  mqttClient.publish(priceTopic + '/' + skewDays(dayOffset - 1), '', { retain: true });
+          //  console.log('Removed retained message:', priceTopic + '/' + skewDays(dayOffset - 1))
+          //}
+        } else {
           console.log("Day ahead prices are not ready:", skewDays(dayOffset));
         }
-
       })
       .catch(function (err) {
       if (err.response) {
@@ -225,7 +223,31 @@ async function getPrices(dayOffset) {
       }
     })
   }
+  //if (dayOffset === 0) {
+  //  await mqttClient.publish(priceTopic + '/' + skewDays(dayOffset - 1), '', { retain: true });
+  //  console.log('Removed retained Message', priceTopic + '/' + skewDays(dayOffset - 1))
+  //}
 }
+
+mqttClient.on("connect", () => {
+  mqttClient.subscribe(priceTopic + '/#', (err) => {
+    if (err) {
+      console.log("Subscription error");
+    }
+  });
+});
+
+mqttClient.on("message", (topic, message) => {
+  const today = skewDays(0);
+  const tomorrow = skewDays(1);
+  let [topic1, topic2, date] = topic.split('/')
+  if (topic1 + '/' + topic2 === 'elwiz/prices') {
+    if (date < today) {
+      // Remove previous retained messages
+      mqttClient.publish(priceTopic + '/' + date, '', { retain: true });
+    }
+  }
+});
 
 async function init() {
   let price = gridDayPrice / 24;
