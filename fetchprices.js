@@ -152,6 +152,7 @@ async function savePrices(offset, obj) {
 }
 
 async function getPrices(dayOffset) {
+  let oneDayPrices = {};
   if (!await hasDayPrice(dayOffset)) {
     let url = nordPoolUri + uriDate(dayOffset);
     //console.log('NordPool: ',url);
@@ -159,7 +160,7 @@ async function getPrices(dayOffset) {
       .then(function (body) {
         let data = body.data.data;
         let rows = data.Rows;
-        let oneDayPrices = {
+        oneDayPrices = {
           priceDate: skewDays(dayOffset),
           priceProvider: 'Nord Pool',
           priceProviderUrl: url,

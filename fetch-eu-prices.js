@@ -193,6 +193,7 @@ function entsoeUrl(token, periodStart, periodEnd) {
 }
 
 async function getPrices(dayOffset) {
+  let oneDayPrices = {};
   if (!await hasDayPrice(dayOffset)) {
     let url = entsoeUrl(token, entsoeDate(dayOffset), entsoeDate(dayOffset + 1));
     await request.get(url, reqOpts).then(function (body) {
@@ -203,7 +204,7 @@ async function getPrices(dayOffset) {
         let endDay = getDate(realMeat.timeInterval.end._text);
         let minPrice = 9999;
         let maxPrice = 0;
-        let oneDayPrices = {
+        oneDayPrices = {
           priceDate: skewDays(dayOffset),
           priceProvider: 'ENTSO-E',
           priceProviderUrl: entsoeUrl('*****',entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
@@ -257,8 +258,7 @@ async function getPrices(dayOffset) {
   // Unconditionally publish today and next day prices
   if (dayOffset === 0 || dayOffset === 1) {
     mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
- }
-
+  }
 }
 
 mqttClient.on("connect", () => {
