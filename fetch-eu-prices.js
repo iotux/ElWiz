@@ -212,7 +212,7 @@ async function getPrices(dayOffset) {
         let endDay = getDate(realMeat.timeInterval.end._text);
         let minPrice = 9999;
         let maxPrice = 0;
-        oneDayPrices = {
+        let oneDayPrices = {
           priceDate: skewDays(dayOffset),
           priceProvider: 'ENTSO-E',
           priceProviderUrl: entsoeUrl('*****',entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
@@ -239,7 +239,6 @@ async function getPrices(dayOffset) {
 
           minPrice = spotPrice < minPrice ? spotPrice : minPrice;
           maxPrice = spotPrice > maxPrice ? spotPrice : maxPrice
-          //console.log(oneDayPrices)
         }
 
         oneDayPrices['daily'] = {

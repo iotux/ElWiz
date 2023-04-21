@@ -7,7 +7,7 @@ const { event } = require('../misc/misc.js')
 const { mergePrices } = require("./mergeprices.js");
 const { calculateCost } = require("./calculatecost.js");
 const config = yaml.load(configFile);
-const debug = config.DEBUG;
+const debug = config.DEBUG || false;
 
 //const useRedis = (config.cache === 'redis');
 
@@ -18,7 +18,7 @@ const onPlugEvent1 = async function (obj) {
   // Send to publish
   event.emit('publish1', obj)
   if (debug) {
-    obj.cache = config.cacheType || 'file';
+    obj.cacheType = config.cacheType || 'file';
     console.log('List1: plugselector',obj);
   }
 }
