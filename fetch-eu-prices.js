@@ -133,6 +133,14 @@ async function hasDayPrice(dayOffset) {
   }
 }
 
+async function getDayPrice(dayOffset) {
+  if (useRedis) {
+    return (await redisClient.get(getRedisKey(dayOffset)));
+  } else {
+    return fs.readFileSync(getFileName(dayOffset))
+  }
+}
+
 async function retireDays(offset) {
   // Count offset days backwards
   offset *= -1;
@@ -193,7 +201,7 @@ function entsoeUrl(token, periodStart, periodEnd) {
 }
 
 async function getPrices(dayOffset) {
-  let oneDayPrices = {};
+  // Get prices unconditionally for today and tomorrow
   if (!await hasDayPrice(dayOffset)) {
     let url = entsoeUrl(token, entsoeDate(dayOffset), entsoeDate(dayOffset + 1));
     await request.get(url, reqOpts).then(function (body) {
@@ -245,6 +253,12 @@ async function getPrices(dayOffset) {
 
         savePrices(dayOffset, oneDayPrices);
 
+        // Publish today and next day prices
+        if (dayOffset === 0 || dayOffset === 1) {
+          mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
+          console.log('fetchprices: MQTT message published', skewDays(dayOffset));
+        }
+
       } else {
         console.log("Day ahead prices are not ready", skewDays(dayOffset));
       }
@@ -254,10 +268,13 @@ async function getPrices(dayOffset) {
         if (debug) console.log('Headers:', err.response.headers)
       }
     })
-  }
-  // Unconditionally publish today and next day prices
-  if (dayOffset === 0 || dayOffset === 1) {
-    mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
+  } else {
+    // Publish today and next day prices
+    if (dayOffset === 0 || dayOffset === 1 && hasDayPrice(skewDays(dayOffset))) {
+      let priceObject = await JSON.parse(await getDayPrice(dayOffset));
+      await mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(priceObject, debug ? null : undefined, 2), { retain: true, qos: 1 });
+      console.log('fetchprices: MQTT message published', skewDays(dayOffset));
+    }
   }
 }
 

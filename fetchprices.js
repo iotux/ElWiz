@@ -46,6 +46,9 @@ const runNodeSchedule = config.runNodeSchedule;
 const scheduleHours = config.scheduleHours;
 const scheduleMinutes = config.scheduleMinutes;
 
+let dayPrices = undefined;
+let nextDayPrices = undefined;
+
 let schedule;
 let runSchedule;
 if (runNodeSchedule) {
@@ -122,6 +125,14 @@ async function hasDayPrice(dayOffset) {
   }
 }
 
+async function getDayPrice(dayOffset) {
+  if (useRedis) {
+    return (await redisClient.get(getRedisKey(dayOffset)));
+  } else {
+    return fs.readFileSync(getFileName(dayOffset))
+  }
+}
+
 async function retireDays(offset) {
   // Count offset days backwards
   offset *= -1;
@@ -152,7 +163,7 @@ async function savePrices(offset, obj) {
 }
 
 async function getPrices(dayOffset) {
-  let oneDayPrices = {};
+  // Get prices unconditionally for today and tomorrow
   if (!await hasDayPrice(dayOffset)) {
     let url = nordPoolUri + uriDate(dayOffset);
     //console.log('NordPool: ',url);
@@ -160,7 +171,7 @@ async function getPrices(dayOffset) {
       .then(function (body) {
         let data = body.data.data;
         let rows = data.Rows;
-        oneDayPrices = {
+        let oneDayPrices = {
           priceDate: skewDays(dayOffset),
           priceProvider: 'Nord Pool',
           priceProviderUrl: url,
@@ -205,6 +216,11 @@ async function getPrices(dayOffset) {
 
           savePrices(dayOffset, oneDayPrices);
 
+          // Publish today and next day prices
+          if (dayOffset === 0 || dayOffset === 1) {
+            mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
+            console.log('fetchprices: MQTT message published', skewDays(dayOffset));
+          }
         } else {
           console.log("Day ahead prices are not ready:", skewDays(dayOffset));
         }
@@ -215,10 +231,13 @@ async function getPrices(dayOffset) {
         console.log('Headers:', err.response.headers)
       }
     })
-  }
-  // Unconditionally publish today and next day prices
-  if (dayOffset === 0 || dayOffset === 1) {
-     mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
+  } else {
+    // Publish today and next day prices
+    if (dayOffset === 0 || dayOffset === 1 && hasDayPrice(skewDays(dayOffset))) {
+      let priceObject = await JSON.parse(await getDayPrice(dayOffset))
+      await mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(priceObject, debug ? null : undefined, 2), { retain: true, qos: 1 });
+      console.log('fetchprices: MQTT message published', skewDays(dayOffset));
+    }
   }
 }
 
