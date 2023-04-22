@@ -117,56 +117,62 @@ function skewDays(days) {
   return ret;
 }
 
-function getFileName (offset){
-  return savePath + "/prices-" + skewDays(offset) + ".json";
+function getFileName (priceDate){
+  return savePath + "/prices-" + priceDate + ".json";
 }
 
-function getRedisKey (offset)  {
-  return "prices-" + skewDays(offset);
+function getRedisKey (priceDate)  {
+  return "prices-" + priceDate;
 }
 
-async function hasDayPrice(dayOffset) {
+async function hasDayPrice(priceDate) {
   if (useRedis) {
-    return (await redisClient.get(getRedisKey(dayOffset)) !== null);
+    return (await redisClient.get(getRedisKey(priceDate)) !== null);
   } else {
-    return fs.existsSync(getFileName(dayOffset))
+    return fs.existsSync(getFileName(priceDate))
   }
 }
 
-async function getDayPrice(dayOffset) {
+async function getDayPrice(priceDate) {
   if (useRedis) {
-    return (await redisClient.get(getRedisKey(dayOffset)));
+    return (await redisClient.get(getRedisKey(priceDate)));
   } else {
-    return fs.readFileSync(getFileName(dayOffset))
+    return fs.readFileSync(getFileName(priceDate))
   }
 }
 
 async function retireDays(offset) {
   // Count offset days backwards
   offset *= -1;
-  let finished = false;
-  while (!finished) {
-    if (await hasDayPrice(offset)) {
-      if (useRedis) {
-        await redisClient.del(getRedisKey(offset));
-        console.log("Redis data removed:", getRedisKey(offset));
-      } else {
-        fs.unlinkSync(getFileName(offset));
-        console.log("Price file removed:", offset, getFileName(offset));
+  const priceDate = skewDays(offset);
+  console.log('priceDate', priceDate)
+  if (useRedis) {
+    const keys = await redisClient.keys('prices-*');
+    keys.forEach(async (key) => {
+      if (key <= `prices-${priceDate}`) {
+        await redisClient.del(key);
+        console.log("Redis data removed:", key);
       }
-    }
-    offset--;
-    finished = (await hasDayPrice(offset) === false);
+    });
+  } else {
+    const files = fs.readdirSync('./data/prices/');
+    files.forEach(async (file) => {
+      if (file <= `prices-${priceDate}.json`) {
+        fs.unlinkSync('./data/prices/' + file);
+        console.log("File deleted:", file);
+      }
+    });
   }
 }
 
 async function savePrices(offset, obj) {
+  const priceDate = skewDays(offset);
   if (useRedis) {
-    await redisClient.set(getRedisKey(offset), JSON.stringify(obj, debug ? null : undefined, 2));
-    console.log('fetchprices: prices sent to Redis -', skewDays(offset));
+    await redisClient.set(getRedisKey(priceDate), JSON.stringify(obj, debug ? null : undefined, 2));
+    console.log('fetchprices: prices sent to Redis -', 'prices-' + priceDate);
   } else {
-    fs.writeFileSync(getFileName(offset), JSON.stringify(obj, debug ? null : undefined, 2));
-    console.log('fetchprices: prices stored as', getFileName(offset));
+    fs.writeFileSync(getFileName(priceDate), JSON.stringify(obj, debug ? null : undefined, 2));
+    console.log('fetchprices: prices stored as', getFileName(priceDate));
   }
 }
 
@@ -201,7 +207,8 @@ function entsoeUrl(token, periodStart, periodEnd) {
 }
 
 async function getPrices(dayOffset) {
-  // Get prices unconditionally for today and tomorrow
+  const priceDate = skewDays(dayOffset);
+  // Get prices for today and tomorrow
   if (!await hasDayPrice(dayOffset)) {
     let url = entsoeUrl(token, entsoeDate(dayOffset), entsoeDate(dayOffset + 1));
     await request.get(url, reqOpts).then(function (body) {
@@ -213,7 +220,7 @@ async function getPrices(dayOffset) {
         let minPrice = 9999;
         let maxPrice = 0;
         let oneDayPrices = {
-          priceDate: skewDays(dayOffset),
+          priceDate: priceDate,
           priceProvider: 'ENTSO-E',
           priceProviderUrl: entsoeUrl('*****',entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
           hourly: [],
@@ -254,12 +261,12 @@ async function getPrices(dayOffset) {
 
         // Publish today and next day prices
         if (dayOffset === 0 || dayOffset === 1) {
-          mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
-          console.log('fetchprices: MQTT message published', skewDays(dayOffset));
+          mqttClient.publish(priceTopic + '/' + priceDate, JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
+          console.log('fetchprices: MQTT message published', priceDate);
         }
 
       } else {
-        console.log("Day ahead prices are not ready", skewDays(dayOffset));
+        console.log("Day ahead prices are not ready", priceDate);
       }
     }).catch(function (err) {
       if (err.response) {
@@ -269,11 +276,11 @@ async function getPrices(dayOffset) {
     })
   } else {
     // Publish today and next day prices
-    if (dayOffset === 0 || dayOffset === 1 && hasDayPrice(skewDays(dayOffset))) {
-      let priceObject = await JSON.parse(await getDayPrice(dayOffset));
-      await mqttClient.publish(priceTopic + '/' + skewDays(dayOffset), JSON.stringify(priceObject, debug ? null : undefined, 2), { retain: true, qos: 1 });
-      console.log('fetchprices: MQTT message published', skewDays(dayOffset));
+    if (dayOffset === 0 || dayOffset === 1) {
+      mqttClient.publish(priceTopic + '/' + priceDate, JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
+      console.log('fetchprices: MQTT message published', priceDate);
     }
+
   }
 }
 
