@@ -2,6 +2,7 @@
 
 "use strict"
 
+const programName = 'fetchprices';
 const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios');
@@ -10,9 +11,9 @@ const { format } = require('date-fns');
 const config = yaml.load("config.yaml");
 
 // Specific for Nord Pool
-const priceCurrency = config.priceCurrency || './data/prices';
+const priceRegion = config.priceRegion || 8; // Oslo
+const priceCurrency = config.priceCurrency || 'NOK';
 const nordPoolUri =  "https://www.nordpoolgroup.com/api/marketdata/page/10/" + priceCurrency + "/";
-const priceRegion = config.priceRegion || 8;
 
 // Common constants
 const debug = config.DEBUG || false;
@@ -32,7 +33,9 @@ const dayHoursStart = config.dayHoursStart | '06:00';
 const dayHoursEnd = config.dayHoursEnd || '22:00';
 const energyDayPrice = config.energyDayPrice || 0;
 const energyNightPrice = config.energyNightPrice || 0;
-const savePath = config.priceDirectory;
+
+const priceDirectory = config.priceDirectory || './data/prices';
+const savePath = config.priceFilePath || './data/prices';
 const cacheType = config.cacheType || 'file';
 const useRedis = (cacheType === 'redis');
 
@@ -116,9 +119,19 @@ function getRedisKey (priceDate)  {
   return "prices-" + priceDate;
 }
 
+async function getSavedPriceCount() {
+  if (useRedis) {
+    const keys = await redisClient.keys('prices-*');
+    return keys.length;
+  } else {
+    const files = fs.readdirSync(savePath + '/');
+    return files.length
+  }
+}
+
 async function hasDayPrice(priceDate) {
   if (useRedis) {
-    return (await redisClient.get(getRedisKey(priceDate)) !== null);
+    return (await redisClient.exists(getRedisKey(priceDate)) !== 0);
   } else {
     return fs.existsSync(getFileName(priceDate))
   }
@@ -133,37 +146,35 @@ async function getDayPrice(priceDate) {
 }
 
 async function retireDays(offset) {
-  // Count offset days backwards
+  // Build a list of candidates
   offset *= -1;
   const priceDate = skewDays(offset);
-  console.log('priceDate', priceDate)
   if (useRedis) {
     const keys = await redisClient.keys('prices-*');
     keys.forEach(async (key) => {
       if (key <= `prices-${priceDate}`) {
         await redisClient.del(key);
-        console.log("Redis data removed:", key);
+        console.log("fetchprices: Redis data deleted:", key);
       }
     });
   } else {
-    const files = fs.readdirSync('./data/prices/');
+    const files = fs.readdirSync(savePath + '/');
     files.forEach(async (file) => {
       if (file <= `prices-${priceDate}.json`) {
-        fs.unlinkSync('./data/prices/' + file);
-        console.log("File deleted:", file);
+        fs.unlinkSync(savePath + '/' + file);
+        console.log("fetchprices: File deleted:", file);
       }
     });
   }
 }
 
-async function savePrices(offset, obj) {
-  const priceDate = skewDays(offset);
+async function savePrices(priceDate, obj) {
   if (useRedis) {
-    await redisClient.set(getRedisKey(priceDate), JSON.stringify(obj, debug ? null : undefined, 2));
-    console.log('fetchprices: prices sent to Redis -', 'prices-' + priceDate);
+    await redisClient.set(getRedisKey(priceDate), JSON.stringify(obj, debug ? null : undefined, 2))
+      .then(console.log(programName + ': Prices stored in Redis DB:', 'prices-' + priceDate));
   } else {
-    fs.writeFileSync(getFileName(priceDate), JSON.stringify(obj, debug ? null : undefined, 2));
-    console.log('fetchprices: prices stored as', getFileName(priceDate));
+    fs.writeFileSync(getFileName(priceDate), JSON.stringify(obj, debug ? null : undefined, 2))
+      .then(console.log(programName + ': Prices stored in file:', getFileName(priceDate)));
   }
 }
 
@@ -171,7 +182,6 @@ async function getPrices(dayOffset) {
   const priceDate = skewDays(dayOffset);
   // Get prices for today and tomorrow
   if (!await hasDayPrice(priceDate)) {
-    console.log('getPrices', priceDate)
     let url = nordPoolUri + uriDate(dayOffset);
     //console.log('NordPool: ',url);
     await request(url, nordPool)
@@ -221,15 +231,15 @@ async function getPrices(dayOffset) {
             offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
           }
 
-          savePrices(dayOffset, oneDayPrices);
+          savePrices(priceDate, oneDayPrices);
 
           // Publish today and next day prices
           if (dayOffset === 0 || dayOffset === 1) {
             mqttClient.publish(priceTopic + '/' + priceDate, JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
-            console.log('fetchprices: MQTT message published', priceDate);
+            console.log(programName + ': MQTT message published:', 'prices-' + priceDate);
           }
         } else {
-          console.log("Day ahead prices are not ready:", priceDate);
+          console.log(programName + ': Day ahead prices are not ready:', priceDate);
         }
       })
       .catch(function (err) {
@@ -243,7 +253,7 @@ async function getPrices(dayOffset) {
     if (dayOffset === 0 || dayOffset === 1 && hasDayPrice(priceDate)) {
       let priceObject = await JSON.parse(await getDayPrice(priceDate))
       await mqttClient.publish(priceTopic + '/' + priceDate, JSON.stringify(priceObject, debug ? null : undefined, 2), { retain: true, qos: 1 });
-      console.log('fetchprices: MQTT message published', priceDate);
+      console.log(programName + ': MQTT message published:', 'prices-' + priceDate);
     }
   }
 }
@@ -251,7 +261,7 @@ async function getPrices(dayOffset) {
 mqttClient.on("connect", () => {
   mqttClient.subscribe(priceTopic + '/#', (err) => {
     if (err) {
-      console.log("Subscription error");
+      console.log(programName + ': MQTT subscription error');
     }
   });
 });
@@ -260,7 +270,7 @@ mqttClient.on("message", (topic, message) => {
   const today = skewDays(0);
   const tomorrow = skewDays(1);
   let [topic1, topic2, date] = topic.split('/')
-  if (topic1 + '/' + topic2 === 'elwiz/prices') {
+  if (topic1 + '/' + topic2 === priceTopic) {
     if (date < today) {
       // Remove previous retained messages
       mqttClient.publish(priceTopic + '/' + date, '', { retain: true });
@@ -285,23 +295,24 @@ async function init() {
     fs.mkdirSync(savePath, { recursive: true });
   }
   if (useRedis) {
-    redisClient.on('error', err => console.log('Redis Client Error', err));
+    redisClient.on('error', err => console.log(programName + ': Redis Client error', err));
     await redisClient.connect();
   }
 }
 
 async function run() {
+  console.log(programName + ': Stored days:', await getSavedPriceCount())
   await retireDays(keepDays);
-  for (let i = (keepDays - 1) * -1; i <= 0; i++) {
+  for (let i = (keepDays - 1) * -1; i <= 1; i++) {
     await getPrices(i);
   }
-  await getPrices(1);
+  console.log(programName + ': Updated stored days:', await getSavedPriceCount())
 }
 
 init();
 
 if (runNodeSchedule) {
-  console.log("Fetch prices scheduling started...");
+  console.log(programName + ': Fetch prices scheduling started');
   schedule.scheduleJob(runSchedule, run);
   // First a single run to init prices
   run();

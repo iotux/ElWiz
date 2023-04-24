@@ -2,6 +2,7 @@
 
 "use strict"
 
+const programName = 'fetch-eu-prices';
 const fs = require('fs');
 const yaml = require("yamljs");
 const request = require('axios') //.default;
@@ -18,9 +19,9 @@ const { exit } = require('process');
 const baseUrl = "https://web-api.tp.entsoe.eu/api";
 const token = config.priceAccessToken;
 //const priceRegion = config.priceRegion || 8;
-const priceCurrency = config.priceCurrency || './data/prices';
-const currencyDirectory = config.currencyDirectory || './data/currencies';
-const currencyFile = currencyDirectory + '/currencies-latest.json';
+const priceCurrency = config.priceCurrency || 'NOK';
+const currencyFilePath = config.currencyFilePath || './data/currencies';
+const currencyFile = currencyFilePath + '/currencies-latest.json';
 
 // Common constants
 const debug = config.DEBUG || false;
@@ -40,7 +41,7 @@ const dayHoursStart = config.dayHoursStart | '06:00';
 const dayHoursEnd = config.dayHoursEnd || '22:00';
 const energyDayPrice = config.energyDayPrice || 0;
 const energyNightPrice = config.energyNightPrice || 0;
-const savePath = config.priceDirectory;
+const savePath = config.priceFilePath || './data/prices';
 const cacheType = config.cacheType || 'file';
 const useRedis = (cacheType === 'redis');
 
@@ -113,8 +114,7 @@ function skewDays(days) {
   let oneDay = 24 * 60 * 60 * 1000;
   let now = new Date();
   let date = new Date(now.getTime() + oneDay * days);
-  let ret = format(date, 'yyyy-MM-dd');
-  return ret;
+  return format(date, 'yyyy-MM-dd');
 }
 
 function getFileName (priceDate){
@@ -125,9 +125,19 @@ function getRedisKey (priceDate)  {
   return "prices-" + priceDate;
 }
 
+async function getSavedPriceCount() {
+  if (useRedis) {
+    const keys = await redisClient.keys('prices-*');
+    return keys.length;
+  } else {
+    const files = fs.readdirSync(savePath + '/');
+    return files.length
+  }
+}
+
 async function hasDayPrice(priceDate) {
   if (useRedis) {
-    return (await redisClient.get(getRedisKey(priceDate)) !== null);
+    return (await redisClient.exists(getRedisKey(priceDate)) !== 0);
   } else {
     return fs.existsSync(getFileName(priceDate))
   }
@@ -145,34 +155,34 @@ async function retireDays(offset) {
   // Count offset days backwards
   offset *= -1;
   const priceDate = skewDays(offset);
-  console.log('priceDate', priceDate)
   if (useRedis) {
     const keys = await redisClient.keys('prices-*');
     keys.forEach(async (key) => {
       if (key <= `prices-${priceDate}`) {
         await redisClient.del(key);
-        console.log("Redis data removed:", key);
+        console.log("fetch-eu-prices: Redis data deleted:", key);
       }
     });
   } else {
-    const files = fs.readdirSync('./data/prices/');
+    const files = fs.readdirSync(savePath + '/');
     files.forEach(async (file) => {
       if (file <= `prices-${priceDate}.json`) {
-        fs.unlinkSync('./data/prices/' + file);
-        console.log("File deleted:", file);
+        fs.unlinkSync(savePath + '/' + file);
+        console.log("fetch-eu-prices: File deleted:", file);
+
       }
     });
   }
 }
 
-async function savePrices(offset, obj) {
-  const priceDate = skewDays(offset);
+async function savePrices(priceDate, obj) {
   if (useRedis) {
-    await redisClient.set(getRedisKey(priceDate), JSON.stringify(obj, debug ? null : undefined, 2));
-    console.log('fetchprices: prices sent to Redis -', 'prices-' + priceDate);
+    await redisClient.set(getRedisKey(priceDate), JSON.stringify(obj, debug ? null : undefined, 2))
+      .then(console.log(programName + ': Prices stored in Redis DB:', 'prices-' + priceDate));
+    console.log(programName + ': prices sent to Redis -', 'prices-' + priceDate);
   } else {
-    fs.writeFileSync(getFileName(priceDate), JSON.stringify(obj, debug ? null : undefined, 2));
-    console.log('fetchprices: prices stored as', getFileName(priceDate));
+    fs.writeFileSync(getFileName(priceDate), JSON.stringify(obj, debug ? null : undefined, 2))
+      .then(console.log(programName + ': Prices stored in file:', getFileName(priceDate)));
   }
 }
 
@@ -209,7 +219,7 @@ function entsoeUrl(token, periodStart, periodEnd) {
 async function getPrices(dayOffset) {
   const priceDate = skewDays(dayOffset);
   // Get prices for today and tomorrow
-  if (!await hasDayPrice(dayOffset)) {
+  if (!await hasDayPrice(priceDate)) {
     let url = entsoeUrl(token, entsoeDate(dayOffset), entsoeDate(dayOffset + 1));
     await request.get(url, reqOpts).then(function (body) {
       let result = convert.xml2js(body.data, { compact: true, spaces: 4 });
@@ -257,12 +267,12 @@ async function getPrices(dayOffset) {
           offPeakPrice2: (calcAvg(22, 24, oneDayPrices['hourly'])).toFixed(4) * 1,
         }
 
-        savePrices(dayOffset, oneDayPrices);
+        savePrices(priceDate, oneDayPrices);
 
         // Publish today and next day prices
         if (dayOffset === 0 || dayOffset === 1) {
           mqttClient.publish(priceTopic + '/' + priceDate, JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
-          console.log('fetchprices: MQTT message published', priceDate);
+          console.log(programName + ': MQTT message published:', 'prices-' + priceDate);
         }
 
       } else {
@@ -276,11 +286,11 @@ async function getPrices(dayOffset) {
     })
   } else {
     // Publish today and next day prices
-    if (dayOffset === 0 || dayOffset === 1) {
-      mqttClient.publish(priceTopic + '/' + priceDate, JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
-      console.log('fetchprices: MQTT message published', priceDate);
+    if (dayOffset === 0 || dayOffset === 1 && hasDayPrice(priceDate)) {
+      let priceObject = await JSON.parse(await getDayPrice(priceDate))
+      await mqttClient.publish(priceTopic + '/' + priceDate, JSON.stringify(priceObject, debug ? null : undefined, 2), { retain: true, qos: 1 });
+      console.log(programName + ': MQTT message published:', 'prices-' + priceDate);
     }
-
   }
 }
 
@@ -296,7 +306,7 @@ mqttClient.on("message", (topic, message) => {
   const today = skewDays(0);
   const tomorrow = skewDays(1);
   let [topic1, topic2, date] = topic.split('/')
-  if (topic1 + '/' + topic2 === 'elwiz/prices') {
+  if (topic1 + '/' + topic2 === priceTopic) {
     if (date < today) {
       // Remove previous retained messages
       mqttClient.publish(priceTopic + '/' + date, '', { retain: true });
@@ -330,25 +340,26 @@ async function run() {
   // With scheduled run, It may help to avoid missing currencies
   if (runNodeSchedule)
     await delay(1000); // 1 second
-  if (!fs.existsSync(currencyDirectory)) {
+  if (!fs.existsSync(currencyFilePath)) {
     console.log("No currency file present");
     console.log('Please run "./fetch-eu-currencies.js"');
     // exit(0); // This results in frequent pm2 restarts
   } else {
     currencyRate = await getCurrency(priceCurrency);
 
+    console.log(programName + ': Stored days:', await getSavedPriceCount())
     await retireDays(keepDays);
-    for (let i = (keepDays - 1) * -1; i <= 0; i++) {
+    for (let i = (keepDays - 1) * -1; i <= 1; i++) {
       await getPrices(i);
     }
-    await getPrices(1)
+    console.log(programName + ': Updated stored days:', await getSavedPriceCount())
   }
 }
 
 init();
 
 if (runNodeSchedule) {
-  console.log("Fetch prices scheduling started...");
+  console.log(programName + ': Fetch prices scheduling started');
   schedule.scheduleJob(runSchedule, run);
   // First a single run to init prices
   run();

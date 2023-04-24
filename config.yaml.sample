@@ -123,8 +123,8 @@ scheduleEuMinutes: [45]
 # Where to store currency and price data
 # relative to the program directory
 savePath: ./data
-currencyDirectory: ./data/currencies
-priceDirectory: ./data/prices
+currencyFilePath: ./data/currencies
+priceFilePath: ./data/prices
 
 # Your local supplier's price information
 # Setting computePrices false for
