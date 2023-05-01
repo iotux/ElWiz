@@ -8,7 +8,7 @@ const convert = require('xml-js');
 const request = require('axios');
 const config = yaml.load("config.yaml");
 
-const savePath = config.currencyDirectory;
+const savePath = config.currencyFilePath || './data/currencies';
 const debug = config.DEBUG;
 const cacheType = config.cacheType || 'file';
 const useRedis = (cacheType === 'redis');

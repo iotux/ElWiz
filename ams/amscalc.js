@@ -61,6 +61,33 @@ class AverageCalculator {
 
 const averageCalc = new AverageCalculator(120);
 
+const xcalculatePowerUse = (() => {
+  let powerUseCurrentHour = 0;
+  const interval = 2 * 1000;
+
+  return (currentPowerUse) => {
+    // Calculate the power used during the interval and add it to the accumulator
+    const powerUsed = (currentPowerUse * (interval / 1000)) / 3600; // kW * interval_in_hours
+    powerUseCurrentHour += powerUsed;
+
+    // Return the accumulated power use in kWh
+    return powerUseCurrentHour;
+  };
+})();
+
+let currentHourPowerUse = 0;
+
+const calculatePowerUse = (power) => {
+  const interval = 2 * 1000;
+  // Calculate the power used during the interval and add it to the accumulator
+  const powerUsed = (power * (interval / 1000)) / 3600; // kW * interval_in_hours
+  currentHourPowerUse += powerUsed;
+
+  // Return the accumulated power use in kWh
+  return currentHourPowerUse;
+};
+
+
 async function setInitialValues(obj) {
   await db.set("isVirgin", false);
   // Set initial values = current
@@ -94,7 +121,8 @@ async function handleHourlyCalculations(obj, isHourlyCalculation) {
     }
     await updateHourlyValues(obj);
     // Helper (temporary)
-    obj.curHour = obj.meterDate.substr(11, 5)
+    if (obj.meterDate.substr(14, 5) === "00:10")
+    currentHourPowerUse = 0;
   }
 }
 
@@ -149,6 +177,9 @@ const amsCalc = {
     await averageCalc.addPower(obj.power);
     obj.averagePower = parseFloat((await averageCalc.getAveragePower()).toFixed(4));
 
+    currentHourPowerUse = await calculatePowerUse(obj.power)
+    obj.currentHourPowerUse = currentHourPowerUse.toFixed(4) * 1;
+
     await db.set('minPower', obj.minPower);
     await db.set('maxPower', obj.maxPower);
     await db.set('averagePower', obj.averagePower);
@@ -162,6 +193,7 @@ const amsCalc = {
       await handleHourlyCalculations(obj, isHourlyCalculation);
       await handleDailyCalculations(obj, isDailyCalculation);
       await handleMonthlyCalculations(obj, isFirstDayOfMonth);
+      currentPowerUse = 0;
     }
 
     if (list === 'list2') {
