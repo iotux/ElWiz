@@ -75,16 +75,16 @@ const xcalculatePowerUse = (() => {
   };
 })();
 
-let currentHourPowerUse = 0;
+let consumptionCurrentHour = 0;
 
 const calculatePowerUse = (power) => {
   const interval = 2 * 1000;
   // Calculate the power used during the interval and add it to the accumulator
   const powerUsed = (power * (interval / 1000)) / 3600; // kW * interval_in_hours
-  currentHourPowerUse += powerUsed;
+  consumptionCurrentHour += powerUsed;
 
   // Return the accumulated power use in kWh
-  return currentHourPowerUse;
+  return consumptionCurrentHour;
 };
 
 
@@ -122,7 +122,7 @@ async function handleHourlyCalculations(obj, isHourlyCalculation) {
     await updateHourlyValues(obj);
     // Helper (temporary)
     if (obj.meterDate.substr(14, 5) === "00:10")
-    currentHourPowerUse = 0;
+    consumptionCurrentHour = 0;
   }
 }
 
@@ -177,8 +177,8 @@ const amsCalc = {
     await averageCalc.addPower(obj.power);
     obj.averagePower = parseFloat((await averageCalc.getAveragePower()).toFixed(4));
 
-    currentHourPowerUse = await calculatePowerUse(obj.power)
-    obj.currentHourPowerUse = currentHourPowerUse.toFixed(4) * 1;
+    consumptionCurrentHour = await calculatePowerUse(obj.power)
+    obj.consumptionCurrentHour = consumptionCurrentHour.toFixed(4) * 1;
 
     await db.set('minPower', obj.minPower);
     await db.set('maxPower', obj.maxPower);
