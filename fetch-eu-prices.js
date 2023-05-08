@@ -35,7 +35,7 @@ const supplierVatPercent = config.supplierVatPercent || 0;
 
 const gridDayPrice = config.gridDayPrice || 0;
 const gridMonthPrice = config.gridMonthPrice || 0;
-const gridVatPercent = config.gridVatPercent  || 0;
+const gridVatPercent = config.gridVatPercent || 0;
 
 const dayHoursStart = config.dayHoursStart | '06:00';
 const dayHoursEnd = config.dayHoursEnd || '22:00';
@@ -104,7 +104,7 @@ function getCurrency(currency) {
 function getDate(ts) {
   // Returns date fit for file name
   let date = new Date(ts);
-  return format(date,"yyyy-MM-dd")
+  return format(date, "yyyy-MM-dd")
 }
 
 function skewDays(days) {
@@ -117,11 +117,11 @@ function skewDays(days) {
   return format(date, 'yyyy-MM-dd');
 }
 
-function getFileName (priceDate){
+function getFileName(priceDate) {
   return savePath + "/prices-" + priceDate + ".json";
 }
 
-function getRedisKey (priceDate)  {
+function getRedisKey(priceDate) {
   return "prices-" + priceDate;
 }
 
@@ -232,7 +232,7 @@ async function getPrices(dayOffset) {
         let oneDayPrices = {
           priceDate: priceDate,
           priceProvider: 'ENTSO-E',
-          priceProviderUrl: entsoeUrl('*****',entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
+          priceProviderUrl: entsoeUrl('*****', entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
           hourly: [],
           daily: {}
         }
@@ -330,16 +330,22 @@ async function init() {
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
   }
+  /*
   if (useRedis) {
     redisClient.on('error', err => console.log('Redis Client Error', err));
     await redisClient.connect();
   }
+  */
 }
 
 async function run() {
   // With scheduled run, It may help to avoid missing currencies
   if (runNodeSchedule)
     await delay(1000); // 1 second
+  if (useRedis) {
+    redisClient.on('error', err => console.log('Redis Client Error', err));
+    await redisClient.connect();
+  }
   if (!fs.existsSync(currencyFilePath)) {
     console.log("No currency file present");
     console.log('Please run "./fetch-eu-currencies.js"');
@@ -353,6 +359,9 @@ async function run() {
       await getPrices(i);
     }
     console.log(programName + ': Updated stored days:', await getSavedPriceCount())
+  }
+  if (useRedis) {
+    await redisClient.disconnect();
   }
 }
 
