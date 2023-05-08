@@ -8,12 +8,12 @@ const yaml = require("yamljs");
 const request = require('axios');
 const Mqtt = require('./mqtt/mqtt.js');
 const { format } = require('date-fns');
-const config = yaml.load("config.yaml");
+const config = yaml.load('./config.yaml');
 
 // Specific for Nord Pool
 const priceRegion = config.priceRegion || 8; // Oslo
 const priceCurrency = config.priceCurrency || 'NOK';
-const nordPoolUri =  "https://www.nordpoolgroup.com/api/marketdata/page/10/" + priceCurrency + "/";
+const nordPoolUri = "https://www.nordpoolgroup.com/api/marketdata/page/10/" + priceCurrency + "/";
 
 // Common constants
 const debug = config.DEBUG || false;
@@ -27,7 +27,7 @@ const supplierVatPercent = config.supplierVatPercent || 0;
 
 const gridDayPrice = config.gridDayPrice || 0;
 const gridMonthPrice = config.gridMonthPrice || 0;
-const gridVatPercent = config.gridVatPercent  || 0;
+const gridVatPercent = config.gridVatPercent || 0;
 
 const dayHoursStart = config.dayHoursStart | '06:00';
 const dayHoursEnd = config.dayHoursEnd || '22:00';
@@ -68,7 +68,7 @@ if (useRedis) {
 }
 
 let nordPool = {
-    //'uri': "",
+  //'uri': "",
   headers: {
     'accept': 'application/json',
     'Content-Type': 'text/json',
@@ -87,7 +87,7 @@ function addZero(num) {
 function getDate(ts) {
   // Returns date fit for file name
   let date = new Date(ts);
-  return format(date,"yyyy-MM-dd")
+  return format(date, "yyyy-MM-dd")
 }
 
 function uriDate(offset) {
@@ -111,11 +111,11 @@ function skewDays(days) {
   return format(date, 'yyyy-MM-dd');
 }
 
-function getFileName (priceDate){
+function getFileName(priceDate) {
   return savePath + "/prices-" + priceDate + ".json";
 }
 
-function getRedisKey (priceDate)  {
+function getRedisKey(priceDate) {
   return "prices-" + priceDate;
 }
 
@@ -196,7 +196,7 @@ async function getPrices(dayOffset) {
           daily: {}
         }
 
-        if (rows[0].Columns[priceRegion].Value !== '-'){
+        if (rows[0].Columns[priceRegion].Value !== '-') {
           for (let i = 0; i < 24; i++) {
             let price = rows[i].Columns[priceRegion].Value;
             let startTime = rows[i].StartTime;
@@ -243,11 +243,11 @@ async function getPrices(dayOffset) {
         }
       })
       .catch(function (err) {
-      if (err.response) {
-        console.log('Error:', err.response.status, err.response.statusText);
-        console.log('Headers:', err.response.headers)
-      }
-    })
+        if (err.response) {
+          console.log('Error:', err.response.status, err.response.statusText);
+          console.log('Headers:', err.response.headers)
+        }
+      })
   } else {
     // Publish today and next day prices
     if (dayOffset === 0 || dayOffset === 1 && hasDayPrice(priceDate)) {
@@ -294,19 +294,29 @@ async function init() {
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
   }
+  /*
   if (useRedis) {
     redisClient.on('error', err => console.log(programName + ': Redis Client error', err));
     await redisClient.connect();
   }
+  */
 }
 
 async function run() {
+  //mqttClient.init();
+  if (useRedis) {
+    redisClient.on('error', err => console.log(programName + ': Redis Client error', err));
+    await redisClient.connect();
+  }
   console.log(programName + ': Stored days:', await getSavedPriceCount())
   await retireDays(keepDays);
   for (let i = (keepDays - 1) * -1; i <= 1; i++) {
     await getPrices(i);
   }
-  console.log(programName + ': Updated stored days:', await getSavedPriceCount())
+  console.log(programName + ': Updated stored days:', await getSavedPriceCount());
+  if (useRedis) {
+    await redisClient.disconnect();
+  }
 }
 
 init();
