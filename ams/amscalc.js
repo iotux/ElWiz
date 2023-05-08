@@ -61,20 +61,6 @@ class AverageCalculator {
 
 const averageCalc = new AverageCalculator(120);
 
-const xcalculatePowerUse = (() => {
-  let powerUseCurrentHour = 0;
-  const interval = 2 * 1000;
-
-  return (currentPowerUse) => {
-    // Calculate the power used during the interval and add it to the accumulator
-    const powerUsed = (currentPowerUse * (interval / 1000)) / 3600; // kW * interval_in_hours
-    powerUseCurrentHour += powerUsed;
-
-    // Return the accumulated power use in kWh
-    return powerUseCurrentHour;
-  };
-})();
-
 let consumptionCurrentHour = 0;
 
 const calculatePowerUse = (power) => {
