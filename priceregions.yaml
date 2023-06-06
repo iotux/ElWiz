@@ -1,0 +1,65 @@
+---
+# Available from Nord Pool
+SE1: 10Y1001A1001A44P # SE1, Sweden
+SE2: 10Y1001A1001A45N # SE2, Swecen
+SE3: 10Y1001A1001A46L # SE3, Swecen
+SE4: 10Y1001A1001A47J # SE4, Sweden
+FI: 10YFI-1--------U  # FI,  Finland
+DK1: 10YDK-1--------W # DK1, Denmark
+DK2: 10YDK-2--------M # DK2, Denmark
+NO1: 10YNO-1--------2 # NO1. Oslo
+NO2: 10YNO-2--------T # NO2, Kr.sand
+NO5: 10Y1001A1001A48H # NO5, Bergen
+NO3: 10YNO-3--------J # NO3, Molde
+NO3: 10YNO-3--------J # NO3, Tr.heim
+NO4: 10YNO-4--------9 # NO4, Trømsø
+# Also awailable from Nord Pool
+EE: 10Y1001A1001A39I # EE, Estonia
+LV: 10YLV-1001A00074 # LV, Latvia
+LT: 10YLT-1001A0008Q # LT, Lithuania
+AT: 10YAT-APG------L # AT, Austria
+BE: 10YBE----------2 # BE, Belgium
+DE-LU: 10Y1001A1001A82H # DE-LU
+DE: 10Y1001A1001A82H # DE, Germany
+LU: 10Y1001A1001A82H # LU, Luxemburg
+FR: 10YFR-RTE------C # FR, France
+NL: 10YNL----------L # NL, Netherlands
+PL: 10YPL-AREA-----S # PL, Poland
+# Available only fro ENTSO-E
+AL: 10YAL-KESH-----5 # AL, Albania
+AM: 10Y1001A1001B004 # AM, Armenia
+AZ: 10Y1001A1001B05V # AZ, Azerbaijan
+BA: 10YBA-JPCC-----D # BA, Bosnia and Herz.
+BG: 10YCA-BULGARIA-R # BG, Bulgaria
+CH: 10YCH-SWISSGRIDZ # CH, Switzerland
+CY: 10YCY-1001A0003J # CY, Cyprus
+CZ: 10YCZ-CEPS-----N # CZ, Czech Republic
+ES: 10YES-REE------0 # ES, Spain
+GB: 10YGB----------A # GB, National
+GE: 10Y1001A1001B012 # GE, Georgia
+GR: 10YGR-HTSO-----Y # GR, Greece
+HR: 10YHR-HEP------M # HR, Croatia
+HU: 10YHU-MAVIR----U # HU, Hungary
+IT-Brindisi: 10Y1001A1001A699 # IT-Brindisi
+IT-Centre-North: 10Y1001A1001A70O # IT-Centre-North
+IT-Centre-South: 10Y1001A1001A71M # IT-Centre-South
+IT-Foggia: 10Y1001A1001A72K       # IT-Foggia
+IT-North: 10Y1001A1001A73I        # IT-North
+IT-Sardinia: 10Y1001A1001A74G     # IT-Sardinia
+IT-Sicily: 10Y1001A1001A75E       # IT-Sicily
+IT-Priolo: 10Y1001A1001A76C       # IT-Priolo
+IT-Rossano: 10Y1001A1001A77A      # IT-Rossano
+IT-South: 10Y1001A1001A788        # IT-South
+IT-Calabria: 10Y1001C--00096J     # IT-Calabria
+MD: 10Y1001A1001A990 # MD, Moldova
+ME: 10YCS-CG-TSO---S # ME, Montenegro
+MK: 10YMK-MEPSO----8 # MK, North Macedonia
+MT: 10Y1001A1001A93C # MT, Malta
+PT: 10YPT-REN------W # PT, Portugal
+RO: 10YRO-TEL------P # RO, Romania
+SI: 10YSI-ELES-----O # SI, Slovenia
+SK: 10YSK-SEPS-----K # SK, Slovakia
+RS: 10YCS-SERBIATSOV # RS, Serbia
+TR: 10YTR-TEIAS----W # TR, Turkey
+UA: 10Y1001C--00003F # UA, Ukraine
+XK: 10Y1001C--00100H # XK, Kosovo

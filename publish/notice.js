@@ -14,16 +14,18 @@ let client;
  * @param {Object} obj - The status object.
  * @returns {Object} - Formatted status data.
  */
-function formatStatusData(obj) {
+function formatStatusData(data) {
+  const obj = JSON.parse(data);
   return {
-    tibberVersion: obj.Build,
-    hardWare: obj.Hw,
-    ID: obj.ID,
-    //MAC: getMacAddress(obj.ID),
-    //upTime: upTime(obj.Uptime),
-    SSID: obj.ssid,
-    rssi: obj.rssi,
-    wifiFail: obj.wififail,
+    tibberVersion: obj.status.Build,
+    hardWare: obj.status.Hw,
+    ID: obj.status.ID,
+    MAC: getMacAddress(obj.status.ID),
+    upTime: upTime(obj.status.Uptime),
+    SSID: obj.status.ssid,
+    rssi: obj.status.rssi,
+    wifiFail: obj.status.wififail,
+    meter: obj.status.meter,
   };
 }
 
@@ -39,7 +41,7 @@ function onStatus(obj) {
     console.log('onStatus:', statusData);
   }
 
-  client.publish(config.pubStatus, JSON.stringify(statusData, !config.DEBUG, 2), config.statOpts);
+  client.publish(config.pubStatus, JSON.stringify(statusData, !config.DEBUG, 2), { qos: 1, retain: true });
 }
 
 /**
@@ -94,7 +96,7 @@ const notice = {
    */
   run: function (list, obj) {
     this.init();
-  },
+  }
 };
 
 module.exports = notice;

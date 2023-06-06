@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 
-const { exit } = require("process");
-const yaml = require("yamljs");
-const Mqtt = require("./mqtt/mqtt.js");
-const notice = require("./publish/notice.js");
-const db = require("./misc/dbinit.js");
-const { event } = require("./misc/misc.js");
-require("./plugin/plugselector.js");
+const { exit } = require('process');
+const yaml = require('yamljs');
+const Mqtt = require('./mqtt/mqtt.js');
+const notice = require('./publish/notice.js');
+const db = require('./misc/dbinit.js');
+const { event } = require('./misc/misc.js');
+require('./plugin/plugselector.js');
 
-const programName = "ElWiz";
+const programName = 'ElWiz';
 const programPid = process.pid;
-const configFile = "./config.yaml";
+const configFile = './config.yaml';
 const config = yaml.load(configFile);
 const meter = `./ams/${config.meterModel}.js`;
-const ams = require(meter);
+require(meter);
 const watchValue = 15;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -30,10 +30,10 @@ class Pulse {
 
     this.client = Mqtt.mqttClient();
 
-    this.client.on("connect", () => {
+    this.client.on('connect', () => {
       this.client.subscribe(config.topic, (err) => {
         if (err) {
-          console.log("Subscription error");
+          console.log('Subscription error');
         }
       });
       this.client.publish(config.pubNotice, config.greetMessage);
@@ -43,29 +43,30 @@ class Pulse {
   }
 
   setupSignalHandlers() {
-    process.on("SIGINT", this.handleSignal.bind(this, "SIGINT"));
-    process.on("SIGTERM", this.handleSignal.bind(this, "SIGTERM"));
-    process.on("SIGHUP", this.handleSignal.bind(this, "SIGHUP"));
-    process.on("SIGUSR1", this.handleSignal.bind(this, "SIGUSR1"));
+    process.on('SIGINT', this.handleSignal.bind(this, 'SIGINT'));
+    process.on('SIGTERM', this.handleSignal.bind(this, 'SIGTERM'));
+    process.on('SIGHUP', this.handleSignal.bind(this, 'SIGHUP'));
+    process.on('SIGUSR1', this.handleSignal.bind(this, 'SIGUSR1'));
   }
 
   handleSignal(signal) {
     switch (signal) {
-      case "SIGINT":
-      case "SIGTERM":
+      case 'SIGINT':
+      case 'SIGTERM':
         console.log(`\nGot ${signal}, power saved`);
         db.sync();
-        process.exit(0);
+        exit(0);
+        // Needed to get rid of the missing break warning
         break;
-      case "SIGHUP":
+      case 'SIGHUP':
         console.log(`\nGot ${signal}, config loaded`);
         this.config = yaml.load(configFile);
         db.sync();
         this.init();
         break;
-      case "SIGUSR1":
+      case 'SIGUSR1':
         this.debug = !this.debug;
-        console.log(`\nGot ${signal}, debug ${this.debug ? "ON" : "OFF"}`);
+        console.log(`\nGot ${signal}, debug ${this.debug ? 'ON' : 'OFF'}`);
         break;
     }
   }
@@ -75,17 +76,17 @@ class Pulse {
       this.timerValue--;
     }
     if (this.timerValue <= 0 && !this.timerExpired) {
-      event.emit("notice", config.offlineMessage);
+      event.emit('notice', config.offlineMessage);
       this.timerExpired = true;
       this.timerValue = 0;
-      console.log("Pulse is offline!");
+      console.log('Pulse is offline!');
     }
   }
 
   run() {
-    this.client.on("message", (topic, message) => {
+    this.client.on('message', (topic, message) => {
       if (topic === config.topic) {
-        let buf = Buffer.from(message);
+        const buf = Buffer.from(message);
         this.processMessage(buf);
       }
     });
@@ -95,16 +96,16 @@ class Pulse {
     const messageType = buf[0];
 
     if (messageType === 0x7b) {
-      let msg = buf.toString();
-      event.emit("status", msg);
+      const msg = buf.toString();
+      event.emit('status', msg);
     } else if (messageType === 0x7e) {
       this.processMeterData(buf);
-    } else if (messageType === "H") {
-      let msg = buf.toString();
-      event.emit("hello", msg);
+    } else if (messageType === 'H') {
+      const msg = buf.toString();
+      event.emit('hello', msg);
     } else {
-      let msg = buf.toString();
-      event.emit("notice", msg);
+      const msg = buf.toString();
+      event.emit('notice', msg);
     }
   }
 
@@ -115,7 +116,7 @@ class Pulse {
       this.timerValue = watchValue;
       this.timerExpired = false;
       // Send Pulse data to list decoder
-      event.emit('pulse', buf)
+      event.emit('pulse', buf);
     } // End valid data
   }
 }
@@ -124,4 +125,3 @@ const pulse = new Pulse();
 pulse.init();
 pulse.run();
 notice.run();
-
