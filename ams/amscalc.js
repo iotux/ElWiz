@@ -1,12 +1,12 @@
-const yaml = require('yamljs');
-const configFile = "./config.yaml";
+// const yaml = require('yamljs');
+// const configFile = './config.yaml';
 const db = require('../misc/dbinit.js');
 const { skewDays } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
-const config = yaml.load(configFile);
+// const config = yaml.load(configFile);
 
-const debug = config.DEBUG;
+// const debug = config.DEBUG;
 
 /**
  * Set and get the minimum power value.
@@ -14,7 +14,7 @@ const debug = config.DEBUG;
  * @param {number} pow - The power value.
  * @returns {number} - The minimum power value.
  */
-async function getMinPower(pow) {
+async function getMinPower (pow) {
   if (await db.get('minPower') === undefined || await db.get('minPower') > pow) {
     await db.set('minPower', pow);
   }
@@ -27,7 +27,7 @@ async function getMinPower(pow) {
  * @param {number} pow - The power value.
  * @returns {number} - The maximum power value.
  */
-async function getMaxPower(pow) {
+async function getMaxPower (pow) {
   if (await db.get('maxPower') === undefined || await db.get('maxPower') < pow) {
     await db.set('maxPower', pow);
   }
@@ -41,19 +41,19 @@ async function getMaxPower(pow) {
 // 2. Get the average of the power array.
 // const averagePower = await averageCalc.getAveragePower();
 class AverageCalculator {
-  constructor(windowSize = 60) {
+  constructor (windowSize = 60) {
     this.windowSize = windowSize;
     this.powerValues = [];
   }
 
-  async addPower(pow) {
+  async addPower (pow) {
     this.powerValues.push(pow);
     if (this.powerValues.length > this.windowSize) {
       this.powerValues.shift();
     }
   }
 
-  async getAveragePower() {
+  async getAveragePower () {
     const total = this.powerValues.reduce((tot, pow) => tot + pow, 0);
     return total / this.powerValues.length;
   }
@@ -73,53 +73,51 @@ const calculatePowerUse = (power) => {
   return consumptionCurrentHour;
 };
 
-
-async function setInitialValues(obj) {
-  await db.set("isVirgin", false);
+async function setInitialValues (obj) {
+  await db.set('isVirgin', false);
   // Set initial values = current
-  await db.set("prevDayMeterConsumption", obj.lastMeterConsumption);
-  await db.set("prevDayMeterProduction", obj.lastMeterProduction);
-  await db.set("prevDayMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
-  await db.set("prevDayMeterProductionReactive", obj.lastMeterProductionReactive);
-  await db.set("lastMeterConsumption", obj.lastMeterConsumption);
-  await db.set("lastMeterProduction", obj.lastMeterProduction);
-  await db.set('prevMonthMeterConsumption', obj.lastMeterConsumption)
-  await db.set('prevMonthMeterProduction', obj.lastMeterProduction)
+  await db.set('prevDayMeterConsumption', obj.lastMeterConsumption);
+  await db.set('prevDayMeterProduction', obj.lastMeterProduction);
+  await db.set('prevDayMeterConsumptionReactive', obj.lastMeterConsumptionReactive);
+  await db.set('prevDayMeterProductionReactive', obj.lastMeterProductionReactive);
+  await db.set('lastMeterConsumption', obj.lastMeterConsumption);
+  await db.set('lastMeterProduction', obj.lastMeterProduction);
+  await db.set('prevMonthMeterConsumption', obj.lastMeterConsumption);
+  await db.set('prevMonthMeterProduction', obj.lastMeterProduction);
 }
 
-async function updateHourlyValues(obj) {
+async function updateHourlyValues (obj) {
   // Energy calculations
-  obj.accumulatedConsumptionLastHour = parseFloat((obj.lastMeterConsumption - await db.get("lastMeterConsumption")).toFixed(3));
-  obj.accumulatedProductionLastHour = parseFloat((obj.lastMeterProduction - await db.get("lastMeterProduction")).toFixed(3));
+  obj.accumulatedConsumptionLastHour = parseFloat((obj.lastMeterConsumption - await db.get('lastMeterConsumption')).toFixed(3));
+  obj.accumulatedProductionLastHour = parseFloat((obj.lastMeterProduction - await db.get('lastMeterProduction')).toFixed(3));
   // TODO: Add Reactive?
 
   // Save current values for next hour
-  await db.set("lastMeterConsumption", obj.lastMeterConsumption);
-  await db.set("lastMeterProduction", obj.lastMeterProduction);
-  await db.set("lastMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
-  await db.set("lastMeterProductionReactive", obj.lastMeterProductionReactive);
- }
+  await db.set('lastMeterConsumption', obj.lastMeterConsumption);
+  await db.set('lastMeterProduction', obj.lastMeterProduction);
+  await db.set('lastMeterConsumptionReactive', obj.lastMeterConsumptionReactive);
+  await db.set('lastMeterProductionReactive', obj.lastMeterProductionReactive);
+}
 
-async function handleHourlyCalculations(obj, isHourlyCalculation) {
+async function handleHourlyCalculations (obj, isHourlyCalculation) {
   if (isHourlyCalculation) {
-    if (await db.get("isVirgin") || await db.get("isVirgin") === undefined) {
+    if (await db.get('isVirgin') || await db.get('isVirgin') === undefined) {
       await setInitialValues(obj);
     }
     await updateHourlyValues(obj);
     // Helper (temporary)
-    if (obj.meterDate.substr(14, 5) === "00:10")
-    consumptionCurrentHour = 0;
+    if (obj.meterDate.substr(14, 5) === '00:10') { consumptionCurrentHour = 0; }
   }
 }
 
-async function setPreviousDayValues(obj) {
-  await db.set("prevDayMeterConsumption", obj.lastMeterConsumption);
-  await db.set("prevDayMeterProduction", obj.lastMeterProduction);
-  await db.set("prevDayMeterConsumptionReactive", obj.lastMeterConsumptionReactive);
-  await db.set("prevDayMeterProductionReactive", obj.lastMeterProductionReactive);
+async function setPreviousDayValues (obj) {
+  await db.set('prevDayMeterConsumption', obj.lastMeterConsumption);
+  await db.set('prevDayMeterProduction', obj.lastMeterProduction);
+  await db.set('prevDayMeterConsumptionReactive', obj.lastMeterConsumptionReactive);
+  await db.set('prevDayMeterProductionReactive', obj.lastMeterProductionReactive);
 }
 
-async function handleDailyCalculations(obj, isDailyCalculation) {
+async function handleDailyCalculations (obj, isDailyCalculation) {
   if (isDailyCalculation) {
     await setPreviousDayValues(obj);
 
@@ -128,23 +126,23 @@ async function handleDailyCalculations(obj, isDailyCalculation) {
     obj.accumulatedConsumptionReactive = 0;
     obj.accumulatedProductionReactive = 0;
 
-    await db.set("minPower", 9999999);
-    await db.set("maxPower", 0);
-    await db.set("averagePower", 0);
+    await db.set('minPower', 9999999);
+    await db.set('maxPower', 0);
+    await db.set('averagePower', 0);
     obj.curDay = skewDays(0);
     obj.nextDay = skewDays(1);
   } else {
-    obj.accumulatedConsumption = parseFloat((obj.lastMeterConsumption - await db.get("prevDayMeterConsumption")).toFixed(3));
-    obj.accumulatedProduction = parseFloat((obj.lastMeterProduction - await db.get("prevDayMeterProduction")).toFixed(3));
-    obj.accumulatedConsumptionReactive = parseFloat((obj.lastMeterConsumptionReactive - await db.get("prevDayMeterConsumptionReactive")).toFixed(3));
-    obj.accumulatedProductionReactive = parseFloat((obj.lastMeterProductionReactive - await db.get("prevDayMeterProductionReactive")).toFixed(3));
+    obj.accumulatedConsumption = parseFloat((obj.lastMeterConsumption - await db.get('prevDayMeterConsumption')).toFixed(3));
+    obj.accumulatedProduction = parseFloat((obj.lastMeterProduction - await db.get('prevDayMeterProduction')).toFixed(3));
+    obj.accumulatedConsumptionReactive = parseFloat((obj.lastMeterConsumptionReactive - await db.get('prevDayMeterConsumptionReactive')).toFixed(3));
+    obj.accumulatedProductionReactive = parseFloat((obj.lastMeterProductionReactive - await db.get('prevDayMeterProductionReactive')).toFixed(3));
   }
 }
 
-async function handleMonthlyCalculations(obj, isFirstDayOfMonth) {
+async function handleMonthlyCalculations (obj, isFirstDayOfMonth) {
   if (isFirstDayOfMonth) {
-    await db.set('prevMonthMeterConsumption', obj.lastMeterConsumption)
-    await db.set('prevMonthMeterProduction', obj.lastMeterProduction)
+    await db.set('prevMonthMeterConsumption', obj.lastMeterConsumption);
+    await db.set('prevMonthMeterProduction', obj.lastMeterProduction);
   }
 }
 
@@ -163,7 +161,7 @@ const amsCalc = {
     await averageCalc.addPower(obj.power);
     obj.averagePower = parseFloat((await averageCalc.getAveragePower()).toFixed(4));
 
-    consumptionCurrentHour = await calculatePowerUse(obj.power)
+    consumptionCurrentHour = await calculatePowerUse(obj.power);
     obj.consumptionCurrentHour = consumptionCurrentHour.toFixed(4) * 1;
 
     await db.set('minPower', obj.minPower);
@@ -172,14 +170,13 @@ const amsCalc = {
 
     // Once every hour
     if (list === 'list3') {
-      const isHourlyCalculation = obj.meterDate.substr(14, 5) === "00:10";
-      const isDailyCalculation = obj.meterDate.substr(11, 8) === "00:00:10";
-      const isFirstDayOfMonth = (obj.meterDate.substr(8, 2) === "01" && obj.meterDate.substr(11, 8) === "00:00:10");
+      const isHourlyCalculation = obj.meterDate.substr(14, 5) === '00:10';
+      const isDailyCalculation = obj.meterDate.substr(11, 8) === '00:00:10';
+      const isFirstDayOfMonth = (obj.meterDate.substr(8, 2) === '01' && obj.meterDate.substr(11, 8) === '00:00:10');
 
       await handleHourlyCalculations(obj, isHourlyCalculation);
       await handleDailyCalculations(obj, isDailyCalculation);
       await handleMonthlyCalculations(obj, isFirstDayOfMonth);
-      currentPowerUse = 0;
     }
 
     if (list === 'list2') {
@@ -189,7 +186,6 @@ const amsCalc = {
     }
     return obj;
   }
-}
+};
 
 module.exports = amsCalc;
-

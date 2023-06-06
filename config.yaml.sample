@@ -142,13 +142,24 @@ priceTopicQos: 0
 # EUR, SEK, NOK, DKR
 priceCurrency: NOK
 
-# The following regions are available.
+# Price for the following regions are
+# available in EUR, SEK, NOK, DKR.
+#
 # Sweden, Finland, Denmark
 # [SE1, SE2, SE3, SE4, FI, DK1, DK2]
 # [  1,   2,   3,   4,  5,   6,   7]
+#
 # Norway
 # [Oslo, Kr.sand, Bergen, Molde, Tr.heim, Tromsø]
 # [   8,       9,     10,    11,      12,     13]
+#
+# Estonia, Latvia, Lithuania
+# [EE, LV, LT]
+# [14, 15, 16]
+#
+# EUR prices are available for the following regions
+# [AT, BE, DE-LU, FR, NL]
+# [17, 18,    19, 20, 21]
 # Find your region and insert here.
 # Ask your local supplier if in doubt.
 priceRegion: 8
@@ -156,14 +167,14 @@ priceRegion: 8
 # Those who use the "fetch-eu-prices" program
 # need to set the correct zone here.
 # See the "entsoezones.yaml" file
-countryCode: NO3
+regionCode: NO3
 
 ########################################
 # Electric power price calculation
 # Change the following values according
 # to your electric power supplier's invoice
 # Different rate models may require changes to program
-# Suppliers usually adds a fixed dayly OR monthly price
+# Suppliers usually adds a fixed daily OR monthly price
 # Use the ones that apply and set the others to 0.0
 supplierKwhPrice: 0.0
 supplierDayPrice: 0.0
@@ -184,8 +195,8 @@ gridDayPrice: 0.0
 
 #
 energyTax: 0.0
-energyDayPrice: 0.0
-energyNightPrice: 0.0
+energyDayPrice: 0.0   # Added price between dayHoursStart and dayHoursEnd
+energyNightPrice: 0.0 # Added price between dayHoursEnd and dayHoursStart
 
 dayHoursStart: 06:00
 dayHoursEnd: 22:00

@@ -1,9 +1,9 @@
 // Import required modules
-const yaml = require("yamljs");
+const yaml = require('yamljs');
 const UniCache = require('../misc/unicache.js');
 
 // Load configuration
-const configFile = "./config.yaml";
+const configFile = './config.yaml';
 const config = yaml.load(configFile);
 
 // Cache configuration
@@ -43,7 +43,7 @@ let db;
  * @param {object} options - Cache options.
  * @param {object} data - Initial data to be stored in the cache.
  */
-async function dbInit(name, options, data) {
+async function dbInit (name, options, data) {
   // Initialize the cache with the given name and options
   db = new UniCache(name, options);
 
