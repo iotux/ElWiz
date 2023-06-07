@@ -21,12 +21,6 @@ const getProperties = (obj, key) => {
  * @param {*} val - The value to set at the specified key.
  */
 const setProperties = (obj, key, val) => {
-  /*
-  if (key === undefined || key === '') {
-    console.log('UniCache: key has no value');
-    return;
-  }
-  */
   const props = typeof key === 'string' ? key.split('.') : [key];
   let i;
   for (i = 0; i < props.length - 1; ++i) {
@@ -53,6 +47,7 @@ module.exports = class UniCache {
     this.savePath = options.savePath;
     this.cacheName = cacheName;
     this.redisKey = undefined;
+    this.dbPrefix = undefined;
     this.options = options || {};
     //console.log('UniCache options:', this.options);
 
@@ -83,33 +78,24 @@ module.exports = class UniCache {
             return Math.min(options.attempt * 100, 3000);
           },
         });
-        //this.client.on('error', (error) => console.error(`Redis client error : ${error}`));
         this.client.on("error", (err) => {
           this.isConnected = false; console.log('Redis error:', err);
         });
-        //this.client.on('ready', () => { this.isConnected = true; console.log('Redis connected...') })
-        this.client.on('ready', () => {
-          //if (this.redisKey !== null) { // && this.redisKey !== undefined) {
+        this.client.on('connected', () => {
           if (this.client.get(this.redisKey) !== null) {
             this.fetchCacheData();
-          } else {
-            // TODO: Maybe remove {}?
-            //this.client.set(this.redisKey, JSON.stringify({}));
           }
-          //}
         });
         await this.client.connect();
       })();
     } else {
-      this.filePath = this.savePath + '/' + this.cacheName + '.json';
+      if (!fs.existsSync(this.savePath)) {
+        fs.mkdirSync(this.savePath, { recursive: true });
+      }
+      if (this.cacheName !== null)
+        this.filePath = this.savePath + '/' + this.cacheName + '.json';
       if (fs.existsSync(this.filePath)) {
         this.fetchCacheData();
-      } else {
-        if (!fs.existsSync(this.savePath)) {
-          fs.mkdirSync(this.savePath, { recursive: true });
-        }
-        // TODO: Maybe remove {}?
-        //fs.writeFileSync(this.filePath, '{}', 'utf-8');
       }
     }
   } // Constructor
@@ -305,14 +291,13 @@ module.exports = class UniCache {
     }
   }
   async deleteObject(key) {
-    console.log('deleteObject', this.savePath + '/' + key + '.json');
     if (await this.existsObject(key)) {
       if (this.cacheType === 'redis') {
-        //await this.ensureRedisConnection();
         await this.client.del(key);
         console.log('UniCache: deleted:', key);
       } else {
         fs.unlinkSync(await this.fileName(key));
+        console.log('UniCache: deleted:', this.fileName(key));
       }
       this.memSaved = false;
     }
@@ -417,6 +402,7 @@ module.exports = class UniCache {
       let keys = [];
       // unfortunately it's not possible to use
       // filename globbing on a directory search
+      console.log('dbKeys', this.savePath)
       const files = fs.readdirSync(this.savePath + '/');
       // returns a list of filenames without the extension
       files.forEach((file) => {
