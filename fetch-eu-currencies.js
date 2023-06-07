@@ -6,15 +6,17 @@ const fs = require('fs');
 const yaml = require('yamljs');
 const convert = require('xml-js');
 const request = require('axios');
+const { format } = require('date-fns');
+const UniCache = require('./misc/unicache');
 const config = yaml.load('config.yaml');
 
 const savePath = config.currencyFilePath || './data/currencies';
 const debug = config.DEBUG;
 const cacheType = config.cacheType || 'file';
-const useRedis = (cacheType === 'redis');
 
 const namePrefix = 'currencies-';
 const url = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml';
+const keepDays = config.keepDays || 7;
 
 const runNodeSchedule = config.runNodeSchedule || true;
 // Currency rates are available around 16:00 hours
@@ -30,11 +32,15 @@ if (runNodeSchedule) {
   runSchedule.minute = scheduleMinutes;
 }
 
-let redisClient;
-if (useRedis) {
-  const { createClient } = require('redis');
-  redisClient = createClient();
-}
+let currencyDb;
+
+const DB_PREFIX = namePrefix;
+const DB_OPTIONS = {
+  cacheType: cacheType,
+  syncOnWrite: true,
+  //syncInterval: 600,
+  savePath: savePath,
+};
 
 const options = {
   headers: {
@@ -44,14 +50,26 @@ const options = {
   method: 'GET'
 };
 
-function getEuroRates (cur) {
+function skewDays(days) {
+  // days equal to 0 is today
+  // Negative values are daycount in the past
+  // Positive are daycount in the future
+  const oneDay = 24 * 60 * 60 * 1000;
+  const now = new Date();
+  const date = new Date(now.getTime() + oneDay * days);
+  return format(date, 'yyyy-MM-dd');
+}
+
+function getEuroRates(cur) {
   const obj = {};
   for (let i = 0; i < cur.length; i++) {
     obj[cur[i]._attributes.currency] = cur[i]._attributes.rate * 1;
   }
   return obj;
 }
-async function getCurrencies () {
+async function getCurrencies() {
+  retireDays(keepDays);
+
   request(url, options)
     .then(function (body) {
       const result = convert.xml2js(body.data, { compact: true, spaces: 4 });
@@ -63,20 +81,12 @@ async function getCurrencies () {
         rates: getEuroRates(root.Cube)
       };
 
-      const strObj = JSON.stringify(obj, null, 2);
-      if (useRedis) {
-        let redisKey = namePrefix + obj.date;
-        redisClient.set(redisKey, strObj);
-        redisKey = namePrefix + 'latest';
-        redisClient.set(redisKey, strObj);
-      } else {
-        let fileName = savePath + '/' + namePrefix + obj.date + '.json';
-        fs.writeFileSync(fileName, strObj);
-        fileName = savePath + '/' + namePrefix + 'latest.json';
-        fs.writeFileSync(fileName, strObj);
-      }
+      currencyDb.createObject(`${DB_PREFIX}${obj.date}`, obj);
+      console.log('Currencies stored as', `${DB_PREFIX}${obj.date}`);
+      currencyDb.createObject(`${DB_PREFIX}'latest'`, obj);
+      console.log('Currencies stored as', `${DB_PREFIX}'latest'`);
       if (debug) {
-        console.log(JSON.stringify(obj, !debug, 2));
+        console.log(JSON.stringify(obj, null, 2));
       }
     })
     .catch(function (err) {
@@ -86,22 +96,24 @@ async function getCurrencies () {
       }
     });
 }
-
-async function init () {
-  if (useRedis && !redisClient.isOpen) {
-    redisClient.on('error', err => console.log('Redis Client Error', err));
-    await redisClient.connect();
-  }
-  if (!fs.existsSync(savePath)) {
-    fs.mkdirSync(savePath, { recursive: true });
-  }
+async function retireDays(offset) {
+  // Count offset days backwards
+  offset *= -1;
+  const retireDate = skewDays(offset);
+  const keys = await currencyDb.dbKeys(`${DB_PREFIX}${retireDate}'*'`);
+  console.log('Retiring', keys);
+  keys.forEach(async (key) => {
+    if (key <= `${DB_PREFIX}${retireDate}`) {
+      await currencyDb.deleteObject(key);
+    }
+  });
 }
 
-init();
 if (runNodeSchedule) {
   console.log('Fetch currency rates scheduling started..');
   schedule.scheduleJob(runSchedule, getCurrencies);
-  getCurrencies();
-} else {
-  getCurrencies();
 }
+
+currencyDb = new UniCache(null, DB_OPTIONS);
+
+getCurrencies();

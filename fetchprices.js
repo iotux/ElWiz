@@ -121,9 +121,8 @@ function skewDays(days) {
 
 async function getPrices(dayOffset) {
   const priceDate = skewDays(dayOffset);
-  const priceDb = new UniCache(PRICE_DB_PREFIX + priceDate, PRICE_DB_OPTIONS);
   // Get prices for today and tomorrow
-  if (await priceDb.isEmpty() && runCounter === 0) {
+  if (!await priceDb.existsObject(skewDays(dayOffset)) && runCounter === 0) {
     const url = nordPoolUri + uriDate(dayOffset);
     // console.log('NordPool: ',url);
     await request(url, nordPool)
@@ -173,13 +172,8 @@ async function getPrices(dayOffset) {
             offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
           };
 
-          priceDb.init(oneDayPrices);
+          priceDb.createObject(PRICE_DB_PREFIX + priceDate, oneDayPrices);
 
-          // Publish today and next day prices
-          if (dayOffset === 0 || dayOffset === 1) {
-            mqttClient.publish(priceTopic + '/' + priceDate, JSON.stringify(oneDayPrices, debug ? null : undefined, 2), { retain: true, qos: 1 });
-            console.log(programName + ': MQTT message published:', 'prices-' + priceDate);
-          }
         } else {
           console.log(programName + ': Day ahead prices are not ready:', priceDate);
         }
@@ -187,18 +181,18 @@ async function getPrices(dayOffset) {
       .catch(function (err) {
         if (err.response) {
           console.log('Error:', err.response.status, err.response.statusText);
-          console.log('Headers:', err.response.headers);
+          if (debug) console.log('Headers:', err.response.headers);
         }
       });
   }
   // Publish today and next day prices
   if (dayOffset >= 0 && !await priceDb.isEmpty()) {
-    await priceDb.fetch()
+    await priceDb.retrieveObject(skewDays(dayOffset))
       .then(function (obj) {
         //console.log(obj)
         publishMqtt(obj, skewDays(dayOffset));
         console.log(programName + ': MQTT message published:', pricePrefix + priceDate);
-      }).then(priceDb.close())
+      })
   }
 }
 
@@ -220,42 +214,13 @@ async function retireDays(offset) {
   // Count offset days backwards
   offset *= -1;
   const priceDate = skewDays(offset);
-  const priceDb = new UniCache(PRICE_DB_PREFIX + priceDate, RO_DB_OPTIONS);
-  const keys = await priceDb.dbKeys(pricePrefix + '*');
+  const keys = await priceDb.dbKeys(PRICE_DB_PREFIX + '*');
   keys.forEach(async (key) => {
     if (key <= `${pricePrefix}${priceDate}`) {
       await priceDb.deleteObject(key);
-      /*
-      if (useRedis) {
-        console.log('fetch-eu-prices: Redis data deleted:', `${pricePrefix}${key}`);
-      } else {
-        console.log('fetch-eu-prices: File deleted:', `${pricePrefix}${key}.json`);
-      }
-      */
     }
   });
-  await priceDb.close();
 }
-
-mqttClient.on('connect', () => {
-  mqttClient.subscribe(priceTopic + '/#', (err) => {
-    if (err) {
-      console.log(programName + ': MQTT subscription error');
-    }
-  });
-});
-
-
-mqttClient.on('message', (topic, message) => {
-  const today = skewDays(0);
-  const [topic1, topic2, date] = topic.split('/');
-  if (topic1 + '/' + topic2 === priceTopic) {
-    if (date < today) {
-      // Remove previous retained messages
-      mqttClient.publish(priceTopic + '/' + date, '', { retain: true });
-    }
-  }
-});
 
 async function init() {
   let price = gridDayPrice / 24;
@@ -291,8 +256,7 @@ init();
 if (runNodeSchedule) {
   console.log(programName + ': Fetch prices scheduling started');
   schedule.scheduleJob(runSchedule, run);
-  // First a single run to init prices
-  run();
-} else {
-  run();
 }
+// First a single run to init prices
+priceDb = new UniCache(PRICE_DB_PREFIX, PRICE_DB_OPTIONS);
+run();
