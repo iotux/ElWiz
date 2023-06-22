@@ -246,7 +246,7 @@ async function getPrices(dayOffset) {
   // Publish today and next day prices
   if (dayOffset >= 0 && await priceDb.existsObject(PRICE_DB_PREFIX + priceDate)) {
     let obj = await priceDb.retrieveObject(PRICE_DB_PREFIX + priceDate)
-    await publishMqtt(obj, priceDate);
+    await publishMqtt(priceDate, obj);
   }
 
   // Retire retained prices from yesterday
