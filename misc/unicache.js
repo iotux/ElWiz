@@ -53,7 +53,9 @@ module.exports = class UniCache {
 
     if (this.options.syncInterval) {
       setInterval(() => {
-        console.log('UniCache sync interval:', this.options.syncInterval * 1000 || 86400000);
+        if (false) {
+          console.log('UniCache sync interval:', this.options.syncInterval * 1000 || 86400000);
+        }
         this.saveCacheData();
       }, (this.options.syncInterval * 1000 || 86400000));
     }
@@ -100,9 +102,22 @@ module.exports = class UniCache {
     }
   } // Constructor
 
+  /**
+ * Returns a Promise that resolves with a boolean indicating whether the
+ * state of this object is saved in memory.
+ *
+ * @return {Promise<boolean>} A Promise that resolves with a boolean indicating
+ * whether the state of this object is saved in memory.
+ */
   async isSaved() {
     return this.memSaved;
   }
+
+  /**
+ * Returns a boolean indicating whether the data has been saved or not.
+ *
+ * @return {boolean} The negation of the boolean value of memSaved instance variable.
+ */
   async notSaved() {
     return !this.memSaved;
   }
@@ -129,6 +144,12 @@ module.exports = class UniCache {
     }
   }
 
+  /**
+   * Sets a new Redis key.
+   *
+   * @param {any} newKey - The new Redis key.
+   * @return {Promise<void>} A Promise that resolves when the new key is set.
+   */
   async setKey(newKey) {
     this.redisKey = newKey;
   }
@@ -142,8 +163,9 @@ module.exports = class UniCache {
   }
 
   /**
-   * Fetches cache data from the underlying storage.
-   * @returns {Promise<void>} A promise that resolves when the cache data is fetched.
+   * Fetches data from cache.
+   *
+   * @return {Promise<void>} - Promise that resolves when the data is fetched.
    */
   async fetchCacheData() {
     let data;
@@ -164,8 +186,9 @@ module.exports = class UniCache {
   }
 
   /**
-   * Saves cache data to the underlying storage.
-   * @returns {Promise<void>} A promise that resolves when the cache data is saved.
+   * Saves cache data to either Redis or a local file.
+   *
+   * @return {Promise<void>} A Promise that resolves when the cache data has been saved.
    */
   async saveCacheData() {
     if (this.cacheType === 'redis') {
@@ -181,11 +204,13 @@ module.exports = class UniCache {
   }
 
   /**
- * Ensures that the Redis client is connected.
- *
- * @param {}
- * @return {}
- */
+   * Asynchronously ensures the Redis connection is established by pinging 
+   * the Redis client. If the connection is not established, it connects to 
+   * Redis and sets the connection status flag to true.
+   *
+   * @return {Promise<boolean>} A Promise that resolves to a boolean indicating 
+   * if the Redis connection is established.
+   */
   async ensureRedisConnection() {
     this.isConnected = await this.client.ping();
     if (!this.isConnected) {
@@ -234,6 +259,12 @@ module.exports = class UniCache {
     if (this.options.syncOnWrite) { await this.saveCacheData(); }
   }
 
+  /**
+ * Async function that returns the file name with the provided key.
+ *
+ * @param {string} key - The key used to construct the file name.
+ * @return {string} The file name with the provided key.
+ */
   async fileName(key) {
     return this.savePath + '/' + key + '.json';
   }
@@ -272,7 +303,10 @@ module.exports = class UniCache {
   }
 
   /**
-   * Clear the Redis object.
+   * Clears the data object and sets memSaved to false. 
+   * If syncOnWrite is true, saves the cache data to disk asynchronously.
+   *
+   * @return {Promise<void>} A Promise that resolves when the cache data is successfully saved to disk.
    */
   async clear() {
     this.data = {};
@@ -281,7 +315,9 @@ module.exports = class UniCache {
   }
 
   /**
-   * Save the Redis object and disconnect.
+   * Closes the cache connection and syncs cached data if specified.
+   *
+   * @return {Promise<void>} Promise that resolves when the cache connection is closed.
    */
   async close() {
     if (this.options.syncOnClose) { await this.saveCacheData(); }
@@ -290,6 +326,13 @@ module.exports = class UniCache {
       //await this.client.disconnect();
     }
   }
+
+  /**
+   * Deletes an object from the cache if it exists.
+   *
+   * @param {string} key - The key of the object to be deleted.
+   * @return {Promise<void>} A Promise that resolves after the object is deleted.
+   */
   async deleteObject(key) {
     if (await this.existsObject(key)) {
       if (this.cacheType === 'redis') {
@@ -303,6 +346,13 @@ module.exports = class UniCache {
     }
   }
 
+  /**
+   * Asynchronously creates an object with the given key and object.
+   *
+   * @param {string} key - The key to associate with the object.
+   * @param {Object} obj - The object to store.
+   * @return {Promise<void>} A promise that resolves once the object has been created.
+   */
   async createObject(key, obj) {
     this.data = obj;
     if (this.cacheType === 'redis') {
@@ -314,6 +364,14 @@ module.exports = class UniCache {
       fs.writeFileSync(await this.fileName(key), data, 'utf-8');
     }
   }
+
+  /**
+   * Checks if an object exists given a key.
+   *
+   * @async
+   * @param {string} key - the key to check for object existence
+   * @return {Promise<boolean>} a promise that resolves to a boolean indicating if the object exists
+   */
   async existsObject(key) {
     //console.log('existsObject', await this.fileName(key));
     if (this.cacheType === 'redis') {
@@ -324,6 +382,13 @@ module.exports = class UniCache {
       return fs.existsSync(await this.fileName(key));
     }
   }
+
+  /**
+  * Asynchronously retrieves an object from either Redis cache or file system.
+  *
+  * @param {string} key - The key of the object to retrieve.
+  * @return {Promise<object>} A Promise that resolves to the retrieved object.
+  */
   async retrieveObject(key) {
     if (this.cacheType === 'redis') {
       //await this.ensureRedisConnection();
@@ -334,7 +399,9 @@ module.exports = class UniCache {
   }
 
   /**
-   * Fetch the Redis object.
+   * Asynchronously fetches the data.
+   *
+   * @return {object} The data retrieved from memory or cache.
    */
   async fetch() {
     if (Object.keys(this.data).length === 0) {
@@ -348,8 +415,15 @@ module.exports = class UniCache {
   }
 
   /**
- * Initialize the Redis object.
- */
+   * Asynchronously initializes the object with provided data, saves it to 
+   * memory, and returns the data. If data is not provided, the function 
+   * returns the existing data. If syncOnWrite flag is set, saves the data to 
+   * cache before returning it.
+   *
+   * @param {object} data - The data to initialize the object with.
+   * @return {object} The initialized data or existing data, depending on 
+   * whether data is provided.
+   */
   async init(data) {
     if (data) {
       try {
@@ -364,7 +438,13 @@ module.exports = class UniCache {
   }
 
   /**
-   * Initialize the Redis object or retrieve from storage.
+   * Asynchronously sets the data of a JSON object. If data is not provided, it 
+   * fetches data from cache and returns it. If data is provided, it sets the 
+   * data and syncs it with the cache if syncOnWrite is set to true. Throws 
+   * an error if the parameter is not a valid JSON object.
+   *
+   * @param {Object} data - the JSON object to be set.
+   * @return {Object} the JSON object set or fetched from cache.
    */
   async JSON(data) {
     if (data) {
@@ -384,6 +464,12 @@ module.exports = class UniCache {
     return this.data;
   }
 
+  /**
+   * Counts the number of keys or files based on the cache type.
+   *
+   * @param {string} pattern - The pattern to match for keys or files.
+   * @return {number} The number of keys or files that match the pattern.
+   */
   async dbCount(pattern) {
     if (this.cacheType === 'redis') {
       const keys = await this.client.keys(pattern);
@@ -394,6 +480,14 @@ module.exports = class UniCache {
     }
   }
 
+  /**
+   * Asynchronously retrieves keys from either Redis cache or a directory on disk.
+   *
+   * @param {string} pattern - The pattern to search for keys. If using Redis, this should be a valid 
+   * glob pattern.
+   * @return {Array} - An array of keys. If using Redis, these are the keys matching the pattern. 
+   * Otherwise, these are the filenames in the directory without the `.json` extension.
+   */
   async dbKeys(pattern) {
     if (this.cacheType === 'redis') {
       const keys = await this.client.keys(pattern);
