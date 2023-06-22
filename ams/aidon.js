@@ -30,9 +30,9 @@ const AIDON_CONSTANTS = {
   VOLTAGE_PHASE_2: '020309060100340700FF12',
   VOLTAGE_PHASE_3: '020309060100480700FF12',
   DATE: '020209060000010000FF090C',
-  LAST_METER_CONSOMPTION: '020309060100010800FF06',
+  LAST_METER_CONSUMPTION: '020309060100010800FF06',
   LAST_METER_PRODUCTION: '020309060100020800FF06',
-  LAST_METER_CONSOMPTION_REACTIVE: '020309060100030800FF06',
+  LAST_METER_CONSUMPTION_REACTIVE: '020309060100030800FF06',
   LAST_METER_PRODUCTION_REACTIVE: '020309060100040800FF06'
 };
 
@@ -43,7 +43,7 @@ let obj = {};
  * @param {string} hex - The hexadecimal value to be converted.
  * @returns {number} - The converted decimal value with a sign.
  */
-function hex2DecSign (hex) {
+function hex2DecSign(hex) {
   let dec = parseInt(hex, 16);
   if ((dec & 0x8000) > 0) {
     dec = dec - 0x10000;
@@ -51,7 +51,7 @@ function hex2DecSign (hex) {
   return dec;
 }
 
-async function listDecode (buf) {
+async function listDecode(buf) {
   const msg = {};
   msg.data = buf;
 
@@ -104,15 +104,18 @@ async function listDecode (buf) {
           break;
         case 'DATE':
           obj.data.meterDate = getAmsTime(msg.data, dataIndex);
+          obj.data.freshHour = obj.data.meterDate.substr(14, 2) === '00';
+          obj.data.freshDay = obj.data.meterDate.substr(11, 5) === '00:00';
+          obj.data.isFirstDayOfMonth = (obj.meterDate.substr(8, 2) === '01' && obj.data.freshDay);
           obj.listType = 'list3';
           break;
-        case 'LAST_METER_CONSOMPTION':
+        case 'LAST_METER_CONSUMPTION':
           obj.data.lastMeterConsumption = hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
           break;
         case 'LAST_METER_PRODUCTION':
           obj.data.lastMeterProduction = hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
           break;
-        case 'LAST_METER_CONSOMPTION_REACTIVE':
+        case 'LAST_METER_CONSUMPTION_REACTIVE':
           obj.data.lastMeterConsumptionReactive = hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
           break;
         case 'LAST_METER_PRODUCTION_REACTIVE':
@@ -133,7 +136,7 @@ async function listDecode (buf) {
  * Handles the list data by decoding it and emitting an event.
  * @param {Buffer} buf - The list data buffer to be handled.
  */
-async function listHandler (buf) {
+async function listHandler(buf) {
   const hex = await buf.toString('hex').toUpperCase();
   const result = await listDecode(hex);
   const listObject = result.data;

@@ -21,25 +21,20 @@ const publisher = require('../publish/' + config.publisher + '.js');
 const onPlugEvent1 = async function (obj) {
   // No prices for listtype 1
   // Send to publish
-  event.emit('publish1', obj);
   if (debug) {
     obj.cacheType = config.cacheType || 'file';
     console.log('List1: plugselector', obj);
   }
+  event.emit('publish1', obj);
 };
 
 const onPlugEvent2 = async function (obj) {
-  if (config.computePrices) {
-    obj = await mergePrices('list2', obj);
-    if (config.calculateCost) {
-      obj = await calculateCost.calc('list2', obj);
-    }
-  }
+  // No prices for listtype 2
   // Send to publish
-  event.emit('publish2', obj);
   if (debug) {
     console.log('List2: plugselector', obj);
   }
+  event.emit('publish2', obj);
 };
 
 const onPlugEvent3 = async function (obj) {
@@ -58,6 +53,10 @@ const onPlugEvent3 = async function (obj) {
     }
   }
 
+  if (debug) {
+    console.log('List3: plugselector', obj);
+  }
+
   try {
     // Send to publish
     event.emit('publish3', obj);
@@ -71,9 +70,6 @@ const onPlugEvent3 = async function (obj) {
     } catch (error) {
       console.log('Error while emitting storage3 event:', error);
     }
-  }
-  if (debug) {
-    console.log('List3: plugselector', obj);
   }
 };
 

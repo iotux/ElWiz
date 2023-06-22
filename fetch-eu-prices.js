@@ -244,25 +244,31 @@ async function getPrices(dayOffset) {
     });
   }
   // Publish today and next day prices
-  if (dayOffset >= 0 && !await priceDb.isEmpty()) {
-    await priceDb.fetch()
-      .then(function (obj) {
-        //console.log(obj)
-        publishMqtt(obj, skewDays(dayOffset));
-        console.log(programName + ': MQTT message published:', pricePrefix + priceDate);
-      })
+  if (dayOffset >= 0 && await priceDb.existsObject(PRICE_DB_PREFIX + priceDate)) {
+    let obj = await priceDb.retrieveObject(PRICE_DB_PREFIX + priceDate)
+    await publishMqtt(obj, priceDate);
+  }
+
+  // Retire retained prices from yesterday
+  // and the day before to be sure that
+  // we don't have an dangling retained prices
+  if (dayOffset === -1 || dayOffset === -2) {
+    await publishMqtt(priceDate, '');
   }
 } // getPrices()
 
-async function publishMqtt(priceObject, priceDate) {
-  // Publish today and next day prices
+async function publishMqtt(priceDate, priceObject) {
+  const topic = priceTopic + '/' + priceDate;
   try {
-    await mqttClient.publish(
-      priceTopic + '/' + priceDate,
-      JSON.stringify(priceObject, debug ? null : undefined, 2),
-      { retain: true, qos: 1 }
-    );
-    console.log(programName + ': MQTT message published:', pricePrefix + priceDate);
+    if (priceObject === '') {
+      // Remove old retained prices
+      await mqttClient.publish(topic, '', { retain: true, qos: 1 });
+      console.log(programName + ': MQTT message removed:', pricePrefix + priceDate);
+    } else {
+      // Publish today and next day prices
+      await mqttClient.publish(topic, JSON.stringify(priceObject, debug ? null : undefined, 2), { retain: true, qos: 1 });
+      console.log(programName + ': MQTT message published:', pricePrefix + priceDate);
+    }
   } catch (err) {
     console.log(programName, ': MQTT publish error', err);
   }
@@ -298,7 +304,7 @@ async function run() {
   // With scheduled run, It may help to avoid missing currencies
   if (runNodeSchedule) {
     console.log('Fetch prices scheduled run...');
-    await delay(1000);
+    //await delay(1000);
   } // 1 second
   currencyRate = await getCurrencyRate(priceCurrency);
 
@@ -312,16 +318,9 @@ async function run() {
 init();
 
 if (runNodeSchedule) {
-  console.log(programName + ': Fetch prices scheduling started');
   schedule.scheduleJob(runSchedule, run);
 }
 // First a single run to init prices
 priceDb = new UniCache(PRICE_DB_PREFIX, PRICE_DB_OPTIONS);
+console.log(programName + ': Fetch prices starting...');
 run();
-
-/*
-setInterval(function () {
-  console.log("Second run is running");
-  run();
-}, 1000 * 60 * 1);
-*/
