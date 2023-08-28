@@ -106,7 +106,7 @@ async function listDecode(buf) {
           obj.data.meterDate = getAmsTime(msg.data, dataIndex);
           obj.data.freshHour = obj.data.meterDate.substr(14, 2) === '00';
           obj.data.freshDay = obj.data.meterDate.substr(11, 5) === '00:00';
-          obj.data.isFirstDayOfMonth = (obj.meterDate.substr(8, 2) === '01' && obj.data.freshDay);
+          obj.data.isFirstDayOfMonth = (obj.data.meterDate.substr(8, 2) === '01' && obj.data.freshDay);
           obj.listType = 'list3';
           break;
         case 'LAST_METER_CONSUMPTION':
