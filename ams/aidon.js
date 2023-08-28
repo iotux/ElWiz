@@ -150,7 +150,7 @@ async function listHandler(buf) {
       event.emit('hex3', hex);
     }
   }
-  obj = await amsCalc.calc(listObject);
+  obj = await amsCalc.calc(list, listObject);
   event.emit(list, obj);
 }
 
