@@ -93,6 +93,14 @@ class Pulse {
   }
 
   processMessage(buf) {
+    if (buf[0] === 0x08) {
+      // Find the first occurrence of 0x7e
+      const indexOf7e = buf.indexOf(0x7e);
+      // If 0x7E is found, slice the buffer from that position onward, keeping 0x7E
+      if (indexOf7e !== -1) {
+        buf = buf.slice(indexOf7e);
+      }
+    }
     const messageType = buf[0];
 
     if (messageType === 0x7b) {
