@@ -6,7 +6,9 @@ const {
   hex2Dec,
   hex2Ascii,
   hasData,
-  getAmsTime
+  getAmsTime,
+  getDateTime,
+  replaceChar
 } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
@@ -52,10 +54,21 @@ function hex2DecSign(hex) {
 }
 
 async function listDecode(buf) {
+  let ts = getDateTime();
   const msg = {};
   msg.data = buf;
 
-  obj = { listType: 'list1', data: {} };
+  obj = {
+    listType: 'list1',
+    data: {
+      // 2022-07-01T00:00:00
+      timestamp: ts,
+      isNewHour: false,
+      isNewDay: false,
+      isNewMonth: false,
+      isLastList2: false
+    }
+  };
 
   for (const key in AIDON_CONSTANTS) {
     const constant = AIDON_CONSTANTS[key];
@@ -63,7 +76,10 @@ async function listDecode(buf) {
     if (dataIndex > -1) {
       switch (key) {
         case 'METER_VERSION':
+          // Assume that the timestamp is slightly delayed compared to the AMS List2 and List3 interval
+          obj.data.timestamp = replaceChar(ts, 18, '0'); // Align the timestamp
           obj.data.meterVersion = hex2Ascii(msg.data.substr(dataIndex, 22));
+          obj.isLastList2 = obj.timestamp.substr(11, 5) === '00:00';
           obj.listType = 'list2';
           break;
         case 'METER_ID':
@@ -103,10 +119,13 @@ async function listDecode(buf) {
           obj.data.voltagePhase3 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
           break;
         case 'DATE':
+          obj.data.timestamp = replaceChar(ts, 18, '0'); // Align the timestamp
           obj.data.meterDate = getAmsTime(msg.data, dataIndex);
-          obj.data.freshHour = obj.data.meterDate.substr(14, 2) === '00';
-          obj.data.freshDay = obj.data.meterDate.substr(11, 5) === '00:00';
-          obj.data.isFirstDayOfMonth = (obj.data.meterDate.substr(8, 2) === '01' && obj.data.freshDay);
+          obj.hourIndex = parseInt(obj.meterDate.substr(11, 2));
+          obj.isNewHour = obj.meterDate.substr(14, 5) === '00:10';
+          obj.isNewDay = obj.meterDate.substr(11, 8) === '00:00:10';
+          obj.isNewMonth = (obj.meterDate.substr(8, 2) === '01' && obj.isNewDay);
+
           obj.listType = 'list3';
           break;
         case 'LAST_METER_CONSUMPTION':
@@ -150,7 +169,7 @@ async function listHandler(buf) {
       event.emit('hex3', hex);
     }
   }
-  obj = await amsCalc.calc(list, listObject);
+  obj = await amsCalc(list, listObject);
   event.emit(list, obj);
 }
 

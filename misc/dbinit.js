@@ -1,6 +1,7 @@
 // Import required modules
 const yaml = require('yamljs');
 const UniCache = require('../misc/unicache.js');
+const redis = require('redis');
 
 // Load configuration
 const configFile = './config.yaml';
@@ -9,7 +10,8 @@ const config = yaml.load(configFile);
 // Cache configuration
 const cacheName = 'powersave';
 const cacheOptions = {
-  cacheType: config.cacheType || 'file',
+  //cacheType: config.cacheType || 'file',
+  cacheType: 'file',
   syncOnWrite: false,
   syncInterval: 5,
   savePath: config.savePath || './data'
@@ -22,6 +24,8 @@ const energySavings = {
   lastMeterProduction: 0,
   lastMeterConsumptionReactive: 0,
   lastMeterProductionReactive: 0,
+  prevHourMeterConsumption: 0,
+  prevHourMeterProduction: 0,
   prevDayMeterConsumption: 0,
   prevDayMeterProduction: 0,
   prevDayMeterConsumptionReactive: 0,
@@ -32,7 +36,11 @@ const energySavings = {
   accumulatedReward: 0,
   minPower: 9999999,
   maxPower: 0,
-  averagePower: 0
+  averagePower: 0,
+  consumptionCurrentHour: 0,
+  consumptionToday: 0,
+  sortedHourlyConsumption: [],
+  topConsumptionHours: [],
 };
 
 let db;
@@ -43,6 +51,7 @@ let db;
  * @param {object} options - Cache options.
  * @param {object} data - Initial data to be stored in the cache.
  */
+
 async function dbInit(name, options, data) {
   // Initialize the cache with the given name and options
   db = new UniCache(name, options);
@@ -54,11 +63,10 @@ async function dbInit(name, options, data) {
 
   // Fetch the data from the cache and log it
   db.fetch().then(function (data) {
-    console.log('Data loaded', data);
+    console.log('Powersave data loaded', data);
   });
 }
 
-// Initialize the cache database with the given configuration and data
 dbInit(cacheName, cacheOptions, energySavings);
 
 // Export the cache database

@@ -61,6 +61,8 @@ module.exports = class UniCache {
     }
 
     this.data = {};
+    if (cacheName === '')
+      this.cacheName = false;
 
     if (this.cacheType === 'redis') {
       const { createClient } = require('redis');
@@ -83,7 +85,7 @@ module.exports = class UniCache {
         this.client.on("error", (err) => {
           this.isConnected = false; console.log('Redis error:', err);
         });
-        this.client.on('connected', () => {
+        this.client.on('connect', () => {
           if (this.client.get(this.redisKey) !== null) {
             this.fetchCacheData();
           }
@@ -103,21 +105,21 @@ module.exports = class UniCache {
   } // Constructor
 
   /**
- * Returns a Promise that resolves with a boolean indicating whether the
- * state of this object is saved in memory.
- *
- * @return {Promise<boolean>} A Promise that resolves with a boolean indicating
- * whether the state of this object is saved in memory.
- */
+   * Returns a Promise that resolves with a boolean indicating whether the
+   * state of this object is saved in memory.
+   *
+   * @return {Promise<boolean>} A Promise that resolves with a boolean indicating
+   * whether the state of this object is saved in memory.
+   */
   async isSaved() {
     return this.memSaved;
   }
 
   /**
- * Returns a boolean indicating whether the data has been saved or not.
- *
- * @return {boolean} The negation of the boolean value of memSaved instance variable.
- */
+   * Returns a boolean indicating whether the data has been saved or not.
+   *
+   * @return {boolean} The negation of the boolean value of memSaved instance variable.
+   */
   async notSaved() {
     return !this.memSaved;
   }
@@ -150,26 +152,27 @@ module.exports = class UniCache {
    * @param {any} newKey - The new Redis key.
    * @return {Promise<void>} A Promise that resolves when the new key is set.
    */
-  async setKey(newKey) {
-    this.redisKey = newKey;
+  async setKey(key) {
+    this.redisKey = key;
   }
 
   /**
    * Synchronizes the cache data with the underlying storage.
    * @returns {Promise<void>} A promise that resolves when the synchronization is complete.
    */
-  async sync() {
+  async sync(key) {
+    if (key) this.redisKey = key;
     await this.saveCacheData();
   }
 
   /**
-   * Fetches data from cache.
+   * Fetches data from storage.
    *
    * @return {Promise<void>} - Promise that resolves when the data is fetched.
    */
   async fetchCacheData() {
     let data;
-    if (Object.keys(this.data).length === 0) {
+    if (this.cacheName && Object.keys(this.data).length === 0) {
       if (this.cacheType === 'redis') {
         //await this.ensureRedisConnection();
         data = await JSON.parse(await this.client.get(this.redisKey));
@@ -197,7 +200,6 @@ module.exports = class UniCache {
       console.log('Unicache: saved to Redis:', this.redisKey);
     } else {
       this.filePath = this.savePath + '/' + this.cacheName + '.json';
-      //console.log(this.data);
       fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf-8');
       console.log('Unicache: saved to file:', this.filePath);
     }
@@ -218,7 +220,6 @@ module.exports = class UniCache {
       this.isConnected = true;
     }
   }
-
 
   /**
    * Checks if a key exists in the cache.
@@ -245,7 +246,7 @@ module.exports = class UniCache {
    * @returns {Promise<void>} A promise that resolves when the value is set and saved (if syncOnWrite is true).
    */
   async set(key, val) {
-    // this.data[key] = val;
+    this.data[key] = val;
     await setProperties(this.data, key, val);
     if (this.options.syncOnWrite) { await this.saveCacheData(); }
   }
@@ -308,9 +309,12 @@ module.exports = class UniCache {
    *
    * @return {Promise<void>} A Promise that resolves when the cache data is successfully saved to disk.
    */
-  async clear() {
+  async clear(key) {
+    if (key)
+      this.redisKey = key;
     this.data = {};
     this.memSaved = false;
+    // TODO: Probably remove this and delete the cache data.
     if (this.options.syncOnWrite) { await this.saveCacheData(); }
   }
 
@@ -323,78 +327,6 @@ module.exports = class UniCache {
     if (this.options.syncOnClose) { await this.saveCacheData(); }
     if (this.cacheType === 'redis') {
       await this.client.quit();
-      //await this.client.disconnect();
-    }
-  }
-
-  /**
-   * Deletes an object from the cache if it exists.
-   *
-   * @param {string} key - The key of the object to be deleted.
-   * @return {Promise<void>} A Promise that resolves after the object is deleted.
-   */
-  async deleteObject(key) {
-    if (await this.existsObject(key)) {
-      if (this.cacheType === 'redis') {
-        await this.client.del(key);
-        console.log('UniCache: deleted:', key);
-      } else {
-        fs.unlinkSync(await this.fileName(key));
-        console.log('UniCache: deleted:', this.fileName(key));
-      }
-      this.memSaved = false;
-    }
-  }
-
-  /**
-   * Asynchronously creates an object with the given key and object.
-   *
-   * @param {string} key - The key to associate with the object.
-   * @param {Object} obj - The object to store.
-   * @return {Promise<void>} A promise that resolves once the object has been created.
-   */
-  async createObject(key, obj) {
-    this.data = obj;
-    if (this.cacheType === 'redis') {
-      //await this.ensureRedisConnection();
-      await this.client.set(key, JSON.stringify(obj));
-    } else {
-      //console.log('createObject', await this.fileName(key), obj); 
-      const data = JSON.stringify(obj, null, 2);
-      fs.writeFileSync(await this.fileName(key), data, 'utf-8');
-    }
-  }
-
-  /**
-   * Checks if an object exists given a key.
-   *
-   * @async
-   * @param {string} key - the key to check for object existence
-   * @return {Promise<boolean>} a promise that resolves to a boolean indicating if the object exists
-   */
-  async existsObject(key) {
-    //console.log('existsObject', await this.fileName(key));
-    if (this.cacheType === 'redis') {
-      //await this.ensureRedisConnection();
-      const keys = await this.client.keys(key);
-      return keys.length > 0;
-    } else {
-      return fs.existsSync(await this.fileName(key));
-    }
-  }
-
-  /**
-  * Asynchronously retrieves an object from either Redis cache or file system.
-  *
-  * @param {string} key - The key of the object to retrieve.
-  * @return {Promise<object>} A Promise that resolves to the retrieved object.
-  */
-  async retrieveObject(key) {
-    if (this.cacheType === 'redis') {
-      //await this.ensureRedisConnection();
-      return JSON.parse(await this.client.get(key));
-    } else {
-      return JSON.parse(fs.readFileSync(await this.fileName(key), 'utf-8'));
     }
   }
 
@@ -403,7 +335,9 @@ module.exports = class UniCache {
    *
    * @return {object} The data retrieved from memory or cache.
    */
-  async fetch() {
+  async fetch(key) {
+    if (key)
+      this.redisKey = key;
     if (Object.keys(this.data).length === 0) {
       await this.fetchCacheData();
     } else {
@@ -424,7 +358,9 @@ module.exports = class UniCache {
    * @return {object} The initialized data or existing data, depending on 
    * whether data is provided.
    */
-  async init(data) {
+  async init(data, key) {
+    if (key)
+      this.redisKey = key;
     if (data) {
       try {
         this.data = data;
@@ -504,6 +440,101 @@ module.exports = class UniCache {
         keys.push(key);
       })
       return keys;
+    }
+  }
+
+  /**
+   * Checks if an object exists given a key.
+   *
+   * @async
+   * @param {string} key - the key to check for object existence
+   * @return {Promise<boolean>} a promise that resolves to a boolean indicating if the object exists
+   */
+  async existsObject(key) {
+    //if (key === this.redisKey)
+    //  return this.data;
+    if (this.cacheType === 'redis') {
+      //await this.ensureRedisConnection();
+      const keys = await this.client.keys(key);
+      return keys.length > 0;
+    } else {
+      return fs.existsSync(this.fileName(key));
+    }
+  }
+
+  /**
+   * Asynchronously creates an object with the given key and object.
+   *
+   * @param {string} key - The key to associate with the object.
+   * @param {Object} obj - The object to store.
+   * @return {Promise<void>} A promise that resolves once the object has been created.
+   */
+  async createObject(key, obj) {
+    this.redisKey = key;
+    this.data = obj;
+    //if (this.data[key]) this.data[key] = null;
+    if (this.cacheType === 'redis') {
+      //await this.ensureRedisConnection();
+      await this.client.set(key, JSON.stringify(obj));
+    } else {
+      //console.log('createObject', await this.fileName(key), obj); 
+      const data = JSON.stringify(obj, null, 2);
+      const fileName = await this.fileName(key);
+      fs.writeFileSync(fileName, data, 'utf-8');
+    }
+  }
+
+  async pushObject(key, element) {
+    this.redisKey = key;
+    if (!Array.isArray(this.data)) this.data = [];
+    //if (!this.data[key]) this.data[key] = [];
+    this.data.push(element);
+    if (this.options.syncOnWrite) { await this.saveCacheData(); }
+  }
+
+  /**
+  * Asynchronously retrieves an object from either Redis cache or file system.
+  *
+  * @param {string} key - The key of the object to retrieve.
+  * @return {Promise<object>} A Promise that resolves to the retrieved object.
+  */
+  async retrieveObject(key) {
+    // TODO: implement storage/cache sync
+    if (key === this.redisKey) {
+      return this.data;
+    }
+    this.redisKey = key;
+    try {
+      if (this.cacheType === 'redis') {
+        //await this.ensureRedisConnection();
+        return JSON.parse(await this.client.get(key));
+      } else {
+        return JSON.parse(fs.readFileSync(this.fileName(key), 'utf-8'));
+      }
+    } catch (err) {
+      this.redisKey = false;
+      console.error('Error retrieving object from cache:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Deletes an object from the cache if it exists.
+   *
+   * @param {string} key - The key of the object to be deleted.
+   * @return {Promise<void>} A Promise that resolves after the object is deleted.
+   */
+  async deleteObject(key) {
+    this.redisKey = key;
+    if (await this.existsObject(key)) {
+      if (this.cacheType === 'redis') {
+        await this.client.del(key);
+        console.log('UniCache: deleted:', key);
+      } else {
+        fs.unlinkSync(await this.fileName(key));
+        console.log('UniCache: deleted:', this.fileName(key));
+      }
+      this.memSaved = false;
     }
   }
 };

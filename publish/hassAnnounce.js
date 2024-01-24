@@ -42,20 +42,28 @@ const hassAnnounce = async function () {
   let announce = hassDevice('Last meter consumption', 'last_meter_consumption', 'energy', 'total_increasing', 'kWh', 'lastMeterConsumption');
   client.publish(haTopic + 'lastMeterConsumption/config', JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
-  announce = hassDevice('Accumulated consumption today', 'accumulated_consumption', 'energy', 'total_increasing', 'kWh', 'accumulatedConsumption');
+  announce = hassDevice('Accumulated consumption today', 'accumulated_consumption', 'energy', 'total', 'kWh', 'accumulatedConsumption');
   client.publish(haTopic + 'accumulatedConsumption/config', JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
   announce = hassDevice('Accumulated consumption last hour', 'accumulated_consumption_last_hour', 'energy', 'total', 'kWh', 'accumulatedConsumptionLastHour');
   client.publish(haTopic + 'accumulatedConsumptionLastHour/config', JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
-  announce = hassDevice('Consumption Current hour', 'consumption_current_hour', 'energy', 'total_increasing', 'kWh', 'consumptionCurrentHour');
+  //announce = hassDevice('Consumption Current hour', 'consumption_current_hour', 'energy', 'total_increasing', 'kWh', 'consumptionCurrentHour');
+  announce = hassDevice('Consumption Current hour', 'consumption_current_hour', 'energy', 'total', 'kWh', 'consumptionCurrentHour');
   client.publish(haTopic + 'consumptionCurrentHour/config', JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
+
+  //announce = hassDevice('Consumption Today', 'consumption_today', 'energy', 'total_increasing', 'kWh', 'consumptionToday');
+  announce = hassDevice('Consumption Today', 'consumption_today', 'energy', 'total', 'kWh', 'consumptionToday');
+  client.publish(haTopic + 'consumptionToday/config', JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
+
+  announce = hassDevice('Top Hours Average', 'top_hours_average', 'energy', 'total', 'kWh', 'topHoursAverage');
+  client.publish(haTopic + 'topHoursAverage/config', JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
   if (hasProduction) {
     announce = hassDevice('Last meter production', 'last_meter_production', 'energy', 'total_increasing', 'kWh', 'lastMeterProduction');
     client.publish(haTopic + 'lastMeterProduction/config', JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
-    announce = hassDevice('Accumulated production today', 'accumulated_production', 'energy', 'total_increasing', 'kWh', 'accumulatedProduction');
+    announce = hassDevice('Accumulated production today', 'accumulated_production', 'energy', 'total', 'kWh', 'accumulatedProduction');
     client.publish(haTopic + 'accumulatedProduction/config', JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
     announce = hassDevice('Accumulated production last hour', 'accumulated_production_last_hour', 'energy', 'total', 'kWh', 'accumulatedProductionLastHour');

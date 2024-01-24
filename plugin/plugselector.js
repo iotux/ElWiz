@@ -2,28 +2,28 @@
 // const { default: isThisHour } = require("date-fns/isThisHour/index");
 const yaml = require('yamljs');
 const configFile = './config.yaml';
-
 const { event } = require('../misc/misc.js');
-const { mergePrices } = require('./mergeprices.js');
-const { calculateCost } = require('./calculatecost.js');
+//require('../storage/redisdb.js');
+const { mergePrices } = require('../plugin/mergeprices.js');
+const { calculateCost } = require('../plugin/calculatecost.js');
 const config = yaml.load(configFile);
 const debug = config.DEBUG || false;
 
 const publisher = require('../publish/' + config.publisher + '.js');
 
-// let redisdb;
+let storage;
 
-// if (config.storage !== 'none') {
-//  redisdb = require('../storage/' + config.storage + '.js');
-//  console.log('Using storage: ' + config.storage);
-// }
+if (config.storage !== 'none') {
+  storage = require('../storage/' + config.storage + '.js');
+  console.log('Using storage: ' + config.storage);
+}
 
 const onPlugEvent1 = async function (obj) {
   // No prices for listtype 1
   // Send to publish
   if (debug) {
     obj.cacheType = config.cacheType || 'file';
-    console.log('List1: plugselector', obj);
+    //console.log('List1: plugSelector', obj);
   }
   event.emit('publish1', obj);
 };
@@ -31,10 +31,33 @@ const onPlugEvent1 = async function (obj) {
 const onPlugEvent2 = async function (obj) {
   // No prices for listtype 2
   // Send to publish
+  obj = await mergePrices('list2', obj);
+
+  //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  /*
+  if (config.calculateCost) {
+    try {
+      obj = await calculateCost('list2', obj);
+    } catch (error) {
+      console.log('onPlugEvent3 calling calculateCost', error);
+    }
+  }
+  */
+  //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
   if (debug) {
-    console.log('List2: plugselector', obj);
+    obj.cacheType = config.cacheType || 'file';
+    console.log('List2: plugSelector', obj);
   }
   event.emit('publish2', obj);
+  if (config.storage !== 'none') {
+    // Sending data to storage is optional
+    try {
+      event.emit('storage2', obj);
+    } catch (error) {
+      console.log('Error while emitting storage3 event:', error);
+    }
+  }
 };
 
 const onPlugEvent3 = async function (obj) {
@@ -46,7 +69,7 @@ const onPlugEvent3 = async function (obj) {
     }
     if (config.calculateCost) {
       try {
-        obj = await calculateCost.calc('list3', obj);
+        obj = await calculateCost('list3', obj);
       } catch (error) {
         console.log('onPlugEvent3 calling calculateCost', error);
       }
@@ -54,7 +77,7 @@ const onPlugEvent3 = async function (obj) {
   }
 
   if (debug) {
-    console.log('List3: plugselector', obj);
+    console.log('List3: plugSelector', obj);
   }
 
   try {

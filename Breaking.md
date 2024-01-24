@@ -12,7 +12,7 @@ Most notably these changes are as follows with the default values shown.
 
 Possible options are **file** and **redis**
 
-The cache is primarly used for storing fo price data and to persist AMS meter data during program stops.
+The cache is primarly used for storing price data and to persist AMS meter data during program stops.
 
 **storage: none**
 

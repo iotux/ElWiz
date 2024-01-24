@@ -41,9 +41,9 @@ function onPubEvent2(obj) {
 }
 
 function onPubEvent3(obj) {
-  delete obj.meterVersion;
-  delete obj.meterID;
-  delete obj.meterModel;
+  //delete obj.meterVersion;
+  //delete obj.meterID;
+  //delete obj.meterModel;
   obj.publisher = 'hassPublish';
   if (hassDebug) { console.log('List3: hassPublish', obj); }
   // Unfold JSON object
