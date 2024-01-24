@@ -81,7 +81,7 @@ haBaseTopic: elwiz/sensor
 # Don't change the following topic unless you
 # have changed the way HomeAssistant read
 # MQTT messages
-haAnnounceTopic: homeassistant/sensor/ElWiz/
+haAnnounceTopic: homeassistant/sensor/ElWiz
 
 ##################################################
 # The rest of the configuration is only valid for

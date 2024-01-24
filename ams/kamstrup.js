@@ -6,9 +6,7 @@ const {
   hex2Dec,
   hex2Ascii,
   hasData,
-  getAmsTime,
-  getDateTime,
-  replaceChar
+  getAmsTime
 } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
@@ -17,25 +15,29 @@ const config = yaml.load(configFile);
 const amsDebug = config.amsDebug || false;
 
 // Aidon constants
-const AIDON_CONSTANTS = {
-  METER_VERSION: '020209060101000281FF0A0B',
-  METER_ID: '020209060000600100FF0A10',
-  METER_MODEL: '020209060000600107FF0A04',
-  POWER: '020309060100010700FF06',
-  POWER_PRODUCTION: '020309060100020700FF06',
-  POWER_REACTIVE: '020309060100030700FF06',
-  POWER_PRODUCTION_REACTIVE: '020309060100040700FF06',
-  CURRENT_L1: '0203090601001F0700FF10',
-  CURRENT_L2: '020309060100330700FF10',
-  CURRENT_L3: '020309060100470700FF10',
-  VOLTAGE_PHASE_1: '020309060100200700FF12',
-  VOLTAGE_PHASE_2: '020309060100340700FF12',
-  VOLTAGE_PHASE_3: '020309060100480700FF12',
-  DATE: '020209060000010000FF090C',
-  LAST_METER_CONSUMPTION: '020309060100010800FF06',
-  LAST_METER_PRODUCTION: '020309060100020800FF06',
-  LAST_METER_CONSUMPTION_REACTIVE: '020309060100030800FF06',
-  LAST_METER_PRODUCTION_REACTIVE: '020309060100040800FF06'
+const KAMSTRUP_CONSTANTS = {
+  // It may be possible to remove '09060' from those starting with that pattern
+  LIST_2: '02190A0E',
+  LIST_3: '02230A0E',
+  METER_TIMESTAMP: 'E7000F000000000C',
+  METER_VERSION: '4B616D73747275705F',
+  METER_ID: '09060101000005FF0A10',
+  METER_MODEL: '09060101600101FF0A12',
+  POWER: '09060101010700FF06',
+  POWER_PRODUCTION: '09060101020700FF06',
+  POWER_REACTIVE: '09060101030700FF06',
+  POWER_PRODUCTION_REACTIVE: '09060101040700FF06',
+  CURRENT_L1: '090601011F0700FF06',
+  CURRENT_L2: '09060101330700FF06',
+  CURRENT_L3: '09060101470700FF06',
+  VOLTAGE_PHASE_1: '09060101200700FF12',
+  VOLTAGE_PHASE_2: '09060101340700FF12',
+  VOLTAGE_PHASE_3: '09060101480700FF12',
+  METER_DATE: '09060001010000FF090C',
+  LAST_METER_CONSUMPTION: '09060101010800FF06',
+  LAST_METER_PRODUCTION: '09060101020800FF06',
+  LAST_METER_CONSUMPTION_REACTIVE: '09060101030800FF06',
+  LAST_METER_PRODUCTION_REACTIVE: '09060101040800FF06'
 };
 
 let obj = {};
@@ -54,39 +56,31 @@ function hex2DecSign(hex) {
 }
 
 async function listDecode(buf) {
-  let ts = getDateTime();
   const msg = {};
   msg.data = buf;
 
-  obj = {
-    listType: 'list1',
-    data: {
-      // 2022-07-01T00:00:00
-      timestamp: ts,
-      isNewHour: false,
-      isNewDay: false,
-      isNewMonth: false,
-      isLastList2: false
-    }
-  };
+  obj = { listType: 'list1', data: {} };
 
-  for (const key in AIDON_CONSTANTS) {
-    const constant = AIDON_CONSTANTS[key];
+  for (const key in KAMSTRUP_CONSTANTS) {
+    const constant = KAMSTRUP_CONSTANTS[key];
     const dataIndex = hasData(msg.data, constant);
     if (dataIndex > -1) {
       switch (key) {
+        case 'LIST_2': obj.listType = 'list2'; break;
+        case 'LIST_3': obj.listType = 'list3'; break;
+
+        case 'METER_TIMESTAMP':
+          obj.data.timestamp = getAmsTime(msg.data, dataIndex);
+          break;
         case 'METER_VERSION':
-          // Assume that the timestamp is slightly delayed compared to the AMS List2 and List3 interval
-          obj.data.timestamp = replaceChar(ts, 18, '0'); // Align the timestamp
-          obj.data.meterVersion = hex2Ascii(msg.data.substr(dataIndex, 22));
-          obj.isLastList2 = obj.timestamp.substr(11, 5) === '00:00';
-          obj.listType = 'list2';
+          obj.data.meterVersion = 'Kamstrup_' + hex2Ascii(msg.data.substr(dataIndex, 10));
+          //obj.listType = 'list2';
           break;
         case 'METER_ID':
           obj.data.meterID = hex2Ascii(msg.data.substr(dataIndex, 32));
           break;
         case 'METER_MODEL':
-          obj.data.meterModel = hex2Ascii(msg.data.substr(dataIndex, 8));
+          obj.data.meterModel = hex2Ascii(msg.data.substr(dataIndex, 36));
           break;
         case 'POWER':
           obj.data.power = hex2Dec(msg.data.substr(dataIndex, 8)) / 1000;
@@ -101,32 +95,29 @@ async function listDecode(buf) {
           obj.data.powerProductionReactive = hex2Dec(msg.data.substr(dataIndex, 8)) / 1000;
           break;
         case 'CURRENT_L1':
-          obj.data.currentL1 = hex2DecSign(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.currentL1 = hex2DecSign(msg.data.substr(dataIndex, 8)) / 100;
           break;
         case 'CURRENT_L2':
-          obj.data.currentL2 = hex2DecSign(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.currentL2 = hex2DecSign(msg.data.substr(dataIndex, 8)) / 100;
           break;
         case 'CURRENT_L3':
-          obj.data.currentL3 = hex2DecSign(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.currentL3 = hex2DecSign(msg.data.substr(dataIndex, 8)) / 100;
           break;
         case 'VOLTAGE_PHASE_1':
-          obj.data.voltagePhase1 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.voltagePhase1 = hex2Dec(msg.data.substr(dataIndex, 4)); // / 10;
           break;
         case 'VOLTAGE_PHASE_2':
-          obj.data.voltagePhase2 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.voltagePhase2 = hex2Dec(msg.data.substr(dataIndex, 4)); // / 10;
           break;
         case 'VOLTAGE_PHASE_3':
-          obj.data.voltagePhase3 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
+          obj.data.voltagePhase3 = hex2Dec(msg.data.substr(dataIndex, 4)); // / 10;
           break;
-        case 'DATE':
-          obj.data.timestamp = replaceChar(ts, 18, '0'); // Align the timestamp
+        case 'METER_DATE':
           obj.data.meterDate = getAmsTime(msg.data, dataIndex);
-          obj.hourIndex = parseInt(obj.meterDate.substr(11, 2));
-          obj.isNewHour = obj.meterDate.substr(14, 5) === '00:10';
-          obj.isNewDay = obj.meterDate.substr(11, 8) === '00:00:10';
-          obj.isNewMonth = (obj.meterDate.substr(8, 2) === '01' && obj.isNewDay);
-
-          obj.listType = 'list3';
+          obj.data.freshHour = obj.data.meterDate.substr(14, 2) === '00';
+          obj.data.freshDay = obj.data.meterDate.substr(11, 5) === '00:00';
+          obj.data.isFirstDayOfMonth = (obj.data.meterDate.substr(8, 2) === '01' && obj.data.freshDay);
+          //obj.listType = 'list3';
           break;
         case 'LAST_METER_CONSUMPTION':
           obj.data.lastMeterConsumption = hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
@@ -169,7 +160,7 @@ async function listHandler(buf) {
       event.emit('hex3', hex);
     }
   }
-  obj = await amsCalc(list, listObject);
+  obj = await amsCalc.calc(list, listObject);
   event.emit(list, obj);
 }
 

@@ -7,6 +7,7 @@ const yaml = require('yamljs');
 const convert = require('xml-js');
 const request = require('axios');
 const { format } = require('date-fns');
+const { skewDays } = require('./misc/util');
 const UniCache = require('./misc/unicache');
 const config = yaml.load('config.yaml');
 
@@ -32,8 +33,6 @@ if (runNodeSchedule) {
   runSchedule.minute = scheduleMinutes;
 }
 
-let currencyDb;
-
 const DB_PREFIX = namePrefix;
 const DB_OPTIONS = {
   cacheType: cacheType,
@@ -41,6 +40,8 @@ const DB_OPTIONS = {
   //syncInterval: 600,
   savePath: savePath,
 };
+const cacheName = `${DB_PREFIX}latest`;
+const currencyDb = new UniCache(cacheName, DB_OPTIONS);
 
 const options = {
   headers: {
@@ -49,16 +50,6 @@ const options = {
   },
   method: 'GET'
 };
-
-function skewDays(days) {
-  // days equal to 0 is today
-  // Negative values are daycount in the past
-  // Positive are daycount in the future
-  const oneDay = 24 * 60 * 60 * 1000;
-  const now = new Date();
-  const date = new Date(now.getTime() + oneDay * days);
-  return format(date, 'yyyy-MM-dd');
-}
 
 function getEuroRates(cur) {
   const obj = {};
@@ -81,10 +72,11 @@ async function getCurrencies() {
         rates: getEuroRates(root.Cube)
       };
 
+      //currencyDb.createObject(`${DB_PREFIX}latest`, obj);
+      currencyDb.init(obj);
+      console.log('Currencies stored as', `${DB_PREFIX}latest`);
       currencyDb.createObject(`${DB_PREFIX}${obj.date}`, obj);
       console.log('Currencies stored as', `${DB_PREFIX}${obj.date}`);
-      currencyDb.createObject(`${DB_PREFIX}'latest'`, obj);
-      console.log('Currencies stored as', `${DB_PREFIX}'latest'`);
       if (debug) {
         console.log(JSON.stringify(obj, null, 2));
       }
@@ -114,6 +106,6 @@ if (runNodeSchedule) {
   schedule.scheduleJob(runSchedule, getCurrencies);
 }
 
-currencyDb = new UniCache(null, DB_OPTIONS);
+//currencyDb = new UniCache(null, DB_OPTIONS);
 
 getCurrencies();

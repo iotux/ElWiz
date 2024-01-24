@@ -7,7 +7,8 @@ const fs = require('fs');
 const yaml = require('yamljs');
 const request = require('axios');
 const Mqtt = require('./mqtt/mqtt.js');
-const { format } = require('date-fns');
+const { format, formatISO } = require('date-fns');
+const { addZero, skewDays } = require('./misc/util.js');
 const UniCache = require('./misc/unicache');
 const config = yaml.load('./config.yaml');
 
@@ -98,7 +99,7 @@ let runCounter = 0;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-function uriDate(offset) {
+async function uriDate(offset) {
   // offset equal to 0 is today
   // Negative values are daycount in the past
   // Positive are daycount in the future
@@ -109,22 +110,24 @@ function uriDate(offset) {
   return ret;
 }
 
-function skewDays(days) {
-  // offset equal to 0 is today
-  // Negative values are daycount in the past
-  // Positive are daycount in the future
-  const oneDay = 24 * 60 * 60 * 1000;
-  const now = new Date();
-  const date = new Date(now.getTime() + oneDay * days);
-  return format(date, 'yyyy-MM-dd');
+async function calcAvg(start, end, obj) {
+  let res = 0;
+  for (let i = start; i < end; i++) {
+    res += obj[i].spotPrice;
+  }
+  return (res / (end - start));
 }
 
 async function getPrices(dayOffset) {
-  let oneDayPrices
+  let oneDayPrices;
   const priceDate = skewDays(dayOffset);
+  const priceName = PRICE_DB_PREFIX + priceDate;
   // Get prices for today and tomorrow
-  if (!await priceDb.existsObject(skewDays(dayOffset))) {
-    const url = nordPoolUri + uriDate(dayOffset);
+  const missingPrice = !await priceDb.existsObject(priceName);
+  // Get prices absent from timespan
+  if (missingPrice) {
+    const url = nordPoolUri + await uriDate(dayOffset);
+    console.log('Fetching:', priceName);
     // console.log('NordPool: ',url);
     await request(url, nordPool)
       .then(function (body) {
@@ -139,7 +142,7 @@ async function getPrices(dayOffset) {
         };
 
         if (rows[0].Columns[priceRegion].Value !== '-') {
-          for (let i = 0; i < 24; i++) {
+          for (let i = 0; i <= 23; i++) {
             const price = rows[i].Columns[priceRegion].Value;
             const startTime = rows[i].StartTime;
             const endTime = rows[i].EndTime;
@@ -163,20 +166,32 @@ async function getPrices(dayOffset) {
           let peakPrice = (rows[27].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/,/g, '.') * 0.001);
           let offPeakPrice1 = (rows[28].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/,/g, '.') * 0.001);
           let offPeakPrice2 = (rows[29].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/,/g, '.') * 0.001);
+          //console.log('Averages before', peakPrice, offPeakPrice1, offPeakPrice2);
+          if (typeof peakPrice !== 'number')
+            peakPrice = parseFloat(calcAvg(6, 22, oneDayPrices.hourly).toFixed(4));
+          if (typeof offPeakPrice1 !== 'number')
+            offPeakPrice1 = parseFloat(calcAvg(0, 6, oneDayPrices.hourly).toFixed(4));
+          if (typeof offPeakPrice2 !== 'number')
+            offPeakPrice2 = parseFloat(calcAvg(22, 24, oneDayPrices.hourly).toFixed(4));
+          //console.log('Averages after', peakPrice, offPeakPrice1, offPeakPrice2);
 
           oneDayPrices.daily = {
-            minPrice: (minPrice += minPrice * spotVatPercent / 100).toFixed(4) * 1,
-            maxPrice: (maxPrice += maxPrice * spotVatPercent / 100).toFixed(4) * 1,
-            avgPrice: (avgPrice += avgPrice * spotVatPercent / 100).toFixed(4) * 1,
-            peakPrice: (peakPrice += peakPrice * spotVatPercent / 100).toFixed(4) * 1,
-            offPeakPrice1: (offPeakPrice1 += offPeakPrice1 * spotVatPercent / 100).toFixed(4) * 1,
-            offPeakPrice2: (offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4) * 1
+            minPrice: parseFloat((minPrice += minPrice * spotVatPercent / 100).toFixed(4)),
+            maxPrice: parseFloat((maxPrice += maxPrice * spotVatPercent / 100).toFixed(4)),
+            avgPrice: parseFloat((avgPrice += avgPrice * spotVatPercent / 100).toFixed(4)),
+            peakPrice: parseFloat((peakPrice += peakPrice * spotVatPercent / 100).toFixed(4)),
+            offPeakPrice1: parseFloat((offPeakPrice1 += offPeakPrice1 * spotVatPercent / 100).toFixed(4)),
+            offPeakPrice2: parseFloat((offPeakPrice2 += offPeakPrice2 * spotVatPercent / 100).toFixed(4)),
+            //spread: parseFloat((maxPrice - minPrice).toFixed(4)),
+            //offPeakSpread: parseFloat((peakPrice - (offPeakPrice1 + offPeakPrice2) / 2).toFixed(4)),
+            //spreadPercent: parseFloat(((maxPrice - minPrice) / maxPrice * 100).toFixed(4)),
+            //offPeakSpreadPercent: parseFloat(((peakPrice - (offPeakPrice1 + offPeakPrice2) / 2) / peakPrice * 100).toFixed(4))
           };
 
-          priceDb.createObject(PRICE_DB_PREFIX + priceDate, oneDayPrices);
+          priceDb.createObject(priceName, oneDayPrices);
 
         } else {
-          console.log(programName + ': Day ahead prices are not ready:', priceDate, dayOffset);
+          console.log(programName + ': Day ahead prices are not ready:', priceDate);
         }
       })
       .catch(function (err) {
@@ -186,24 +201,22 @@ async function getPrices(dayOffset) {
         }
       });
   }
-  // Publish today and next day prices
-  if (dayOffset >= 0 && await priceDb.existsObject(PRICE_DB_PREFIX + priceDate)) {
-    let obj = await priceDb.retrieveObject(PRICE_DB_PREFIX + priceDate)
+  // Publish yesterday, today and tomorrow day prices
+  if (await priceDb.existsObject(priceName) && dayOffset >= -1) {
+    let obj = await priceDb.retrieveObject(priceName)
     await publishMqtt(priceDate, obj);
-  }
-
-  // Retire retained prices from yesterday
-  // and the day before to be sure that
-  // we don't have an dangling retained prices
-  if (dayOffset === -1 || dayOffset === -2) {
-    await publishMqtt(priceDate, '');
+  } else {
+  // Unpublish retained MQTT messages before yesterday
+  // to be sure that we don't have dangling retained prices
+    if (dayOffset < -1 && dayOffset > -5)
+      await publishMqtt(priceDate, null);
   }
 } // getPrices()
 
 async function publishMqtt(priceDate, priceObject) {
   const topic = priceTopic + '/' + priceDate;
   try {
-    if (priceObject === '') {
+    if (priceObject === null) {
       // Remove old retained prices
       await mqttClient.publish(topic, '', { retain: true, qos: 1 });
       console.log(programName + ': MQTT message removed:', pricePrefix + priceDate);
@@ -244,7 +257,6 @@ async function init() {
 }
 
 async function run() {
-  // With scheduled run, It may help to avoid missing currencies
   if (runNodeSchedule) {
     console.log('Fetch prices scheduled run...');
     //await delay(1000);
