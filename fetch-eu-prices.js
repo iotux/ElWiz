@@ -7,7 +7,8 @@ const fs = require('fs');
 const yaml = require('yamljs');
 const request = require('axios'); // .default;
 const Mqtt = require('./mqtt/mqtt.js');
-const { format } = require('date-fns');
+const { format, formatISO, parseISO, addHours } = require('date-fns');
+const { addZero, skewDays } = require('./misc/util.js');
 const UniCache = require('./misc/unicache');
 const config = yaml.load('config.yaml');
 const regionMap = yaml.load('priceregions.yaml');
@@ -103,19 +104,14 @@ let runCounter = 0;
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-function addZero(num) {
-  if (num * 1 <= 9) {
-    return '0' + num;
-  }
-  return num;
-}
-
 let currencyRate;
 
 async function getCurrencyRate(currency) {
-  const currencyDb = new UniCache(CURR_DB_PREFIX + 'latest', CURR_DB_OPTIONS);
-  if (currencyDb.existsObject(CURR_DB_PREFIX + 'latest')) {
-    const obj = await currencyDb.retrieveObject(CURR_DB_PREFIX + 'latest');
+  const currencyDb = new UniCache(`${CURR_DB_PREFIX}latest`, CURR_DB_OPTIONS);
+  if (currencyDb.existsObject(`${CURR_DB_PREFIX}latest`)) {
+    //const obj = await currencyDb.retrieveObject(`${CURR_DB_PREFIX}latest`);
+    const obj = await currencyDb.fetch();
+    console.log(obj);
     let ret = obj.rates[currency];
     return ret;
   } else {
@@ -125,20 +121,10 @@ async function getCurrencyRate(currency) {
   }
 }
 
-function getDate(ts) {
-  // Returns date fit for file name
-  const date = new Date(ts);
-  return format(date, 'yyyy-MM-dd');
-}
-
-function skewDays(days) {
-  // days equal to 0 is today
-  // Negative values are daycount in the past
-  // Positive are daycount in the future
-  const oneDay = 24 * 60 * 60 * 1000;
-  const now = new Date();
-  const date = new Date(now.getTime() + oneDay * days);
-  return format(date, 'yyyy-MM-dd');
+function getEuDateTime(date, offset) {
+  const utcDateTime = new Date(date);
+  const localTime = addHours(utcDateTime, offset);
+  return formatISO(localTime, { representation: 'complete' })
 }
 
 function getFileName(priceDate) {
@@ -149,17 +135,26 @@ function getKeyName(priceDate) {
   return pricePrefix + priceDate;
 }
 
-function entsoeDate(days) {
+function xentsoeDate(offset) {
   // Returns UTC time in Entsoe format
   const oneDay = 86400000; // 24 * 60 * 60 * 1000
   const now = new Date();
-  const date = new Date(now.getTime() + oneDay * days);
+  const date = new Date(now.getTime() + oneDay * offset);
   const midnight = format(date, 'yyyy-MM-dd 00:00:00');
   const res = new Date(midnight).toJSON();
   return res.substr(0, 4) +
     res.substr(5, 2) +
     res.substr(8, 2) +
     res.substr(11, 2) + '00';
+}
+
+function entsoeDate(offset) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getUTCDate() + offset)
+  date.setHours(date.getUTCHours(date), 0, 0, 0);
+  const res = format(date, 'yyyyMMddHHmm');
+  return res;
 }
 
 function calcAvg(start, end, obj) {
@@ -180,42 +175,49 @@ function entsoeUrl(token, region, periodStart, periodEnd) {
 }
 
 async function getPrices(dayOffset) {
+  let oneDayPrices;
   const priceDate = skewDays(dayOffset);
+  const priceName = PRICE_DB_PREFIX + priceDate;
   // Get prices for today and tomorrow
-  if (!await priceDb.existsObject(skewDays(dayOffset)) && runCounter === 0) {
+  const missingPrice = !await priceDb.existsObject(priceName);
+  if (missingPrice) {
     const url = entsoeUrl(token, priceRegion, entsoeDate(dayOffset), entsoeDate(dayOffset + 1));
+    //console.log(entsoeDate(dayOffset), entsoeDate(dayOffset + 1))
     //console.log('entsoeUrl:', priceRegion, entsoeDate(dayOffset), entsoeDate(dayOffset + 1), await priceDb.isEmpty());
     await request.get(url, reqOpts).then(function (body) {
       const result = convert.xml2js(body.data, { compact: true, spaces: 4 });
       if (result.Publication_MarketDocument !== undefined) {
+        //console.log(result.Publication_MarketDocument.TimeSeries.Period.Point)
         const realMeat = result.Publication_MarketDocument.TimeSeries.Period;
-        const startDay = getDate(realMeat.timeInterval.start._text);
-        const endDay = getDate(realMeat.timeInterval.end._text);
+        if (realMeat !== undefined)
+          console.log('Fetching:', priceName);
+        else
+          console.log('Prices are not available:', priceDate);
+        //console.log('realMeat:', JSON.stringify(realMeat, null, 2));
+        const start = realMeat.timeInterval.start._text;
+        const end = realMeat.timeInterval.end._text;
         let minPrice = 9999;
         let maxPrice = 0;
-        const oneDayPrices = {
+        oneDayPrices = {
           priceDate: priceDate,
           priceProvider: 'ENTSO-E',
           priceProviderUrl: entsoeUrl('*****', priceRegion, entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
           hourly: [],
           daily: {}
         };
+        //console.log('oneDayPrices', oneDayPrices)
         for (let i = 0; i <= 23; i++) {
-          const curHour = addZero(realMeat.Point[i].position._text - 1) + ':00';
-          const nextHour = addZero(realMeat.Point[i].position._text) + ':00';
-          const startTime = startDay + 'T' + curHour + ':00';
-          const endTime = i === 23 ? endDay + 'T00:00:00' : startDay + 'T' + nextHour + ':00';
+          const curHour = addZero(i) + ':00';
           const gridPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
           let spotPrice = (realMeat.Point[i]['price.amount']._text * currencyRate) / 1000;
           spotPrice += spotPrice * spotVatPercent / 100;
           const priceObj = {
-            startTime: startTime,
-            endTime: endTime,
+            startTime: getEuDateTime(priceDate, i),
+            endTime: getEuDateTime(priceDate, i + 1),
             spotPrice: spotPrice.toFixed(4) * 1,
             gridFixedPrice: gridPrice.toFixed(4) * 1,
             supplierFixedPrice: supplierPrice.toFixed(4) * 1
           };
-          // console.log(priceObj)
           oneDayPrices.hourly.push(priceObj);
 
           minPrice = spotPrice < minPrice ? spotPrice : minPrice;
@@ -223,18 +225,22 @@ async function getPrices(dayOffset) {
         }
 
         oneDayPrices.daily = {
-          minPrice: (minPrice += minPrice * spotVatPercent / 100).toFixed(4) * 1,
-          maxPrice: (maxPrice += maxPrice * spotVatPercent / 100).toFixed(4) * 1,
-          avgPrice: (calcAvg(0, 24, oneDayPrices.hourly)).toFixed(4) * 1,
-          peakPrice: (calcAvg(6, 22, oneDayPrices.hourly)).toFixed(4) * 1,
-          offPeakPrice1: (calcAvg(0, 6, oneDayPrices.hourly)).toFixed(4) * 1,
-          offPeakPrice2: (calcAvg(22, 24, oneDayPrices.hourly)).toFixed(4) * 1
-        };
-
-        priceDb.createObject(PRICE_DB_PREFIX + priceDate, oneDayPrices);
+          minPrice: parseFloat((minPrice += minPrice * spotVatPercent / 100).toFixed(4)),
+          maxPrice: parseFloat((maxPrice += maxPrice * spotVatPercent / 100).toFixed(4)),
+          avgPrice: parseFloat((calcAvg(0, 24, oneDayPrices.hourly)).toFixed(4)),
+          peakPrice: parseFloat((calcAvg(6, 22, oneDayPrices.hourly)).toFixed(4)),
+          offPeakPrice1: parseFloat((calcAvg(0, 6, oneDayPrices.hourly)).toFixed(4)),
+          offPeakPrice2: parseFloat((calcAvg(22, 24, oneDayPrices.hourly)).toFixed(4)),
+          //spread: parseFloat((maxPrice - minPrice).toFixed(4)),
+          ///offPeakSpread: parseFloat((peakPrice - (offPeakPrice1 + offPeakPrice2) / 2).toFixed(4)),
+          //spreadPercent: parseFloat(((maxPrice - minPrice) / maxPrice * 100).toFixed(4)),
+          ///offPeakSpreadPercent: parseFloat(((peakPrice - (offPeakPrice1 + offPeakPrice2) / 2) / peakPrice * 100).toFixed(4))
+      };
+        //console.log(oneDayPrices)
+        priceDb.createObject(priceName, oneDayPrices);
 
       } else {
-        console.log('Day ahead prices are not ready', priceDate);
+        console.log('Day ahead prices are not ready:', priceDate);
       }
     }).catch(function (err) {
       if (err.response) {
@@ -243,24 +249,22 @@ async function getPrices(dayOffset) {
       }
     });
   }
-  // Publish today and next day prices
-  if (dayOffset >= 0 && await priceDb.existsObject(PRICE_DB_PREFIX + priceDate)) {
-    let obj = await priceDb.retrieveObject(PRICE_DB_PREFIX + priceDate)
+  // Publish yesterday, today and tomorrow day prices
+  if (await priceDb.existsObject(priceName) && dayOffset >= -1) {
+    let obj = await priceDb.retrieveObject(priceName)
     await publishMqtt(priceDate, obj);
-  }
-
-  // Retire retained prices from yesterday
-  // and the day before to be sure that
-  // we don't have an dangling retained prices
-  if (dayOffset === -1 || dayOffset === -2) {
-    await publishMqtt(priceDate, '');
+  } else {
+  // Unpublish retained MQTT messages before yesterday
+  // to be sure that we don't have dangling retained prices
+    if (dayOffset < -1 && dayOffset > -5)
+      await publishMqtt(priceDate, null);
   }
 } // getPrices()
 
 async function publishMqtt(priceDate, priceObject) {
   const topic = priceTopic + '/' + priceDate;
   try {
-    if (priceObject === '') {
+    if (priceObject === null) {
       // Remove old retained prices
       await mqttClient.publish(topic, '', { retain: true, qos: 1 });
       console.log(programName + ': MQTT message removed:', pricePrefix + priceDate);
@@ -301,12 +305,11 @@ async function init() {
 }
 
 async function run() {
-  // With scheduled run, It may help to avoid missing currencies
+  currencyRate = await getCurrencyRate(priceCurrency);
   if (runNodeSchedule) {
     console.log('Fetch prices scheduled run...');
     //await delay(1000);
   } // 1 second
-  currencyRate = await getCurrencyRate(priceCurrency);
 
   await retireDays(keepDays);
 

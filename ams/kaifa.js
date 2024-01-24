@@ -25,8 +25,13 @@ const listDecode = async function (msg) {
   //let elements = 0;
   let index = msg.indexOf('FF800000') + 8;
   elements = hex2Dec(msg.substr((index + 2), 2));
-  obj = {};
-  obj.timestamp = getAmsTime(msg, 38);
+  obj = {
+    timestamp: getAmsTime(msg, 38),
+    isNewHour: false,
+    isNewDay: false,
+    isNewMonth: false,
+    isLastList2: false
+  };
 
   // Process the elements based on their count
   if (elements === 1) {
@@ -54,6 +59,7 @@ const listDecode = async function (msg) {
   if (elements === 9 || elements === 14) {
     listType = 'list2';
     index += 0;
+    obj.isLastList2 = obj.timestamp.substr(14, 5) === '00:00';
     obj.currentL1 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.voltagePhase1 = hex2Dec(msg.substr(index += 10, 8)) / 10;
   }
@@ -61,6 +67,7 @@ const listDecode = async function (msg) {
   if (elements === 13 || elements === 18) {
     listType = 'list2';
     index += 0;
+    obj.isLastList2 = obj.timestamp.substr(14, 5) === '00:00';
     obj.currentL1 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.currentL2 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.currentL3 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
@@ -82,9 +89,10 @@ const listDecode = async function (msg) {
     obj.lastMeterProduction = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.lastMeterConsumptionReactive = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.lastMeterProductionReactive = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.freshHour = obj.meterDate.substr(14, 2) === '00';
-    obj.freshDay = obj.meterDate.substr(11, 5) === '00:00';
-    obj.isFirstDayOfMonth = (obj.meterDate.substr(8, 2) === '01' && obj.freshDay);
+    obj.hourIndex = parseInt(obj.meterDate.substr(11, 2));
+    obj.isNewHour = obj.meterDate.substr(14, 5) === '00:10';
+    obj.isNewDay = obj.meterDate.substr(11, 8) === '00:00:10';
+    obj.isNewMonth = (obj.meterDate.substr(8, 2) === '01' && obj.isNewDay);
   }
 
   return (obj);
@@ -108,10 +116,10 @@ const listHandler = async function (buf) {
     }
   }
 
-  obj = await amsCalc.calc(list, listObject);
+  obj = await amsCalc(list, listObject);
   if (amsDebug) {
     //obj.listElements = elements;
-    console.log(list, 'Kaifa AMS:', obj);
+    //console.log(list, 'Kaifa AMS:', obj);
   }
   event.emit(list, obj);
 };

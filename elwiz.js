@@ -6,6 +6,7 @@ const Mqtt = require('./mqtt/mqtt.js');
 const notice = require('./publish/notice.js');
 const db = require('./misc/dbinit.js');
 const { event } = require('./misc/misc.js');
+//const checkRedisHealth = require('./misc/redis.js');
 require('./plugin/plugselector.js');
 
 const programName = 'ElWiz';
@@ -40,6 +41,7 @@ class Pulse {
     });
 
     this.setupSignalHandlers();
+    console.log('Running init');
   }
 
   setupSignalHandlers() {
@@ -90,6 +92,7 @@ class Pulse {
         this.processMessage(buf);
       }
     });
+    console.log('Running run');
   }
 
   processMessage(buf) {
