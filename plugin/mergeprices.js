@@ -43,8 +43,9 @@ mqttClient.on('message', (topic, message) => {
       hourlyPrice = [prevDayH23].concat(dayPrices.hourly).slice(0, 24)
       // If today's price date is present, nextDayPrices
       // are not available yet, so set them equal to dayPrices
-      //!!nextDayPrices = JSON.parse(JSON.stringify(dayPrices));
-      //!!nextDayHourlyPrice = [todayH23].concat(nextDayPrices.hourly).slice(0, 24)
+      //!!!!!!!!!!!!!!!
+      nextDayPrices = JSON.parse(JSON.stringify(dayPrices));
+      nextDayHourlyPrice = [todayH23].concat(nextDayPrices.hourly).slice(0, 24)
       // Update the last hour price
     } else if (date === tomorrow) {
       nextDayAvailable = true;
@@ -101,7 +102,7 @@ async function findCheapHours(priceObject, hourCount = 5) {
   }));
   return filteredPrices.sort((a, b) => a.spotPrice - b.spotPrice).slice(0, hourCount).sort((a, b) => a.hour - b.hour);
   //return filteredPrices.sort((a, b) => a.spotPrice - b.spotPrice).slice(0, hourCount).sort((a, b) => a.timestamp - b.timestamp);
-  //return cheap; //filteredPrices.sort((a, b) => a.hour - b.hour);  
+  //return cheap; //filteredPrices.sort((a, b) => a.hour - b.hour);
 }
 
 async function splitPrices(priceObj, todayH23, threshold1, threshold2) {
@@ -138,7 +139,7 @@ async function getSummary(priceObject) {
 }
 
 /**
- * Merge price information from day and next day prices into an object
+ * Merge price information from today and next day prices into an object
  * @param {string} list - The list identifier
  * @param {Object} obj - The object to which price information will be added
  * @returns {Promise<Object>} - The merged object with price information
@@ -176,6 +177,22 @@ async function mergePrices(list, obj) {
     obj.gridFixedPrice = hourlyPrice[idx].gridFixedPrice;
     obj.supplierFixedPrice = hourlyPrice[idx].supplierFixedPrice;
 
+    obj.minPrice = dayPrices.daily.minPrice;
+    obj.maxPrice = dayPrices.daily.maxPrice;
+    obj.avgPrice = dayPrices.daily.avgPrice;
+    obj.peakPrice = dayPrices.daily.peakPrice;
+    obj.offPeakPrice1 = dayPrices.daily.offPeakPrice1;
+    obj.offPeakPrice2 = dayPrices.daily.offPeakPrice2;
+    obj.spotBelowAverage = dayPrices.hourly[idx].spotPrice < obj.avgPrice ? true : false
+
+    obj.minPriceDay2 = nextDayPrices.daily.minPrice;
+    obj.maxPriceDay2 = nextDayPrices.daily.maxPrice;
+    obj.avgPriceDay2 = nextDayPrices.daily.avgPrice;
+    obj.peakPriceDay2 = nextDayPrices.daily.peakPrice;
+    obj.offPeakPrice1Day2 = nextDayPrices.daily.offPeakPrice1;
+    obj.offPeakPrice2Day2 = nextDayPrices.daily.offPeakPrice2;
+    obj.spotBelowAverageDay2 = nextDayPrices.hourly[idx].spotPrice < obj.avgPriceDay2 ? true : false
+
     //if (nextDayAvailable) {
     //const nextDayHourlyPrice = await skewPrices(nextDayPrices, todayH23)
     obj.startTimeDay2 = nextDayHourlyPrice[idx].startTime;
@@ -191,6 +208,8 @@ async function mergePrices(list, obj) {
       obj.cheapHoursNextDay = await findCheapHours(nextDayPrices, hours);
     //console.log('hourlyPrice', hourlyPrice);
   }
+  //console.log('nextDayPrices:', nextDayPrices);
+
   //let idx = obj.timestamp.substring(11, 13) * 1;
   //console.log('obj ============> ', obj);
   //!!!const twoTables = await splitPrices(dayPrices, prevDayH23, 90, 95);
