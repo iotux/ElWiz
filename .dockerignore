@@ -7,6 +7,7 @@ testing/*
 # Konfigurasjon av lokalt tilpassede data
 config.yaml
 chart-config.yaml
+package-lock.json
 # Lagring av siste akkumulerte forbruk
 powersave.*
 tmp/*
