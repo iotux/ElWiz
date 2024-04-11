@@ -9,6 +9,7 @@ tibberdump.js
 # Local configuration
 config.yaml
 chart-config.yaml
+package-lock.json
 # Testing and temporary files
 testing/
 tmp/*
