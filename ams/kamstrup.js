@@ -56,10 +56,21 @@ function hex2DecSign(hex) {
 }
 
 async function listDecode(buf) {
+  //const ts = getDateTime();
   const msg = {};
   msg.data = buf;
 
-  obj = { listType: 'list1', data: {} };
+  obj = {
+    listType: 'list1',
+    data: {
+      // 2022-07-01T00:00:00
+      timestamp: null,
+      isNewHour: false,
+      isNewDay: false,
+      isNewMonth: false,
+      isLastList2: false,
+    }
+  };
 
   for (const key in KAMSTRUP_CONSTANTS) {
     const constant = KAMSTRUP_CONSTANTS[key];
@@ -114,9 +125,10 @@ async function listDecode(buf) {
           break;
         case 'METER_DATE':
           obj.data.meterDate = getAmsTime(msg.data, dataIndex);
-          obj.data.freshHour = obj.data.meterDate.substr(14, 2) === '00';
-          obj.data.freshDay = obj.data.meterDate.substr(11, 5) === '00:00';
-          obj.data.isFirstDayOfMonth = (obj.data.meterDate.substr(8, 2) === '01' && obj.data.freshDay);
+          obj.data.hourIndex = obj.data.meterDate.substr(11, 2);
+          obj.data.isNewHour = obj.data.meterDate.substr(14, 2) === '00';
+          obj.data.isNewDay = obj.data.meterDate.substr(11, 5) === '00:00';
+          obj.data.isNewMonth = (obj.data.meterDate.substr(8, 2) === '01' && obj.data.isNewDay);
           //obj.listType = 'list3';
           break;
         case 'LAST_METER_CONSUMPTION':

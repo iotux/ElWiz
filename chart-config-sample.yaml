@@ -1,0 +1,75 @@
+---
+# The chart server configuration
+# Changes will need a server restart
+serverConfig:
+  debug: false
+  savePath: data
+  serverPort: 3000
+  wsServerPort: 3001
+  # MQTT params
+  # Replace with your own MQTT broker
+  mqttUrl: "mqtt://localhost:1883"
+  mqttUser:
+  mqttPassword:
+  # Priceinfo topic
+  priceTopic: elwiz/prices
+  chartTopic: elwiz/chart
+  # Home Assistant
+  hassPublish: true
+  haBaseTopic: elwiz
+  haAnnounceTopic: homeassistant
+
+  # Factor for calculating green/red zones
+  # % added/subracted to/from average price
+  # It is permanent until changed here
+  fixedAverageOffset: 0
+  # Used for multiplying the value from the
+  # adjustLeftAvgOffset and adjustRightAvgOffset
+  # MQTT messages
+  adjustmentStepFactor: 1
+
+# The chart web client configuration
+# Reload browser to activate changes
+chartConfig:
+  debug: false
+  # Set this to "true" if you want
+  # dark mode on mobile devices
+  darkMode: false
+  # Replace IP address if running remote
+  # The port number needs to be
+  # equal to the "wsServerPort" above
+  wsUrl: "ws://localhost:3001/"
+  # Change according to your own country
+  langCode: nb-NO
+  currencyCode: NOK
+
+  # Display text according to "languageCode"
+  # Possibly add your own translation
+  en-GB:
+    titleString: Hourly energy prices
+    todayString: Today
+    markerTitle: Time markers
+    midnightTitle: Midnight
+    nowTitle: Current time
+    zoneTitle: Bar colors
+    greenTitle: Green zone
+    redTitle: Red zone
+  de-DE:
+    titleString: Stündliche energiepreise
+    todayString: Heute
+    markerTitle: Zeitmarkierungen
+    midnightTitle: Mitternacht
+    nowTitle: Aktuelle uhrzeit
+    zoneTitle: Balkenfarben
+    greenTitle: Grüne zone
+    redTitle: Rote zone
+  nb-NO:
+    titleString: Energipriser per time
+    todayString: I dag
+    markerTitle: Tidsmarkører
+    midnightTitle: Midnatt
+    nowTitle: Nå
+    zoneTitle: Søylefarger
+    greenTitle: Grønn sone
+    redTitle: Rød sone
+  # Add your own translation here

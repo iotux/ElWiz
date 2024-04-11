@@ -78,7 +78,6 @@ const MQTT = {
         console.log('Connected to MQTT broker...');
         this.connected = true;
       });
-
     }
   },
 

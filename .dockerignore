@@ -6,6 +6,7 @@ data/*
 testing/*
 # Konfigurasjon av lokalt tilpassede data
 config.yaml
+chart-config.yaml
 # Lagring av siste akkumulerte forbruk
 powersave.*
 tmp/*

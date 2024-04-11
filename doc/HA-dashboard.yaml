@@ -1,0 +1,119 @@
+type: horizontal-stack
+cards:
+  - type: vertical-stack
+    cards:
+      - type: button
+        name: Increase left green zone
+        tap_action:
+          action: call-service
+          service: mqtt.publish
+          service_data:
+            topic: elwiz/chart/adjustLeftAvgOffset
+            payload: '1'
+        color_type: card
+        color: rgb(223, 255, 97)
+        icon: mdi:arrow-up-bold-outline
+        size: 100%
+      - type: button
+        name: Reset left green zone
+        tap_action:
+          action: call-service
+          service: mqtt.publish
+          service_data:
+            topic: elwiz/chart/adjustLeftAvgOffset
+            payload: '0'
+        color_type: card
+        color: rgb(223, 255, 97)
+        icon: mdi:numeric-0-circle-outline
+        size: 100%
+      - type: button
+        name: Decrease left green zone
+        tap_action:
+          action: call-service
+          service: mqtt.publish
+          service_data:
+            topic: elwiz/chart/adjustLeftAvgOffset
+            payload: '-1'
+        color_type: card
+        color: rgb(223, 255, 97)
+        icon: mdi:arrow-down-bold-outline
+        size: 100%
+  - type: vertical-stack
+    cards:
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: binary_sensor.spotbelowthreshold
+            state: 'on'
+        card:
+          show_name: true
+          show_icon: true
+          type: button
+          tap_action:
+            action: toggle
+          entity: binary_sensor.spotbelowthreshold
+          name: Price in green zone
+          icon: mdi:emoticon-happy
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: binary_sensor.spotbelowthreshold
+            state: 'off'
+        card:
+          show_name: true
+          show_icon: true
+          type: button
+          tap_action:
+            action: none
+          entity: binary_sensor.spotbelowthreshold
+          hold_action:
+            action: none
+          show_state: false
+          icon: mdi:emoticon-angry
+          name: Price in red zone
+      - type: entity
+        entity: sensor.thresholdlevel
+        view_layout:
+          position: sidebar
+        name: Backoff threshold level
+        state_color: false
+  - type: vertical-stack
+    cards:
+      - type: button
+        name: Increase right green zone
+        tap_action:
+          action: call-service
+          service: mqtt.publish
+          service_data:
+            topic: elwiz/chart/adjustRightAvgOffset
+            payload: '1'
+        color_type: card
+        color: rgb(223, 255, 97)
+        icon: mdi:arrow-up-bold-outline
+        size: 100%
+      - type: button
+        name: Reset right green zone
+        tap_action:
+          action: call-service
+          service: mqtt.publish
+          service_data:
+            topic: elwiz/chart/adjustRightAvgOffset
+            payload: '0'
+        color_type: card
+        color: rgb(223, 255, 97)
+        icon: mdi:numeric-0-circle-outline
+        size: 100%
+      - type: button
+        name: Decrease right green zone
+        tap_action:
+          action: call-service
+          service: mqtt.publish
+          service_data:
+            topic: elwiz/chart/adjustRightAvgOffset
+            payload: '-1'
+        color_type: card
+        color: rgb(223, 255, 97)
+        icon: mdi:arrow-down-bold-outline
+        size: 100%
+view_layout:
+  position: sidebar

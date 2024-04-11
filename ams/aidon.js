@@ -124,10 +124,10 @@ async function listDecode(buf) {
         case "DATE":
           obj.data.timestamp = replaceChar(ts, 18, "0"); // Align the timestamp
           obj.data.meterDate = getAmsTime(msg.data, dataIndex);
-          obj.hourIndex = parseInt(obj.meterDate.substr(11, 2));
-          obj.isNewHour = obj.meterDate.substr(14, 5) === "00:10";
-          obj.isNewDay = obj.meterDate.substr(11, 8) === "00:00:10";
-          obj.isNewMonth = obj.meterDate.substr(8, 2) === "01" && obj.isNewDay;
+          obj.data.hourIndex = parseInt(obj.data.meterDate.substr(11, 2));
+          obj.data.isNewHour = obj.data.meterDate.substr(14, 5) === "00:10";
+          obj.data.isNewDay = obj.data.meterDate.substr(11, 8) === "00:00:10";
+          obj.data.isNewMonth = obj.data.meterDate.substr(8, 2) === "01" && obj.data.isNewDay;
 
           obj.listType = "list3";
           break;

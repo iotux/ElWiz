@@ -6,7 +6,9 @@
     "node-schedule": "^2.1.0",
     "redis": "^4.6.4",
     "xml-js": "^1.6.11",
-    "yamljs": "^0.3.0"
+    "yamljs": "^0.3.0",
+    "js-yaml": "^4.1.0",
+    "express": "^4.18.2"
   },
   "scripts": {
     "start": "node elwiz.js"

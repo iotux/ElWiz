@@ -23,7 +23,7 @@ pubNotice: meter/notice
 list1Retain: false
 list1Qos: 0
 list2Retain: false
-list3Qos: 0
+list2Qos: 0
 list3Retain: true
 list3Qos: 1
 
@@ -40,6 +40,7 @@ offlineMessage: Pulse is quiet
 
 # Debug mode at startup
 DEBUG: true
+debugTopic: debug/hex
 
 # Republish mode at startup
 # DEPRECATED. Use publish modes instead
@@ -93,6 +94,16 @@ haAnnounceTopic: homeassistant/sensor/ElWiz
 # "transparency@entsoe.eu" and ask for a token
 #
 priceAccessToken: <insert your token here>
+
+# base-URL for fetch-eu-prices.js
+entsoeBaseUrl: "https://web-api.tp.entsoe.eu/api"
+
+# Base-URL for fetchprices.js
+nordpoolBaseUrl: "https://www.nordpoolgroup.com/api/marketdata/page/10"
+
+# URL for fetc-eu-currencies.js
+currencyUrl: "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
+
 
 # Days to keep data files
 # Files older tham "keepDays" are deleted
@@ -197,9 +208,18 @@ gridDayPrice: 0.0
 energyTax: 0.0
 energyDayPrice: 0.0   # Added price between dayHoursStart and dayHoursEnd
 energyNightPrice: 0.0 # Added price between dayHoursEnd and dayHoursStart
+energyDayKwhPrice: 0.0   # Added price between dayHoursStart and dayHoursEnd
+energyNightKwhPrice: 0.0 # Added price between dayHoursEnd and dayHoursStart
 
 dayHoursStart: 06:00
 dayHoursEnd: 22:00
+
+# Network reward per kWh production
+gridKwhReward: 0.0
+
+# The following values are specific for Norwegian users
+topHoursSize: 12
+topHoursCount: 3
 
 capacity0-2: 0.0
 capacity2-5: 0.0
@@ -208,5 +228,6 @@ capacity10-15: 0.0
 capacity15-20: 0.0
 capacity20-25: 0.0
 
-# Network reward per kWh production
-gridKwhReward: 0.0
+# Mostly for developers
+amsDebug: true
+storageDebug: true

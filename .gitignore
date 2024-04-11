@@ -8,6 +8,7 @@ hex/
 tibberdump.js
 # Local configuration
 config.yaml
+chart-config.yaml
 # Testing and temporary files
 testing/
 tmp/*
