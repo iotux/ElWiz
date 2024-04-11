@@ -79,7 +79,7 @@ async function listDecode(buf) {
           // Assume that the timestamp is slightly delayed compared to the AMS List2 and List3 interval
           obj.data.timestamp = replaceChar(ts, 18, "0"); // Align the timestamp
           obj.data.meterVersion = hex2Ascii(msg.data.substr(dataIndex, 22));
-          obj.isLastList2 = obj.data.timestamp.substr(11, 5) === "00:00";
+          obj.data.isLastList2 = obj.data.timestamp.substr(11, 5) === "00:00";
           obj.listType = "list2";
           break;
         case "METER_ID":
