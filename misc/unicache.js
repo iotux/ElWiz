@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 
 /**
  * Get properties from an object using a key string with dot notation.
@@ -46,10 +47,10 @@ module.exports = class UniCache {
     this.cacheType = options.cacheType;
     this.savePath = options.savePath;
     this.cacheName = cacheName;
+    this.filePath = `${this.savePath}/${this.cacheName}.json`
     this.redisKey = undefined;
     this.dbPrefix = undefined;
     this.options = options || {};
-    //console.log('UniCache options:', this.options);
 
     if (this.options.syncInterval) {
       setInterval(() => {
@@ -96,13 +97,29 @@ module.exports = class UniCache {
       if (!fs.existsSync(this.savePath)) {
         fs.mkdirSync(this.savePath, { recursive: true });
       }
-      if (this.cacheName !== null)
-        this.filePath = this.savePath + '/' + this.cacheName + '.json';
       if (fs.existsSync(this.filePath)) {
         this.fetchCacheData();
       }
     }
   } // Constructor
+
+  async existsPath(path) {
+    try {
+      await fs.access(path);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async existsFile(file) {
+    try {
+      await fs.promises.access(file);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
 
   /**
    * Returns a Promise that resolves with a boolean indicating whether the
@@ -267,7 +284,7 @@ module.exports = class UniCache {
  * @return {string} The file name with the provided key.
  */
   async fileName(key) {
-    return this.savePath + '/' + key + '.json';
+    return `${this.savePath}/${key}.json`;
   }
 
   /**
@@ -450,15 +467,43 @@ module.exports = class UniCache {
    * @param {string} key - the key to check for object existence
    * @return {Promise<boolean>} a promise that resolves to a boolean indicating if the object exists
    */
+  async xexistsObject(key) {
+    if (key === this.redisKey)
+      return true
+    //return this.data;
+    try {
+      if (this.cacheType === 'redis') {
+        //await this.ensureRedisConnection();
+        const keys = await this.client.keys(key);
+        return keys.length > 0;
+      } else {
+        Promise.resolve(this.fileName(key))
+          .then(function (name) {
+            console.log('Next day', name)
+            return fs.existsSync(name, 'utf-8');
+          })
+      }
+    } catch (err) {
+      console.log(err)
+    }
+  }
+
   async existsObject(key) {
-    //if (key === this.redisKey)
-    //  return this.data;
-    if (this.cacheType === 'redis') {
-      //await this.ensureRedisConnection();
-      const keys = await this.client.keys(key);
-      return keys.length > 0;
-    } else {
-      return fs.existsSync(this.fileName(key));
+    if (key === this.redisKey) {
+      console.log('Key matches redisKey:', key);
+      return true;
+    }
+    try {
+      if (this.cacheType === 'redis') {
+        const keys = await this.client.keys(key);
+        return keys.length > 0;
+      } else {
+        const fileName = await this.fileName(key);
+        return fs.existsSync(fileName);
+      }
+    } catch (err) {
+      console.error(`Error checking existence of object with key ${key}:`, err);
+      return false;
     }
   }
 
@@ -505,11 +550,18 @@ module.exports = class UniCache {
     }
     this.redisKey = key;
     try {
+      let data;
       if (this.cacheType === 'redis') {
         //await this.ensureRedisConnection();
         return JSON.parse(await this.client.get(key));
       } else {
-        return JSON.parse(fs.readFileSync(this.fileName(key), 'utf-8'));
+        const fileName = await this.fileName(key);
+        data = await JSON.parse(fs.readFileSync(fileName));
+      }
+      if (typeof data === 'object') {
+        this.data = data;
+        this.memSaved = true;
+        return this.data;
       }
     } catch (err) {
       this.redisKey = false;
@@ -538,3 +590,4 @@ module.exports = class UniCache {
     }
   }
 };
+

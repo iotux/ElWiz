@@ -1,15 +1,14 @@
-const yaml = require('yamljs');
-const configFile = './config.yaml';
 
 // const db = require('../misc/dbinit.js');
 const amsCalc = require('../ams/amscalc.js');
 const { event } = require('../misc/misc.js');
-const { hex2Dec, hex2Ascii, getAmsTime } = require('../misc/util.js');
+const { hex2Dec, hex2Ascii, getAmsTime, loadYaml } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
-const config = yaml.load(configFile);
-// const debug = config.DEBUG || false;
-const amsDebug = config.amsDebug || false;
+const configFile = './config.yaml';
+const config = loadYaml(configFile);
+
+const debug = config.amscalc.debug || false;
 
 let len;
 let obj = {};
@@ -21,17 +20,20 @@ let listType;
  * @returns {Object} - An object containing the decoded list information and the list type
  */
 const listDecode = async function (msg) {
-  //let listType = 1;
-  //let elements = 0;
   let index = msg.indexOf('FF800000') + 8;
   elements = hex2Dec(msg.substr((index + 2), 2));
+  const ts = getAmsTime(msg, 38);
   obj = {
-    timestamp: getAmsTime(msg, 38),
-    isNewHour: false,
-    isNewDay: false,
-    isNewMonth: false,
-    isLastList2: false
+    timestamp: ts,
+    hourIndex: parseInt(ts.substring(11, 13)),
   };
+
+  if (obj.timestamp.substr(14, 5) < '00:04') {
+    obj.isHourStart = obj.timestamp.substr(14, 5) < '00:04';
+  }
+  if (obj.timestamp.substr(14, 5) > '59:56') {
+    obj.isHourEnd = obj.timestamp.substr(14, 5) > '59:56';
+  }
 
   // Process the elements based on their count
   if (elements === 1) {
@@ -59,7 +61,6 @@ const listDecode = async function (msg) {
   if (elements === 9 || elements === 14) {
     listType = 'list2';
     index += 0;
-    obj.isLastList2 = obj.timestamp.substr(14, 5) === '00:00';
     obj.currentL1 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.voltagePhase1 = hex2Dec(msg.substr(index += 10, 8)) / 10;
   }
@@ -67,7 +68,6 @@ const listDecode = async function (msg) {
   if (elements === 13 || elements === 18) {
     listType = 'list2';
     index += 0;
-    obj.isLastList2 = obj.timestamp.substr(14, 5) === '00:00';
     obj.currentL1 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.currentL2 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.currentL3 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
@@ -89,7 +89,6 @@ const listDecode = async function (msg) {
     obj.lastMeterProduction = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.lastMeterConsumptionReactive = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.lastMeterProductionReactive = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.hourIndex = parseInt(obj.meterDate.substr(11, 2));
     obj.isNewHour = obj.meterDate.substr(14, 5) === '00:10';
     obj.isNewDay = obj.meterDate.substr(11, 8) === '00:00:10';
     obj.isNewMonth = (obj.meterDate.substr(8, 2) === '01' && obj.isNewDay);
@@ -106,7 +105,7 @@ const listHandler = async function (buf) {
   const hex = await buf.toString('hex').toUpperCase();
   const listObject = await listDecode(hex);
   const list = listType;  //result.list;
-  if (amsDebug) {
+  if (debug) {
     if (list === 'list1') {
       event.emit('hex1', hex);
     } else if (list === 'list2') {
@@ -117,7 +116,7 @@ const listHandler = async function (buf) {
   }
 
   obj = await amsCalc(list, listObject);
-  if (amsDebug) {
+  if (debug) {
     //obj.listElements = elements;
     //console.log(list, 'Kaifa AMS:', obj);
   }

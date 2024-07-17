@@ -4,13 +4,15 @@
 serverConfig:
   debug: false
   savePath: data
-  serverPort: 3000
-  wsServerPort: 3001
+  serverPort: 8321
+  wsServerPort: 8322
   # MQTT params
   # Replace with your own MQTT broker
-  mqttUrl: "mqtt://localhost:1883"
-  mqttUser:
-  mqttPassword:
+  mqttUrl: "mqtt:localhost:1883"
+  mqttOptions:
+    username:
+    password:
+
   # Priceinfo topic
   priceTopic: elwiz/prices
   chartTopic: elwiz/chart
@@ -22,11 +24,14 @@ serverConfig:
   # Factor for calculating green/red zones
   # % added/subracted to/from average price
   # It is permanent until changed here
-  fixedAverageOffset: 0
+  fixedAverageOffset: 0.0
   # Used for multiplying the value from the
   # adjustLeftAvgOffset and adjustRightAvgOffset
   # MQTT messages
-  adjustmentStepFactor: 1
+  adjustmentStepFactor: 1.0
+
+  # Change according to your own language/country
+  currencyCode: NOK
 
 # The chart web client configuration
 # Reload browser to activate changes
@@ -38,9 +43,10 @@ chartConfig:
   # Replace IP address if running remote
   # The port number needs to be
   # equal to the "wsServerPort" above
-  wsUrl: "ws://localhost:3001/"
+  wsUrl: "ws://localhost:8322/"
+  
   # Change according to your own country
-  langCode: nb-NO
+  languageCode: nb-NO
   currencyCode: NOK
 
   # Display text according to "languageCode"

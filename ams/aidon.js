@@ -1,5 +1,3 @@
-const yaml = require("yamljs");
-const configFile = "./config.yaml";
 const amsCalc = require("../ams/amscalc.js");
 const { event } = require("../misc/misc.js");
 const {
@@ -9,12 +7,13 @@ const {
   getAmsTime,
   getDateTime,
   replaceChar,
+  loadYaml
 } = require("../misc/util.js");
 
 // Load broker and topics preferences from config file
-const config = yaml.load(configFile);
-// const debug = config.DEBUG || false;
-const amsDebug = config.amsDebug || false;
+const configFile = './config.yaml';
+const config = loadYaml(configFile);
+const debug = config.amscalc.debug || false;
 
 // Aidon constants
 const AIDON_CONSTANTS = {
@@ -63,10 +62,7 @@ async function listDecode(buf) {
     data: {
       // 2022-07-01T00:00:00
       timestamp: ts,
-      isNewHour: false,
-      isNewDay: false,
-      isNewMonth: false,
-      isLastList2: false,
+      hourIndex: parseInt(ts.substring(11, 13)),
     },
   };
 
@@ -77,9 +73,8 @@ async function listDecode(buf) {
       switch (key) {
         case "METER_VERSION":
           // Assume that the timestamp is slightly delayed compared to the AMS List2 and List3 interval
-          obj.data.timestamp = replaceChar(ts, 18, "0"); // Align the timestamp
+          // obj.data.timestamp = replaceChar(ts, 18, "0"); // Align the timestamp
           obj.data.meterVersion = hex2Ascii(msg.data.substr(dataIndex, 22));
-          obj.data.isLastList2 = obj.data.timestamp.substr(11, 5) === "00:00";
           obj.listType = "list2";
           break;
         case "METER_ID":
@@ -124,7 +119,7 @@ async function listDecode(buf) {
         case "DATE":
           obj.data.timestamp = replaceChar(ts, 18, "0"); // Align the timestamp
           obj.data.meterDate = getAmsTime(msg.data, dataIndex);
-          obj.data.hourIndex = parseInt(obj.data.meterDate.substr(11, 2));
+          //obj.data.hourIndex = parseInt(obj.data.meterDate.substr(11, 2));
           obj.data.isNewHour = obj.data.meterDate.substr(14, 5) === "00:10";
           obj.data.isNewDay = obj.data.meterDate.substr(11, 8) === "00:00:10";
           obj.data.isNewMonth = obj.data.meterDate.substr(8, 2) === "01" && obj.data.isNewDay;
@@ -154,6 +149,12 @@ async function listDecode(buf) {
   if (Object.getOwnPropertyNames(obj.data).length === 0) {
     console.error("Raw data packet exception : ", JSON.stringify(msg));
   }
+  if (obj.data.timestamp.substr(14, 5) < '00:12') {
+    obj.data.isHourStart = obj.data.timestamp.substr(14, 5) < '00:12';
+  }
+  if (obj.data.timestamp.substr(14, 5) > '59:46') {
+    obj.data.isHourEnd = obj.data.timestamp.substr(14, 5) > '59:46';
+  }
 
   return obj;
 }
@@ -167,7 +168,7 @@ async function listHandler(buf) {
   const result = await listDecode(hex);
   const listObject = result.data;
   const list = result.listType;
-  if (amsDebug) {
+  if (debug) {
     if (list === "list1") {
       event.emit("hex1", hex);
     } else if (list === "list2") {

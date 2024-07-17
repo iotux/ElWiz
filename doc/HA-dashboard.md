@@ -1,0 +1,6 @@
+The above group of cards integrates with [elwiz-chart](https://github.com/iotux/elwiz-chart) for [ElWiz](https://github.com/iotux/elwiz), offering a detailed view of hourly energy prices over two days—yesterday and today, or today and tomorrow, based on the arrival of new price data. The chart is split into left and right sides for this purpose and further divided horizontally to highlight prices above (red) and below (green) the average. Hourly "on" or "off" MQTT messages to **Home Assistant** are triggered by current price levels, marking green zones as optimal times for energy use to save costs.
+
+Adjust the duration of these zones with the dashboard's Up, Down, and Zero buttons, each issuing unique MQTT commands to **elwiz-chart**. This feature allows for strategic energy use, such as charging an EV or doing laundry when prices are lowest. Control is split between the left and right chart halves for tailored adjustments.
+
+For convenience, all related cards are consolidated into a single file within the [ElWiz repository](https://github.com/iotux/elwiz). Explore [ElWiz](https://github.com/iotux/elwiz) and [elwiz-chart](https://github.com/iotux/elwiz-chart) on GitHub for more information.
+

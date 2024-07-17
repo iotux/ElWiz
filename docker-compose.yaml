@@ -29,5 +29,5 @@ services:
       - mqtt
     volumes:
       - ~/docker/elwiz/config.yaml:/app/config.yaml
+      - ~/docker/elwiz/config.yaml:/app/chart-config.yaml
       - ~/docker/elwiz/data:/app/data
-

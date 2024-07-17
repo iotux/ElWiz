@@ -1,11 +1,10 @@
 // Import required modules
-const yaml = require('yamljs');
 const UniCache = require('../misc/unicache.js');
-const redis = require('redis');
+const { loadYaml } = require('../misc/util.js');
 
 // Load configuration
 const configFile = './config.yaml';
-const config = yaml.load(configFile);
+const config = loadYaml(configFile);
 
 // Cache configuration
 const cacheName = 'powersave';
@@ -57,7 +56,8 @@ async function dbInit(name, options, data) {
   db = new UniCache(name, options);
 
   // Check if the cache is empty and initialize it with the provided data
-  if (await db.isEmpty()) {
+  if (await db.isEmpty(name)) {
+    console.log('Database is empty')
     await db.init(data);
   }
 

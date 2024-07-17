@@ -1,3 +1,7 @@
+
+const fs = require('fs');
+const yaml = require('js-yaml');
+
 const { subHours, addHours, format, formatISO } = require('date-fns');
 
 const weekDays = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
@@ -153,6 +157,26 @@ function isNewMonth(date) {
   return date.substr(8, 2) === '01' && date.substr(11, 8) === '00:00:10';
 }
 
+function getCurrencySymbol(symbol = 'EUR') {
+  let result = Intl.NumberFormat('eur', {
+    style: 'currency',
+    currency: symbol,
+    currencyDisplay: 'narrowSymbol',
+    maximumSignificantDigits: 1
+  }).format(0);
+  return result.replace(/0/, '').trim();
+}
+
+function loadYaml(configPath) {
+  try {
+    const fileContents = fs.readFileSync(configPath, 'utf8');
+    const data = yaml.load(fileContents);
+    return data;
+  } catch (error) {
+    console.error(`Error reading or parsing the YAML file: ${error}`);
+  }
+}
+
 module.exports = {
   isNewHour,
   isNewDay,
@@ -174,5 +198,7 @@ module.exports = {
   replaceChar,
   weekDay,
   upTime,
-  getMacAddress
+  getMacAddress,
+  getCurrencySymbol,
+  loadYaml
 };

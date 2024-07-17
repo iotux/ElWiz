@@ -1,13 +1,14 @@
-const yaml = require('yamljs');
-const configFile = './config.yaml';
 const db = require('../misc/dbinit.js');
-const { getPreviousHour, skewDays } = require('../misc/util.js');
+const { getPreviousHour, skewDays, loadYaml } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
-const config = yaml.load(configFile);
+const configFile = './config.yaml';
+const config = loadYaml(configFile);
+
 const topHoursCount = config.topHoursCount || 3;
 const topHoursSize = config.topHoursSize || 10;
-const amsDebug = config.amsDebug || config.DEBUG;
+
+const debug = config.amscalc.debug || false;
 const decimals = 4
 
 /**
@@ -63,7 +64,7 @@ class AverageCalculator {
 
 const averageCalc = new AverageCalculator(120);
 
-class ConsumptionCounter {
+class EnergyCounter {
   constructor() {
     this.consumption = 0;
     this.effect = 0;
@@ -81,7 +82,7 @@ class ConsumptionCounter {
     this.lastUpdateTime = now;
   }
 
-  async getConsumption(actualConsumption) {
+  async getEnergy(actualConsumption) {
     // If actualConsumption is provided and this.consumption is not zero, update the correction factor
     if (actualConsumption !== undefined && this.consumption !== 0) {
       this.correctionFactor = actualConsumption / this.consumption;
@@ -96,17 +97,17 @@ class ConsumptionCounter {
   }
 }
 
-
-const counter = new ConsumptionCounter();
+const consumptionCounter = new EnergyCounter();
+const productionCounter = new EnergyCounter();
 
 // Update the kW value when available
-// counter.setEffect(newKWValue);
+// consumptionCounter.setEffect(newKWValue);
 
 // To get the consumption and reset the counter
-// const consumption = counter.getConsumption();
+// const consumption = consumptionCounter.getEnergy();
 
 let consumptionCurrentHour = 0;
-let lastConsumption = 0;
+let productionCurrentHour = 0;
 
 async function sortHourlyConsumption(currentDate, consumption) {
   const sortedHours = await db.get('sortedHourlyConsumption');
@@ -122,25 +123,16 @@ async function sortHourlyConsumption(currentDate, consumption) {
   }).sort((a, b) => b.consumption - a.consumption);
 }
 
-async function ygetTopHoursAverage(topHours, count) {
-  if (topHours !== undefined && topHours.length > 0) {
-    const { length } = topHours;
-    console.log('topHours length', length, topHours);
-    const slicedHours = topHours.slice(0, length < count ? length : count);
-    return parseFloat((slicedHours.reduce((total, { consumption }) => total + consumption, 0) / slicedHours.length).toFixed(decimals));
-  }
-  return 0; // return 0 or some default value in case topHours is undefined or has length 0
-}
 async function getTopHoursAverage(topHours, count) {
   if (topHours !== undefined && topHours.length > 0) {
     const { length } = topHours;
-    console.log('topHours length', length, topHours);
+    //console.log('topHours length', length, topHours);
     const slicedHours = topHours.slice(0, length < count ? length : count);
     console.log('slicedHours', slicedHours);
     const totalConsumption = slicedHours.reduce((total, { consumption }) => total + consumption, 0);
-    console.log('totalConsumption', totalConsumption);
+    //console.log('totalConsumption', totalConsumption);
     const average = totalConsumption / slicedHours.length;
-    console.log('average before toFixed', average);
+    //console.log('average before toFixed', average);
     return parseFloat(average.toFixed(decimals));
   }
   return 0;
@@ -157,28 +149,22 @@ async function updateTopHours(currentDate, consumption) {
     time: getPreviousHour(currentDate).substring(0, 19),
     consumption: consumption
   }
-
   // Extract the date part of the lastConsumption time
   const lastDate = lastConsumption.time.substring(0, 10);
-
   // Find the index of the element in topHours with the same date part
   const indexToUpdate = topHours.findIndex(({ time }) => time.substring(0, 10) === lastDate);
-
   // If an element is found and its consumption is smaller than lastConsumption
   if (indexToUpdate >= 0 && topHours[indexToUpdate].consumption < lastConsumption.consumption) {
     // Remove the element at indexToUpdate
     topHours.splice(indexToUpdate, 1);
-
     // Append lastConsumption to topHours
     topHours.push(lastConsumption);
   } else if (indexToUpdate === -1) {
     // If no corresponding element is found, append lastConsumption to topHours
     topHours.push(lastConsumption);
   }
-
   // Sort the array by consumption in descending order
   topHours.sort((a, b) => b.consumption - a.consumption);
-
   // If the array length is greater than topHoursSize, truncate it
   if (topHours.length > topHoursSize) {
     topHours.length = topHoursSize;
@@ -237,31 +223,7 @@ async function handleDailyCalculations(obj) {
   }
 }
 
-async function updateHourlyValues(obj) {
-  // Save current values for next hour
-  await db.set('lastMeterConsumption', obj.lastMeterConsumption);
-  await db.set('lastMeterProduction', obj.lastMeterProduction);
-  await db.set('lastMeterConsumptionReactive', obj.lastMeterConsumptionReactive);
-  await db.set('lastMeterProductionReactive', obj.lastMeterProductionReactive);
-  await db.set('sortedHourlyConsumption', await sortHourlyConsumption(obj.meterDate, obj.accumulatedConsumptionLastHour));
-  await db.set('topConsumptionHours', await updateTopHours(obj.meterDate, obj.accumulatedConsumptionLastHour));
-}
-
 async function handleHourlyCalculations(obj) {
-  // Energy calculations
-  // Align consumption to internal counter
-  const consumptionCurrent = parseFloat((await counter.getConsumption()).toFixed(decimals));
-  if (obj.lastMeterConsumption < consumptionCurrent) obj.lastMeterConsumption = consumptionCurrent;
-
-  // Fetch old values for Hourly calculations
-  obj.accumulatedConsumptionLastHour = parseFloat((obj.lastMeterConsumption - await db.get('prevHourMeterConsumption')).toFixed(decimals));
-  obj.accumulatedProductionLastHour = parseFloat((obj.lastMeterProduction - await db.get('prevHourMeterProduction')).toFixed(decimals));
-  // TODO: Add Reactive?
-  obj.accumulatedConsumption = parseFloat((obj.lastMeterConsumption - await db.get('prevDayMeterConsumption')).toFixed(decimals));
-  obj.accumulatedProduction = parseFloat((obj.lastMeterProduction - await db.get('prevDayMeterProduction')).toFixed(decimals));
-  obj.accumulatedConsumptionReactive = parseFloat((obj.lastMeterConsumptionReactive - await db.get('prevDayMeterConsumptionReactive')).toFixed(decimals));
-  obj.accumulatedProductionReactive = parseFloat((obj.lastMeterProductionReactive - await db.get('prevDayMeterProductionReactive')).toFixed(decimals));
-
 
   // Save current values for next hour
   await db.set('prevHourMeterConsumption', obj.lastMeterConsumption);
@@ -272,20 +234,19 @@ async function handleHourlyCalculations(obj) {
   await db.set('lastMeterProductionReactive', obj.lastMeterProductionReactive);
 
   // sortedHourlyConsumption not exposed by obj, but used by sortHourlyConsumption()
-  await db.set('sortedHourlyConsumption', await sortHourlyConsumption(obj.meterDate, obj.accumulatedConsumptionLastHour));
-  await db.set('topConsumptionHours', await updateTopHours(obj.meterDate, obj.accumulatedConsumptionLastHour));
-  obj.topConsumptionHours = await db.get('topConsumptionHours');
+  //await db.set('sortedHourlyConsumption', await sortHourlyConsumption(obj.meterDate, obj.consumptionLastHour));
+  //await db.set('topConsumptionHours', await updateTopHours(obj.meterDate, obj.consumptionLastHour));
+  //obj.topConsumptionHours = await db.get('topConsumptionHours');
 
   obj.topHoursAverage = await getTopHoursAverage(obj.topConsumptionHours, topHoursCount);
   obj.consumptionToday = obj.accumulatedConsumption;
   obj.consumptionCurrentHour = 0;
+  obj.productionCurrentHour = 0;
 
   //await db.set('topHoursAverage', obj.topHoursAverage);
 
   await db.set('consumptionCurrentHour', 0);
-  consumptionCurrentHour = 0;
-
-
+  await db.set('productionCurrentHour', 0);
 }
 
 /**
@@ -300,12 +261,47 @@ async function amsCalc(list, obj) {
   obj.maxPower = await getMaxPower(obj.power);
   await averageCalc.addPower(obj.power);
   obj.averagePower = parseFloat((await averageCalc.getAveragePower()).toFixed(decimals));
-  //obj.consumptionCurrentHour = parseFloat(await counter.setEffect(obj.power)).toFixed(decimals);
-  await counter.setEffect(obj.power);
 
-  await db.set('minPower', obj.minPower);
-  await db.set('maxPower', obj.maxPower);
-  await db.set('averagePower', obj.averagePower);
+  // "Out of band" calculation of consumption & production
+  // For Kaifa and possibly Aidon AMS meters this happens during List1 and List2
+  // For Kamstrup AMS meters this happens during List2
+  // Real consumption and production iternal counters are realigned with AMS in List3
+  if (obj.power !== undefined) {
+    await consumptionCounter.setEffect(obj.power);
+    const consumptionCurrent = parseFloat((await consumptionCounter.getEnergy()).toFixed(decimals));
+    // Fetch old values && add new consumption
+    obj.lastMeterConsumption = parseFloat((await db.get('lastMeterConsumption') + consumptionCurrent).toFixed(decimals)) || 0;
+    obj.consumptionCurrentHour = parseFloat((await db.get('consumptionCurrentHour') + consumptionCurrent).toFixed(decimals)) || 0;
+    obj.consumptionToday = parseFloat((await db.get('consumptionToday') + consumptionCurrent).toFixed(decimals)) || 0;
+    // Save new values
+    await db.set('lastMeterConsumption', obj.lastMeterConsumption);
+    await db.set('consumptionCurrentHour', obj.consumptionCurrentHour);
+    await db.set('consumptionToday', obj.consumptionToday);
+  }
+
+  if (obj.powerProduction !== undefined) {
+    await productionCounter.setEffect(obj.powerProduction);
+    const productionCurrent = parseFloat((await productionCounter.getEnergy()).toFixed(decimals));
+    obj.lastMeterProduction = parseFloat((await db.get('lastMeterProduction') + productionCurrent).toFixed(decimals)) || 0;
+    obj.productionCurrentHour = parseFloat((await db.get('productionCurrentHour') + productionCurrent).toFixed(decimals)) || 0;
+    obj.productionToday = parseFloat((await db.get('productionToday') + productionCurrent).toFixed(decimals)) || 0;
+    await db.set('lastMeterProduction', obj.lastMeterProduction);
+    await db.set('productionCurrentHour', obj.productionCurrentHour);
+    await db.set('productionToday', obj.productionToday);
+    await db.sync();
+  }
+
+  if (obj.isHourEnd) {
+    obj.consumptionLastHour = obj.consumptionCurrentHour;
+    obj.productionLastHour = obj.productionCurrentHour;
+    // sortedHourlyConsumption not exposed by obj, but used by sortHourlyConsumption()
+    await db.set('sortedHourlyConsumption', await sortHourlyConsumption(obj.timestamp, obj.consumptionLastHour));
+    await db.set('topConsumptionHours', await updateTopHours(obj.timestamp, obj.consumptionLastHour));
+    obj.topConsumptionHours = await db.get('topConsumptionHours');
+  }
+
+  if (list === 'list1') {
+  }
 
   if (list === 'list2') {
     delete obj.meterVersion;
@@ -313,27 +309,12 @@ async function amsCalc(list, obj) {
     delete obj.meterModel;
 
     if (await db.get('isVirgin') === false) {
-      const consumptionCurrent = parseFloat((await counter.getConsumption()).toFixed(decimals));
-      // Fetch old values
-      obj.lastMeterConsumption = parseFloat((await db.get('lastMeterConsumption')
-        + consumptionCurrent).toFixed(decimals));
-
-      obj.consumptionToday = parseFloat((await db.get('consumptionToday')
-        + consumptionCurrent).toFixed(decimals));
-
-      obj.consumptionCurrentHour = parseFloat((await db.get('consumptionCurrentHour')
-        + consumptionCurrent).toFixed(decimals));
-
-      // Save new values
-      await db.set('lastMeterConsumption', obj.lastMeterConsumption);
-      await db.set('consumptionToday', obj.consumptionToday);
-      await db.set('consumptionCurrentHour', obj.consumptionCurrentHour);
       await db.sync();
-      if (amsDebug) {
-        await db.fetch().then(function (data) {
-          console.log('amsCalc:saved data', data);
-        });
-      }
+      //if (debug) {
+      //  await db.fetch().then(function (data) {
+      //    console.log('amsCalc:saved data', data);
+      //  });
+      //}
     }
   }
 
@@ -346,26 +327,19 @@ async function amsCalc(list, obj) {
     if (await db.get('isVirgin')) {
       await setInitialValues(obj);
     }
-    const consumptionCurrent = parseFloat((await counter.getConsumption()).toFixed(decimals));
+    const consumptionCurrent = parseFloat((await consumptionCounter.getEnergy()).toFixed(decimals));
     console.log('List3: dummy consumptionCurrent', consumptionCurrent);
     await handleMonthlyCalculations(obj);
     await handleDailyCalculations(obj);
     await handleHourlyCalculations(obj);
-    if (amsDebug) {
+    if (debug) {
       await db.fetch().then(function (data) {
         console.log('amsCalc: Unicache:db', data);
       });
     }
-    // Temporary
-    //obj.consumptionToday = obj.accumulatedConsumption;
-    //obj.consumptionCurrentHour = 0;
-    //await db.set('consumptionCurrentHour', 0);
-
-    //obj.topConsumptionHours = await db.get('topConsumptionHours');
-    //obj.topHoursAverage = await getTopHoursAverage(obj.topConsumptionHours, topHoursCount);
-
     await db.sync();
   }
+
   return obj;
 };
 

@@ -11,6 +11,6 @@ config.yaml
 chart-config.yaml
 package-lock.json
 # Testing and temporary files
-testing/
+testing/*
 tmp/*
 

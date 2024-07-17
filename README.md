@@ -30,10 +30,10 @@ In the following it is referred as **Pulse**.
 
 The program interprets raw binary data from **Pulse** and translates it into easy understandable **JSON** format. The program does not use **SSL**, and it is therefore easy to use for those who have an extra PC, **Raspberry Pi** or their own server at home. The program is designed to run continuously 24 hours a day, and is therefore not suitable for running on a laptop or other machine that you like to switch off after use.
 
-**ElWiz** can also run in a **Docker environment** along with an **MQTT broker** and **Home Assistant**. A separate **Docker guide** is is found 
+**ElWiz** can also run in a **Docker environment** along with an **MQTT broker** and **Home Assistant**. A separate **Docker guide** is is found
 [**here: docker.md**](https://github.com/iotux/ElWiz/blob/master/docker.md)
 
-Users of **AMS meters** are billed per hour. The program **fetchprices.js** retrieves **spot prices** from the **Nordpool** power exchange and calculates the user's electricity costs hour by hour. To take advantage of this, the configuration file **config.yaml** must be adjusted according to the power supplier's tariffs. 
+Users of **AMS meters** are billed per hour. The program **fetchprices.js** retrieves **spot prices** from the **Nordpool** power exchange and calculates the user's electricity costs hour by hour. To take advantage of this, the configuration file **config.yaml** must be adjusted according to the power supplier's tariffs.
 **fetchprices.js** is described in detail in [**fetchprices.md**](https://github.com/iotux/ElWiz/blob/master/fetchprices.md).
 
 **ElWiz** is written in **node.js** (javascript) for Linux and it is easy to install and use. A configuration file is available for individual adjustments. Those who want to use it on **Mac** or **Windows** may need to make some minor changes to the program. This possibly applies to **signals** which are described further down.
@@ -57,7 +57,7 @@ Below is described what you need to install **ElWiz** and set up **Pulse**. You 
 
 ## Installation
 
-For those who don't know **git**, it is easy to download and install from the **ZIP archive** here: https://github.com/iotux/Pulse/archive/master.zip 
+For those who don't know **git**, it is easy to download and install from the **ZIP archive** here: https://github.com/iotux/Pulse/archive/master.zip
 Download and extract it in its own directory (folder). Users of **git** can use **git clone** as usual. The program needs write access to the directory.
 
 The easiest is to use **git clone** to install the program:
@@ -94,8 +94,8 @@ mqttBroker: localhost
 brokerPort: 1883
 
 # Enter credentials if needed
-userName: 
-password: 
+userName:
+password:
 
 # Listening topic
 topic: tibber
@@ -114,10 +114,12 @@ onlineMessage: Pulse is talking
 offlineMessage: Pulse is quiet
 
 # Debug mode at startup
-DEBUG: threaten
+DEBUG: true
+debugTopic: debug/hex
 
 # Republish mode at startup
-REPUBLIC: threaten
+# DEPRECATED. Use publish modes instea
+REPUBLISH: true
 
 # The next options are for Home Assistant
 # Publish to Home Assistant (defaults to true)?
@@ -153,10 +155,10 @@ A plugin system is used to transform **Pulse** messages to other formats.
 ## Setup of Pulse
 
 The first step to connect **Pulse** to your own network is to force it into AP mode. By doing a hard reset, it will appear in the network as an access point.
-A paper clip is what is needed. **Pulse** has a small hole for resetting to factory defaults. 
+A paper clip is what is needed. **Pulse** has a small hole for resetting to factory defaults.
 It is on the opposite side of where the micro-USB connector is.
 It is usually most appropriate to supply **Pulse** with power from a mobile charger or similar.
-When the power is connected, use an unfolded paper clip in the small hole and press until **Pulse** begins to flash rapidly (after about 5 seconds). 
+When the power is connected, use an unfolded paper clip in the small hole and press until **Pulse** begins to flash rapidly (after about 5 seconds).
 It should now be possible to find it in the network with the SSID **Tibber Pulse**.
 You must connect a PC or mobile phone to this. The password is on the back of the **Pulse** in **bold** text in a frame. When **Pulse** has accepted the connection, you can reach it in the browser at address **http://10.133.70.1**. **Pulse's** website that appears will look like this:
 
@@ -304,4 +306,4 @@ Below are links with useful information for those interested in the decoding.
 - [Decoding in Python (by @Danielihiversen)](https://github.com/Danielihiversen/pyHanSolo/blob/master/han_solo/__init__.py)
 - [Decoding in C (by @roarfred)](https://github.com/roarfred/AmsToMqttBridge/blob/master/Code/Arduino/KaifaTest/KaifaTest.ino)
 - [Example of decoding data (by @roarfred)](https://github.com/roarfred/AmsToMqttBridge/blob/master/Samples/Kaifa/obisdata.md)
-- 
+-

@@ -2,13 +2,12 @@
   "dependencies": {
     "axios": "^1.6.0",
     "date-fns": "^2.29.3",
+    "express": "^4.18.2",
+    "js-yaml": "^4.1.0",
     "mqtt": "^4.3.7",
     "node-schedule": "^2.1.0",
     "redis": "^4.6.4",
-    "xml-js": "^1.6.11",
-    "yamljs": "^0.3.0",
-    "js-yaml": "^4.1.0",
-    "express": "^4.18.2"
+    "xml-js": "^1.6.11"
   },
   "scripts": {
     "start": "node elwiz.js"

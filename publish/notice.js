@@ -1,13 +1,15 @@
-const yaml = require('yamljs');
+
 const { event } = require('../misc/misc.js');
-const { upTime, getMacAddress } = require('../misc/util.js');
-const Mqtt = require('../mqtt/mqtt.js');
+const { upTime, getMacAddress, loadYaml } = require('../misc/util.js');
+const MQTTClient = require("../mqtt/mqtt");
 
 const configFile = './config.yaml';
-const config = yaml.load(configFile);
+const config = loadYaml(configFile);
 
-let client;
-
+const mqttUrl = config.mqttUrl;// || 'mqtt://localhost:1883';
+const mqttOpts = config.mqttOptions;
+const mqttClient = new MQTTClient(mqttUrl, mqttOpts, 'notice');
+mqttClient.waitForConnect();
 /**
  * Formats status data.
  *
@@ -41,33 +43,24 @@ function onStatus(obj) {
     console.log('onStatus:', statusData);
   }
 
-  client.publish(config.pubStatus, JSON.stringify(statusData, !config.DEBUG, 2), { qos: 1, retain: true });
-}
-
-/**
- * Handles hello events.
- *
- * @param {Object} obj - The hello object.
- */
-function onHello(obj) {
-  client.publish(config.pubNotice, config.greetMessage, config.statOpts);
-
-  if (config.DEBUG) {
-    console.log('Notice: Pulse is starting: ' + config.pubNotice);
-  }
+  mqttClient.publish(config.pubStatus, JSON.stringify(statusData, !config.DEBUG, 2), { qos: 1, retain: true });
 }
 
 /**
  * Handles notice events.
  *
- * @param {Object} obj - The notice object.
+ * @param {Object} msg - The notice message.
  */
-function onNotice(obj) {
-  client.publish(config.pubNotice, JSON.stringify(obj), config.statOpts);
-
-  if (config.DEBUG) {
-    console.log('Notice: Event message: ' + config.pubNotice, JSON.stringify(obj, !config.DEBUG, 2));
+function onNotice(msg) {
+  if (msg === typeof Object) {
+    mqttClient.publish(config.pubNotice, JSON.stringify(msg), config.statOpts);
+    if (config.DEBUG) {
+      console.log('Notice: Event message: ' + config.pubNotice, JSON.stringify(msg, !config.DEBUG, 2));
+    }
+  } else {
+    mqttClient.publish(config.pubNotice, msg, config.statOpts);
   }
+
 }
 
 const notice = {
@@ -81,10 +74,8 @@ const notice = {
   init: function () {
     if (this.isVirgin) {
       this.isVirgin = false;
-      event.on('hello', onHello);
       event.on('status', onStatus);
       event.on('notice', onNotice);
-      client = Mqtt.mqttClient();
     }
   },
 

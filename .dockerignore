@@ -4,12 +4,11 @@ node_modules/*
 # Data directory
 data/*
 testing/*
-# Konfigurasjon av lokalt tilpassede data
+# Local configuration
 config.yaml
 chart-config.yaml
 package-lock.json
-# Lagring av siste akkumulerte forbruk
-powersave.*
 tmp/*
-# Ignore .md files
+# Ignore .md 
+doc/*
 *.md

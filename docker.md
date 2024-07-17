@@ -72,6 +72,7 @@ This will pull **Mosquitto** from **dockerhub** if not already installe and run 
 ```
 mkdir -p ~/docker/elwiz
 curl -o ~/docker/elwiz/config.yaml https://raw.githubusercontent.com/iotux/ElWiz/master/config.yaml.sample
+curl -o ~/docker/elwiz/chart-config.yaml https://raw.githubusercontent.com/iotux/ElWiz/master/chart-config.yaml.sample
 ```
 If your broker is running on your local computer, then the **config.yaml** file should work out of the box. If not, make a note of your broker's IP address.
 

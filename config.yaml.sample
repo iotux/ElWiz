@@ -1,12 +1,9 @@
 ---
-# The IP address or hostname
-# of your favorite MQTT broker
-mqttBroker: localhost
-brokerPort: 1883
-
-# Enter credentials if needed
-userName:
-password:
+# Replace with your own MQTT broker
+mqttUrl: "mqtt://localhost:1883"
+mqttOptions:
+  username:
+  password:
 
 # meterModel can be kaifa, aidon or kamstrup
 meterModel: kaifa
@@ -39,15 +36,16 @@ onlineMessage: Pulse is talking
 offlineMessage: Pulse is quiet
 
 # Debug mode at startup
-DEBUG: true
+DEBUG: false
 debugTopic: debug/hex
 
 # Republish mode at startup
 # DEPRECATED. Use publish modes instead
-REPUBLISH: true
+#REPUBLISH: false
 
 # User has production (solar panels)
 hasProduction: false
+
 
 #############################################
 # Storage and cache
@@ -57,10 +55,11 @@ hasProduction: false
 #
 # storage
 #  - mongodb
-#  - mariadb
+#  - mariadb 
 #  - custom
 #  - none
 #
+#cacheType: redis
 cacheType: file
 storage: none
 
@@ -77,35 +76,46 @@ publisher: hassPublish
 # Publish to Home Assistant (defaults to TRUE)?
 hassPublish: true
 # Home Assistant sensor base topic (defaults to "elwiz/sensor")
-haBaseTopic: elwiz/sensor
+#haBaseTopic: elwiz/sensor
+haBaseTopic: elwiz
 
 # Don't change the following topic unless you
 # have changed the way HomeAssistant read
 # MQTT messages
-haAnnounceTopic: homeassistant/sensor/ElWiz
+#haAnnounceTopic: homeassistant/sensor/ElWiz
+#haAnnounceTopicBinary: homeassistant/binary_sensor/ElWiz
+haAnnounceTopic: homeassistant
 
 ##################################################
 # The rest of the configuration is only valid for
-# the "fetchprices" and "fetch-eu-prices" programs
+# the "fetchprices" program
 
-# For the "fetch-eu-prices" program, an "access token"
-# is needed from "https://transparency.entsoe.eu.
-# You will get this token by writing an email to
-# "transparency@entsoe.eu" and ask for a token
-#
+# fetchprices fetches electric energy prices from two sources,
+# the Nord Pool power market, and Entso-E
+# (https://transparency.entsoe.eu)
+# One has priority over the other. If for some reason
+# the fetching fails, the program will attempt to fetch 
+# the power price from the other. It is worth noting that
+# an "access token" is required to fetch prices from 
+# the Entso-E source. You will obtain one by writing
+# an email to "transparency@entsoe.eu" and ask for a token.
+# Without a token, the program will only operate on
+# the Nord Pool energy market
 priceAccessToken: <insert your token here>
 
-# base-URL for fetch-eu-prices.js
+# base-URL for Entso-E
 entsoeBaseUrl: "https://web-api.tp.entsoe.eu/api"
 
-# Base-URL for fetchprices.js
+# Base-URL for Nord Pool
 nordpoolBaseUrl: "https://www.nordpoolgroup.com/api/marketdata/page/10"
+
+# Choose "nordpool" or "entsoe" as priority
+priceFetchPriority: nordpool
 
 # URL for fetc-eu-currencies.js
 currencyUrl: "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
 
-
-# Days to keep data files
+# Days to keep price data files
 # Files older tham "keepDays" are deleted
 keepDays: 7
 
@@ -121,15 +131,15 @@ runNodeSchedule: true
 # program. Likewise, the <scheduleEuMinutes> is
 # for the "fetch-eu-prices" program.
 # The same scheduling is recommended for cron users
-# According to information flfoating around, the prices
+# According to floating iformation, the prices
 # are available about 13:00 CET/CEST from
 # Nord Pool, while the prices from ENTSO-E
 # is available about 14:00 CET/CEST
 # The scheduler will retry until successful
 # within the "scheduleHours"
-scheduleHours: [14,16,18,20,22]
-scheduleMinutes: [15]
-scheduleEuMinutes: [45]
+scheduleHours: [13,14]
+scheduleMinutes: [6,11,16,21]
+scheduleEuMinutes: [5]
 
 # Where to store currency and price data
 # relative to the program directory
@@ -173,11 +183,11 @@ priceCurrency: NOK
 # [17, 18,    19, 20, 21]
 # Find your region and insert here.
 # Ask your local supplier if in doubt.
-priceRegion: 8
+priceRegion: 12
 
-# Those who use the "fetch-eu-prices" program
-# need to set the correct zone here.
-# See the "entsoezones.yaml" file
+# For Entso-E, a region code is needed.
+# See the "entsoezones.yaml" file to find
+# the correct zone and code
 regionCode: NO3
 
 ########################################
@@ -204,30 +214,34 @@ gridKwhPrice: 0.0
 gridMonthPrice: 0.0
 gridDayPrice: 0.0
 
-#
-energyTax: 0.0
-energyDayPrice: 0.0   # Added price between dayHoursStart and dayHoursEnd
-energyNightPrice: 0.0 # Added price between dayHoursEnd and dayHoursStart
-energyDayKwhPrice: 0.0   # Added price between dayHoursStart and dayHoursEnd
-energyNightKwhPrice: 0.0 # Added price between dayHoursEnd and dayHoursStart
+energyDayPrice: 0.0      # Added price between dayHoursStart and dayHoursEnd
+energyNightPrice: 0.0    # Added price between dayHoursEnd and dayHoursStart
 
-dayHoursStart: 06:00
-dayHoursEnd: 22:00
+dayHoursStart: 06
+dayHoursEnd: 22
 
 # Network reward per kWh production
 gridKwhReward: 0.0
 
 # The following values are specific for Norwegian users
+energyTax: 0.0
+
 topHoursSize: 12
 topHoursCount: 3
 
-capacity0-2: 0.0
-capacity2-5: 0.0
-capacity5-10: 0.0
-capacity10-15: 0.0
-capacity15-20: 0.0
-capacity20-25: 0.0
-
 # Mostly for developers
-amsDebug: true
-storageDebug: true
+amscalc:
+  debug: false
+
+mergeprices:
+  debug: false
+
+plugselector:
+  debug: false
+
+calculatecost:
+  debug: false
+
+publish:
+  debug: false
+

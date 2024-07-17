@@ -3,14 +3,13 @@
 "use strict";
 
 const fs = require("fs");
-const yaml = require("yamljs");
 const convert = require("xml-js");
 const request = require("axios");
 const { format } = require("date-fns");
-const { skewDays } = require("./misc/util");
+const { skewDays, loadYaml } = require("./misc/util");
 const UniCache = require("./misc/unicache");
-const config = yaml.load("config.yaml");
 
+const config = loadYaml('./config.yaml');
 const savePath = config.currencyFilePath || "./data/currencies";
 const debug = config.DEBUG;
 const cacheType = config.cacheType || "file";
@@ -25,7 +24,7 @@ const keepDays = config.keepDays || 7;
 const runNodeSchedule = config.runNodeSchedule || true;
 // Currency rates are available around 16:00 hours
 const scheduleHours = config.scheduleHours;
-const scheduleMinutes = config.scheduleMinutes;
+const scheduleMinutes = config.scheduleEuMinutes;
 
 let schedule;
 let runSchedule;
