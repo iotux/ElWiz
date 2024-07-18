@@ -229,6 +229,8 @@ function saveThresholds(idx, threshold, where) {
     process.exit(0);
   }
 
+  //if (isConnected) {
+  //console.log(`Server is connected to ${mqttUrl}`);
   try {
     mqttClient.subscribe(`${priceTopic}/#`)
   } catch (err) {
@@ -239,6 +241,9 @@ function saveThresholds(idx, threshold, where) {
   } catch (err) {
     console.log('Subscription error', err);
   }
+  //} else {
+  //console.log(`Server is not connected to ${mqttUrl}`);
+  //}
 
   // ============ MQTT message handling ============
   let dataAvailable = false;
