@@ -1,10 +1,12 @@
 # elwiz-chart
 
+![elwiz-chart](https://github.com/iotux/ElWiz/blob/master/doc/chartf_and_panel.png?raw=true)
+
 ## Say good bye to HACS (at least for energy prices)
 
 **elwiz-chart** is the solution to keep track of fluctuating energy prices and take control over your energy usage. It is a bar chart with 48 bars representing 2 days of fluctuating price data. The source of the energy prices is the **Nord Pool** energy market. The bars are either greenish or redish, where greenish means an opportunity to save on engergy use. We can call it a "Green zone". Green or red is determined by the price level, where the threshold is based on the average price during a day.
 
-A secuence of green bars is an opportunity to plan the usage of your most energy hungry devices. This time window can be increased or decreased by increasing or decreasing the threshold level compared to the average price. The usefulness of this is easy to explain with an example. You have two day where the first day has low prices and the second day, the prices are well abowe the first day's average price. You can then increase the first day's green zone for thereby do your laundry or charge your EV car during this green zone rather than wait to the next day.
+A secuence of green bars is an opportunity to plan the usage of your most energy hungry devices. This time window can be increased or decreased by increasing or decreasing the threshold level compared to the average price. The usefulness of this is easy to explain with an example. You have two days where the first day has low prices and the second day, the prices are well abowe the first day's average price. You can then increase the first day's green zone for thereby do your laundry or charge your EV car during this green zone rather than wait to the next day.
 
 The source of the energy prices is the **Nord Pool** energy market
 
@@ -40,7 +42,7 @@ The **elwiz-chart** server sends 2 messages to **Home Assistant**.
 
 The **thresholdLevel** is determined by the average spot price for the current day, which gives the default level.
 On top of that, the **thresholdLevel** can be raised or lovered by a factor from the configuration file.
-This is useful if the **green zone** is woo narrow for the normal daily engergy consumption. In that case, it would be useful to widen the **green zone** by increasing the **thresholdLevel**. Likewise, if the green zone is too wide for the normal daily consumption, **thresholdLevel** can be lowered by a similar factor.
+This is useful if the **green zone** is too narrow for the normal daily engergy consumption. In that case, it would be useful to widen the **green zone** by increasing the **thresholdLevel**. Likewise, if the green zone is too wide for the normal daily consumption, **thresholdLevel** can be lowered by a similar factor.
 Widening and narrowing the **green zones** can also be done on a day to day basis by sending MQTT messages to the **elwiz-chart** server. A ready made dashboard is available for this purpose. This dashboard is a **YAML** file, which is easy to add to **Home Assistant**.
 
 ### Server-Side Timezone Offset Calculation
