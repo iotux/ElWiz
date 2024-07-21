@@ -228,6 +228,7 @@ async function handleHourlyCalculations(obj) {
   // Save current values for next hour
   await db.set('prevHourMeterConsumption', obj.lastMeterConsumption);
   await db.set('prevHourMeterProduction', obj.lastMeterProduction);
+  // Align actual consumption and production with meter reading
   await db.set('lastMeterConsumption', obj.lastMeterConsumption);
   await db.set('lastMeterProduction', obj.lastMeterProduction);
   await db.set('lastMeterConsumptionReactive', obj.lastMeterConsumptionReactive);
@@ -289,39 +290,39 @@ async function amsCalc(list, obj) {
       await db.set('lastMeterProduction', obj.lastMeterProduction);
       await db.set('productionCurrentHour', obj.productionCurrentHour);
       await db.set('productionToday', obj.productionToday);
-      await db.sync();
-    }
-  }
-
-  if (obj.isHourEnd) {
-    obj.consumptionLastHour = obj.consumptionCurrentHour;
-    obj.productionLastHour = obj.productionCurrentHour;
-    // sortedHourlyConsumption not exposed by obj, but used by sortHourlyConsumption()
-    await db.set('sortedHourlyConsumption', await sortHourlyConsumption(obj.timestamp, obj.consumptionLastHour));
-    await db.set('topConsumptionHours', await updateTopHours(obj.timestamp, obj.consumptionLastHour));
-    obj.topConsumptionHours = await db.get('topConsumptionHours');
-  }
-
-  if (list === 'list1') {
-    if (debug) {
-      //console.log('List2: amsCalc:', obj);
-    }
-  }
-
-  if (list === 'list2') {
-    delete obj.meterVersion;
-    delete obj.meterID;
-    delete obj.meterModel;
-
-    if (await db.get('isVirgin') === false) {
-      await db.sync();
+      //await db.sync();
     }
 
-    if (debug) {
-      //await db.fetch().then(function (data) {
-      //  console.log('amsCalc: Unicache:db', data);
-      //});
-      console.log('List2: amsCalc:', obj);
+    if (obj.isHourEnd) {
+      obj.consumptionLastHour = obj.consumptionCurrentHour;
+      obj.productionLastHour = obj.productionCurrentHour;
+      // sortedHourlyConsumption not exposed by obj, but used by sortHourlyConsumption()
+      await db.set('sortedHourlyConsumption', await sortHourlyConsumption(obj.timestamp, obj.consumptionLastHour));
+      await db.set('topConsumptionHours', await updateTopHours(obj.timestamp, obj.consumptionLastHour));
+      obj.topConsumptionHours = await db.get('topConsumptionHours');
+    }
+
+    if (list === 'list1') {
+      if (debug) {
+        //console.log('List2: amsCalc:', obj);
+      }
+    }
+
+    if (list === 'list2') {
+      delete obj.meterVersion;
+      delete obj.meterID;
+      delete obj.meterModel;
+
+      if (await db.get('isVirgin') === false) {
+        await db.sync();
+      }
+
+      if (debug) {
+        //await db.fetch().then(function (data) {
+        //  console.log('amsCalc: Unicache:db', data);
+        //});
+        console.log('List2: amsCalc:', obj);
+      }
     }
   }
 
