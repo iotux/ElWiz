@@ -30,7 +30,7 @@ const AIDON_CONSTANTS = {
   VOLTAGE_PHASE_1: "020309060100200700FF12",
   VOLTAGE_PHASE_2: "020309060100340700FF12",
   VOLTAGE_PHASE_3: "020309060100480700FF12",
-  DATE: "020209060000010000FF090C",
+  METER_DATE: "020209060000010000FF090C",
   LAST_METER_CONSUMPTION: "020309060100010800FF06",
   LAST_METER_PRODUCTION: "020309060100020800FF06",
   LAST_METER_CONSUMPTION_REACTIVE: "020309060100030800FF06",
@@ -116,7 +116,7 @@ async function listDecode(buf) {
         case "VOLTAGE_PHASE_3":
           obj.data.voltagePhase3 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
           break;
-        case "DATE":
+        case "METER_DATE":
           obj.data.timestamp = replaceChar(ts, 18, "0"); // Align the timestamp
           obj.data.meterDate = getAmsTime(msg.data, dataIndex);
           //obj.data.hourIndex = parseInt(obj.data.meterDate.substr(11, 2));
@@ -164,7 +164,7 @@ async function listDecode(buf) {
  * @param {Buffer} buf - The list data buffer to be handled.
  */
 async function listHandler(buf) {
-  const hex = await buf.toString("hex").toUpperCase();
+  const hex = buf.toString("hex").toUpperCase();
   const result = await listDecode(hex);
   const listObject = result.data;
   const list = result.listType;

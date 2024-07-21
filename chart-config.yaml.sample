@@ -36,15 +36,21 @@ serverConfig:
 # The chart web client configuration
 # Reload browser to activate changes
 chartConfig:
-  debug: false
-  # Set this to "true" if you want
-  # dark mode on mobile devices
-  darkMode: false
-  # Replace IP address if running remote
+  # Replace with IP address of server if running remote
   # The port number needs to be
   # equal to the "wsServerPort" above
   wsUrl: "ws://localhost:8322/"
+
+  # Set this to "true" if you want
+  # dark mode on mobile devices
+  darkMode: false
+
+  # Set true if you want the Y axis to start at 0
+  yBeginAtZero: false
   
+  # Web client debug
+  debug: false
+
   # Change according to your own country
   languageCode: nb-NO
   currencyCode: NOK

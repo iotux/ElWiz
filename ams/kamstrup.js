@@ -160,7 +160,7 @@ async function listDecode(buf) {
  * @param {Buffer} buf - The list data buffer to be handled.
  */
 async function listHandler(buf) {
-  const hex = await buf.toString('hex').toUpperCase();
+  const hex = buf.toString('hex').toUpperCase();
   const result = await listDecode(hex);
   const listObject = result.data;
   const list = result.listType;

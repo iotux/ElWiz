@@ -66,6 +66,7 @@
     let isOnRightSide = false;
     // Array to hold up to 48 hours of data structures
     let chartData = [];
+    let yBeginAtZero;
     let chartInitialized = false;
     let dataAvailable = false;
     let ws;
@@ -118,6 +119,7 @@
           currencyCode = config.currencyCode || 'NOK';
           isDarkMode = config.darkMode || false;
           timezoneOffset = config.timezoneOffset;
+          yBeginAtZero = config.yBeginAtZero;
 
           const lang = config.languageCode
           titleString = config[lang].titleString || 'Hourly energy prices';
@@ -253,7 +255,6 @@
 
     const showTitle = true;
     const showLegend = false;
-    const yBeginAtZero = false;
 
     // Helper functions ========================
     function toggleTheme(isDark) {
@@ -475,15 +476,6 @@
       return data;
     }
 
-    const chartOptions = {
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 3,
-      animation: true,
-      scales: scalesOptions,
-      plugins: pluginOptions,
-    };
-
     // Ensure the plugin is registered before creating the chart
     Chart.register(verticalLinePlugin);
 
@@ -502,7 +494,14 @@
         window.myChart = new Chart(ctx, {
           type: 'bar', // Using a bar chart for hourly spot prices
           data: dataConfig(isDark),
-          options: chartOptions,
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 3,
+            animation: true,
+            scales: scalesOptions,
+            plugins: pluginOptions,
+          },
           plugins: [verticalLinePlugin] // Ensure the plugin is still included
         });
       }
