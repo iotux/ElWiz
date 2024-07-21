@@ -2,17 +2,17 @@
 
 ![elwiz-chart](https://github.com/iotux/ElWiz/blob/master/doc/chart_and_panel.png?raw=true)
 
-## Say good bye to HACS (at least for energy prices)
+**elwiz-chart** is the solution to keep track of fluctuating energy prices and take control over your energy usage. It is a bar chart with 48 bars representing 2 days of fluctuating price data. The source of the energy prices is the **Nord Pool** European energy market. 
 
-**elwiz-chart** is the solution to keep track of fluctuating energy prices and take control over your energy usage. It is a bar chart with 48 bars representing 2 days of fluctuating price data. The source of the energy prices is the **Nord Pool** energy market. The bars are either greenish or redish, where greenish means an opportunity to save on engergy use. We can call it a "Green zone". Green or red is determined by the price level, where the threshold is based on the average price during a day.
+The bars are either green or red, where green means an opportunity to save on engergy use. We can call it a **Green zone**. Green or red is determined by the price level, where the threshold is based on the average price during a day or adjusted by **MQTT** messages.
 
-A secuence of green bars is an opportunity to plan the usage of your most energy hungry devices. This time window can be increased or decreased by increasing or decreasing the threshold level compared to the average price. The usefulness of this is easy to explain with an example. You have two days where the first day has low prices and the second day, the prices are well abowe the first day's average price. You can then increase the first day's green zone for thereby do your laundry or charge your EV car during this green zone rather than wait to the next day.
+A sequence of green bars is an opportunity to plan the usage of your most energy hungry devices. This time window can be increased or decreased by increasing or decreasing the threshold level compared to the average price. 
 
-The source of the energy prices is the **Nord Pool** energy market
+The usefulness of this is easy to explain with an example. If you have two days where the first day has low prices and the second day prices are well abowe the first day's average price, you can increase the first day's green zone. Then you can do your laundry or charge your EV car during this green zone rather than wait to the next day.
 
-an a number of features for helping control
+# elwiz-chart and Home Assistant
 
-## elwiz-chart and Home Assistant
+### Say good bye to HACS (at least for energy prices)
 
 **elwiz-chart** is made with **Home Assistant** in mind
 
@@ -20,7 +20,7 @@ With **elwiz-chart** can you easily make automations.
 
 **MQTT** messages are used to control the **elwiz** workflow.
 
-# Chart Visualization with Timezone-Aware Data and Vertical Line Indicators
+## Chart Visualization with Timezone-Aware Data and Vertical Line Indicators
 
 ## Overview
 
