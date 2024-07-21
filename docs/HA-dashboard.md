@@ -2,5 +2,5 @@ The above group of cards integrates with [elwiz-chart](https://github.com/iotux/
 
 Adjust the duration of these zones with the dashboard's Up, Down, and Zero buttons, each issuing unique MQTT commands to **elwiz-chart**. This feature allows for strategic energy use, such as charging an EV or doing laundry when prices are lowest. Control is split between the left and right chart halves for tailored adjustments.
 
-For convenience, all related cards are consolidated into a single file within the [ElWiz repository](https://github.com/iotux/elwiz). Explore [ElWiz](https://github.com/iotux/elwiz) and [elwiz-chart](https://github.com/iotux/elwiz-chart) on GitHub for more information.
+For convenience, all related cards are consolidated into a single file within the [ElWiz repository](https://github.com/iotux/elwiz). Explore [ElWiz](https://github.com/iotux/elwiz) and [elwiz-chart](https://github.com/iotux/elwiz) on GitHub for more information.
 
