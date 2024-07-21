@@ -1,6 +1,6 @@
 # elwiz-chart
 
-![elwiz-chart](https://github.com/iotux/ElWiz/blob/master/doc/chartf_and_panel.png?raw=true)
+![elwiz-chart](https://github.com/iotux/ElWiz/blob/master/doc/chart_and_panel.png?raw=true)
 
 ## Say good bye to HACS (at least for energy prices)
 
