@@ -10,5 +10,5 @@ chart-config.yaml
 package-lock.json
 tmp/*
 # Ignore .md 
-doc/*
+docs/*
 *.md
