@@ -1,6 +1,6 @@
 # elwiz-chart
 
-![elwiz-chart](https://github.com/iotux/ElWiz/blob/master/doc/chart_and_panel.png?raw=true)
+![elwiz-chart](../docs/chart_and_panel.png?raw=true)
 
 **elwiz-chart** is the solution to keep track of fluctuating energy prices and take control over your energy usage. It is a bar chart with 48 bars representing 2 days of fluctuating price data. The source of the energy prices is the **Nord Pool** European energy market. 
 
