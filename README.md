@@ -4,6 +4,7 @@
 
 - [ElWiz - a program to read data from Tibber Pulse](#elwiz---a-program-to-read-data-from-tibber-pulse)
   - [Contents](#contents)
+  - [Breaking changes](#breaking-changes)
   - [Intro](#intro)
       - [What you need](#what-you-need)
       - [Nice to have but not required](#nice-to-have-but-not-required)
@@ -22,6 +23,8 @@
 
 ## Intro
 
+<code style="color:red">**Breaking changes:** Users with an existing installation of **ElWiz** are encouraged to carefully read the <a href="docs/Breaking.md">Breaking.md</a> document</code>
+
 **Tibber Pulse** is a microcontroller (MCU) capable of reading power consumption data from an **AMS meter**.
 In the following it is referred as **Pulse**.
 **ElWiz** retrieves data from **AMS meters** by using **Pulse**.
@@ -31,14 +34,19 @@ In the following it is referred as **Pulse**.
 The program interprets raw binary data from **Pulse** and translates it into easy understandable **JSON** format. The program does not use **SSL**, and it is therefore easy to use for those who have an extra PC, **Raspberry Pi** or their own server at home. The program is designed to run continuously 24 hours a day, and is therefore not suitable for running on a laptop or other machine that you like to switch off after use.
 
 **ElWiz** can also run in a **Docker environment** along with an **MQTT broker** and **Home Assistant**. A separate **Docker guide** is is found
-[**here: docker.md**](https://github.com/iotux/ElWiz/blob/master/docker.md)
+[**here: docker.md**](docs/docker.md)
 
 Users of **AMS meters** are billed per hour. The program **fetchprices.js** retrieves **spot prices** from the **Nordpool** power exchange and calculates the user's electricity costs hour by hour. To take advantage of this, the configuration file **config.yaml** must be adjusted according to the power supplier's tariffs.
-**fetchprices.js** is described in detail in [**fetchprices.md**](https://github.com/iotux/ElWiz/blob/master/fetchprices.md).
+**fetchprices.js** is described in detail in [**fetchprices.md**](docs/fetchprices.md).
+
+**elwiz-chart** is a chart program that is used to visualize the fluctuating price data fetched by the **fetchprices** program. The program is described in detail in [**elwiz-chart.md**](docs/elwiz-chart.md) document.
+
+![elwiz-chart](docs/chart_light.png?raw=true)
+_An elwiz-chart example showing two days of prices_
 
 **ElWiz** is written in **node.js** (javascript) for Linux and it is easy to install and use. A configuration file is available for individual adjustments. Those who want to use it on **Mac** or **Windows** may need to make some minor changes to the program. This possibly applies to **signals** which are described further down.
 
-**ElWiz** is tested with only access to the **Kaifa MA304H3E AMS meter**. It is possible that some minor changes must also be made if it is to be used on an **AMS meter** from another manufacturer.
+**ElWiz** is tested with only access to the **Kaifa MA304H3E AMS meter**. It is possible that some minor changes may be needed if it is to be used on an **AMS meter** from another manufacturer.
 
 Below is described what you need to install **ElWiz** and set up **Pulse**. You can then send data to **Home Assistant**, **OpenHAB**, or similar systems. In **Home Assistant** mode **ElWiz** has builtin **auto discovery**
 
@@ -74,12 +82,12 @@ The following dependencies are thus installed
 
 ```
 * axios
+* express
 * mqtt
 * date fns
 * xml-js
 * node-schedule
-* simple-json-db
-* yamljs
+* js-yaml
 ```
 
 ## Adaptation for own local broker
@@ -88,22 +96,34 @@ The file **config.yaml.sample** is copied to **config.yaml**. If you install pro
 
 ```yaml
 ---
-# The IP address or hostname
-# of your favorite MQTT broker
-mqttBroker: localhost
-brokerPort: 1883
+# Replace with your own MQTT broker
+mqttUrl: "mqtt://localhost:1883"
+mqttOptions:
+  username:
+  password:
 
-# Enter credentials if needed
-userName:
-password:
 
-# Listening topic
+# meterModel can be kaifa, aidon or kamstrup
+meterModel: kaifa
+
+# Tibber Pulse listening topic
 topic: tibber
 
-# Topics for publishing
-pubTopic: pulse/meter
-pubStatus: pulse/status
-pubNotice: pulse/notice
+# ElWiz publishing topics
+pubTopic: meter/ams
+pubStatus: meter/status
+pubNotice: meter/notice
+
+# Publish options for list 1, 2, 3 & status
+list1Retain: false
+list1Qos: 0
+list2Retain: false
+list2Qos: 0
+list3Retain: true
+list3Qos: 1
+
+statusRetain: false
+statusQos: 0
 
 # ElWiz event messages
 willMessage: ElWiz has left the building
@@ -114,35 +134,49 @@ onlineMessage: Pulse is talking
 offlineMessage: Pulse is quiet
 
 # Debug mode at startup
-DEBUG: true
+DEBUG: false
 debugTopic: debug/hex
 
-# Republish mode at startup
-# DEPRECATED. Use publish modes instea
-REPUBLISH: true
+# User has production (solar panels)
+hasProduction: false
 
-# The next options are for Home Assistant
-# Publish to Home Assistant (defaults to true)?
-# Set this to "false" if you don't want HA auto discovery
-havePublish: true
+#############################################
+# Pssible cacheType values
+#   file
+#   redis
+cacheType: file
+
+# Possivle storage type
+#   mongodb
+#   mariadb 
+#   custom
+#   none
+storage: none
+
+#############################################
+# Possible publishing modes
+#   hassPublish
+#   basicPublish
+#   customPublish
+publisher: hassPublish
+
+#############################################
+# Publish to Home Assistant (defaults to TRUE)?
+hassPublish: true
+# Home Assistant sensor base topic (defaults to "elwiz/sensor")
+haBaseTopic: elwiz
+
+# Don't change the following topic unless you
+# have changed the way HomeAssistant read
+# MQTT messages
+haAnnounceTopic: homeassistant
+
 
 # Home Assistant sensor base topic (defaults to "elwiz/sensor")
 # This is different from "pubTopic" to separate it from basic use of ElWiz
 # A separate topic will also prevent "spamming" of HA
-haBaseTopic: elwiz/sensor
+haBaseTopic: elwiz
 
-# Publish options for list 1, 2, 3 & status
-# Setting "list3Retain" to "true" may help
-# get the messages stick on an unstable system
-list1Retain: false
-list1Qos: 0
-list2Retain: false
-list3Qos: 0
-list3Retain: true
-list3Qos: 1
-
-statusRetain: false
-statusQos: 0
 ```
 
 It is worth noting the following:
@@ -212,15 +246,18 @@ In **ElWiz**, the raw data from the **AMS meter** is converted to readable **JSO
 
 Users of **fetchprices** will have access to spot prices. Prices from own suppliers are entered in **config.yaml**, and costs are then calculated in **ElWiz**.
 
-Example of price data from NordPool:
+Example of price data from Nord Pool:
 
 ```javascript
-{
-   "lastHourCost": 1.9432, // Local currency
-   "spotPrice": 0.6163, // Local currency
-   "startTime": '2020-08-12T11:00:00',
-   "endTime": '2020-08-12T12:00:00'
-}
+"hourly": [
+  {
+    "startTime": "2024-07-22T11:00:00",
+    "endTime": "2024-07-22T12:00:00",
+    "spotPrice": 0.3559,
+    "gridFixedPrice": 0.1925,
+    "supplierFixedPrice": 0.0542
+  }
+]
 ```
 
 See separate documentation in **fetchprices.md**

@@ -48,28 +48,23 @@ hasProduction: false
 
 
 #############################################
-# Storage and cache
-# cache
-#  - file
-#  - redis
-#
-# storage
-#  - mongodb
-#  - mariadb 
-#  - custom
-#  - none
-#
-#cacheType: redis
+# Pssible cacheType values
+#   file
+#   redis
 cacheType: file
+
+# Possivle storage type
+#   mongodb
+#   mariadb 
+#   custom
+#   none
 storage: none
 
 #############################################
 # Possible publishing modes
-#
-# hassPublish
-# basicPublish
-# customPublish
-#
+#   hassPublish
+#   basicPublish
+#   customPublish
 publisher: hassPublish
 
 #############################################
@@ -82,8 +77,6 @@ haBaseTopic: elwiz
 # Don't change the following topic unless you
 # have changed the way HomeAssistant read
 # MQTT messages
-#haAnnounceTopic: homeassistant/sensor/ElWiz
-#haAnnounceTopicBinary: homeassistant/binary_sensor/ElWiz
 haAnnounceTopic: homeassistant
 
 ##################################################

@@ -1,4 +1,9 @@
 ---
+# Region codes for use in 'config.yaml'
+# Choose key according to your local region
+#
+# key: enstso-2 code: Region
+#
 # Available from Nord Pool
 SE1: 10Y1001A1001A44P # SE1, Sweden
 SE2: 10Y1001A1001A45N # SE2, Swecen
@@ -9,10 +14,10 @@ DK1: 10YDK-1--------W # DK1, Denmark
 DK2: 10YDK-2--------M # DK2, Denmark
 NO1: 10YNO-1--------2 # NO1. Oslo
 NO2: 10YNO-2--------T # NO2, Kr.sand
-NO5: 10Y1001A1001A48H # NO5, Bergen
-NO6: 10YNO-3--------J # NO3, Molde
 NO3: 10YNO-3--------J # NO3, Tr.heim
 NO4: 10YNO-4--------9 # NO4, Trømsø
+NO5: 10Y1001A1001A48H # NO5, Bergen
+NO6: 10YNO-3--------J # NO3, Molde
 # Also awailable from Nord Pool
 EE: 10Y1001A1001A39I # EE, Estonia
 LV: 10YLV-1001A00074 # LV, Latvia
@@ -25,7 +30,7 @@ LU: 10Y1001A1001A82H # LU, Luxemburg
 FR: 10YFR-RTE------C # FR, France
 NL: 10YNL----------L # NL, Netherlands
 PL: 10YPL-AREA-----S # PL, Poland
-# Available only fro ENTSO-E
+# Available only from ENTSO-E
 AL: 10YAL-KESH-----5 # AL, Albania
 AM: 10Y1001A1001B004 # AM, Armenia
 AZ: 10Y1001A1001B05V # AZ, Azerbaijan
