@@ -9,16 +9,22 @@
       - [What you need](#what-you-need)
       - [Nice to have but not required](#nice-to-have-but-not-required)
   - [Installation](#installation)
+  <!--
   - [Adaptation for own local broker](#adaptation-for-own-local-broker)
+  -->
+  - [Elwiz configuration](#elwiz-configuration)
+  - [Elwiz chart configuration](#elwiz-chart-configuration)
   - [Setup of Pulse](#setup-of-pulse)
   - [AMS meter data](#ams-meter-data)
   - [Data from Pulse](#data-from-pulse)
   - [MQTT data from ElWiz](#mqtt-data-from-elwiz)
-  - [Data filtering](#data-filtering)
-  - [Signals to the program](#signals-to-the-program)
-  - [Control of Pulse](#control-of-pulse)
   - [Continuous operation](#continuous-operation)
+  - [Control of Pulse](#control-of-pulse)
   - [Home Assistant (HA) integration](#home-assistant-ha-integration)
+  <!--
+  - [Data filtering](#data-filtering)
+  -->
+  - [Signals to the program](#signals-to-the-program)
   - [References](#references)
 
 ## Intro
@@ -42,6 +48,7 @@ Users of **AMS meters** are billed per hour. The program **fetchprices.js** retr
 **elwiz-chart** is a chart program that is used to visualize the fluctuating price data fetched by the **fetchprices** program. The program is described in detail in [**elwiz-chart.md**](docs/elwiz-chart.md) document.
 
 ![elwiz-chart](docs/chart_light.png?raw=true)
+
 _An elwiz-chart example showing two days of prices_
 
 **ElWiz** is written in **node.js** (javascript) for Linux and it is easy to install and use. A configuration file is available for individual adjustments. Those who want to use it on **Mac** or **Windows** may need to make some minor changes to the program. This possibly applies to **signals** which are described further down.
@@ -54,7 +61,7 @@ Below is described what you need to install **ElWiz** and set up **Pulse**. You 
 
 - a **Tibber Pulse**
 - access to an **MQTT broker**
-- Some knowledge of **MQTT**
+- some knowledge of **MQTT**
 - be able to edit simple information in a text file
 
 #### Nice to have but not required
@@ -89,9 +96,10 @@ The following dependencies are thus installed
 * node-schedule
 * js-yaml
 ```
-
+<!--
 ## Adaptation for own local broker
-
+-->
+## ElWiz configuration
 The file **config.yaml.sample** is copied to **config.yaml**. If you install programs on the same machine as your local broker, you probably don't need to make any further changes in **config.yaml**. Otherwise, it will be necessary to enter the **IP address** and possibly the **username** and **password** of your own **MQTT broker**. The most important parameters in the configuration file look like this:
 
 ```yaml
@@ -186,6 +194,71 @@ It is worth noting the following:
 The program has "ready-made" integration for **Home Assistant** as configured. For other systems some configuration changes are likely needed.
 A plugin system is used to transform **Pulse** messages to other formats.
 
+## ElWiz chart configuration
+
+The **ElWiz chart** program has its own configuration file **chart-config.yaml**. This makes it possible to run the program along with **fethprices.js** without running **ElWiz**.
+The file **config.yaml.sample** is copied to **config.yaml**. 
+The default parameters should be okay unless you are runnung in a remote environment. If so, you will need to set the **chartConfig wsUrl** parameter to the IP address of your chart server (**server.js**). Furthermore, **currencyCode** and **languageCode** should be set according to your own currency and language. 
+
+```yaml
+---
+# The chart server configuration
+# Changes will need a server restart
+serverConfig:
+  debug: false
+  savePath: data
+  serverPort: 8321
+  wsServerPort: 8322
+  # MQTT params
+  # Replace with your own MQTT broker
+  mqttUrl: "mqtt:localhost:1883"
+  mqttOptions:
+    username:
+    password:
+
+  # Priceinfo topic
+  priceTopic: elwiz/prices
+  chartTopic: elwiz/chart
+  # Home Assistant
+  hassPublish: true
+  haBaseTopic: elwiz
+  haAnnounceTopic: homeassistant
+
+  # Factor for calculating green/red zones
+  # % added/subracted to/from average price
+  # It is permanent until changed here
+  fixedAverageOffset: 0.0
+  # Used for multiplying the value from the
+  # adjustLeftAvgOffset and adjustRightAvgOffset
+  # MQTT messages
+  adjustmentStepFactor: 1.0
+
+  # Change according to your own language/country
+  currencyCode: NOK
+
+# The chart web client configuration
+# Reload browser to activate changes
+chartConfig:
+  # Replace with IP address of server if running remote
+  # The port number needs to be
+  # equal to the "wsServerPort" above
+  wsUrl: "ws://localhost:8322/"
+
+  # Set this to "true" if you want
+  # dark mode on mobile devices
+  darkMode: false
+
+  # Set true if you want the Y axis to start at 0
+  yBeginAtZero: false
+  
+  # Web client debug
+  debug: false
+
+  # Change according to your own country
+  languageCode: nb-NO
+  currencyCode: NOK
+```
+
 ## Setup of Pulse
 
 The first step to connect **Pulse** to your own network is to force it into AP mode. By doing a hard reset, it will appear in the network as an access point.
@@ -262,41 +335,11 @@ Example of price data from Nord Pool:
 
 See separate documentation in **fetchprices.md**
 
-## Data filtering
 
-TODO...
+## Continuous operation
 
-## Signals to the program
-
-If you are a happy owner of Linux, you can use signals to control functions in **ElWiz**. In programs that process data, it is mandatory to capture e.g. **\<Ctrl C\>** or **kill**. The purpose is to save data before the program is killed. When the program is started, it is assigned a process ID (PID).
-This is printed to the console when the program starts and is used to send signals to the program. It can also be used to activate changes to **config.yaml** without restarting the application. When the program is started, this message is written to the console:
-
-```
-ElWi is performing, PID: 32512
-```
-
-In the program, signals are used, among other things, to turn debugging on and off. This is done using the signal **SIGUSR1**. From the command line it looks like this:
-
-```
-kill -USR1 12345
-```
-
-This turns debugging on if it is turned off, and off if it is turned on.
-
-Available signals:
-
-- **SIGHUP** - Reading in the file **config.yaml**
-- **SIGUSR1** - Turns debugging on or off
-- **SIGTERM** - Saves the file **power.json** before stopping the program
-- **SIGINT** - Saves the file **power.json** before stopping the program
-
-Note that **SIG** is removed from the command to send signals. For **SIGTERM** it looks like this:
-
-```
-kill -TERM 23456
-```
-
-**\<Ctrl C\>** sends **SIGINT** to the program
+A handy tool to use for programs that must be running around the clock is **PM2** https://pm2.keymetrics.io/
+With **PM2** you have control over stop, start, restart, automatic start after starting the PC/server, memory consumption, logging and much more. It's well worth the trouble to take a look.
 
 ## Control of Pulse
 
@@ -320,18 +363,30 @@ Debug: Update in progress
 Debug: Firmware update failed: -1
 ```
 
-## Continuous operation
-
-A handy tool to use for programs that must be running around the clock is **PM2** https://pm2.keymetrics.io/
-With **PM2** you have control over stop, start, restart, automatic start after starting the PC/server, memory consumption, logging and much more. It's well worth the trouble to take a look.
-
 ## Home Assistant (HA) integration
 
 **ElWiz** has complete auto discovery integration for **HA**. A prerequisite for this is that [Home Assistant MQTT Integration](https://www.home-assistant.io/integrations/mqtt/) is installed.
 
-When **ElWiz** starts up, the program will be "discovered" by **HA**'s **auto discovery** mechanism. This appears in the list of **Units** in **HA**. There **ElWiz** presents itself as **ElWiz Pulse Enabler**. In the panel **Energy**, **ElWiz** can then be registered as the main source of imported electricity.
+When **ElWiz** starts up, the program will be "discovered" by **HA**'s **auto discovery** mechanism. This appears in the list of **Devices** in **HA**. There **ElWiz** presents itself as **ElWiz**. In the **Energy panel**, the **MQTT lastMeterConsumption** message can then be registered as the main source of imported electricity.
 
 The integration with **HA** is described in a separate document (**coming**)
+<!--
+## Data filtering
+
+TODO...
+-->
+## Signals to the program
+
+In programs that process data, it is mandatory to capture e.g. **\<Ctrl C\>** or **kill**.
+This also happens when the program is run by **PM2** and using the **pm2 stop** command.
+The purpose is to save the program state before it is killed. 
+
+When the program is started, it is assigned a process ID (PID).
+This is printed to the console when the program starts and is used to send signals to the program. When the program is started, this message is written to the console:
+
+```
+ElWiz is performing, PID: 32512
+```
 
 ## References
 
