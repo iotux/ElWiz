@@ -82,10 +82,10 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
           db.sync();
           this.init();
           break;
-        case 'SIGUSR1':
-          this.debug = !this.debug;
-          console.log(`\nGot ${signal}, debug ${this.debug ? 'ON' : 'OFF'}`);
-          break;
+        //case 'SIGUSR1':
+        //  this.debug = !this.debug;
+        //  console.log(`\nGot ${signal}, debug ${this.debug ? 'ON' : 'OFF'}`);
+        //  break;
       }
     }
 

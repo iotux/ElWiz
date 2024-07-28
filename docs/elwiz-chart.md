@@ -2,7 +2,7 @@
 
 ![elwiz-chart](../docs/chart_and_panel.png?raw=true)
 
-**elwiz-chart** is the solution to keep track of fluctuating energy prices and take control over your energy usage. It is a bar chart with 48 bars representing 2 days of fluctuating price data. The source of the energy prices is the **Nord Pool** European energy market. 
+**elwiz-chart** is the solution to keep track of fluctuating energy prices and take control over your energy usage. It is a bar chart with hourly bars representing 2 days of fluctuating price data. The source of the energy prices is the **Nord Pool** European energy market. 
 
 The bars are either green or red, where green means an opportunity to save on engergy use. We can call it a **Green zone**. Green or red is determined by the price level, where the threshold is based on the average price during a day or adjusted by **MQTT** messages.
 
@@ -10,7 +10,7 @@ A sequence of green bars is an opportunity to plan the usage of your most energy
 
 The usefulness of this is easy to explain with an example. If you have two days where the first day has low prices and the second day prices are well abowe the first day's average price, you can increase the first day's green zone. Then you can do your laundry or charge your EV car during this green zone rather than wait to the next day.
 
-# elwiz-chart and Home Assistant
+## elwiz-chart and Home Assistant
 
 ### Say good bye to HACS (at least for energy prices)
 
