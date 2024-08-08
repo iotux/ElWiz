@@ -10,6 +10,10 @@ const config = loadYaml(configFile);
 
 const debug = config.amscalc.debug || false;
 
+const firstTick = config.amsFirstTick || '00:04';
+const lastTick = config.amsLastTick || '59:56';
+
+
 let len;
 let obj = {};
 let elements;
@@ -24,20 +28,29 @@ const listDecode = async function (msg) {
   elements = hex2Dec(msg.substr((index + 2), 2));
   const ts = getAmsTime(msg, 38);
   obj = {
+    listType: 'list1',
     timestamp: ts,
     hourIndex: parseInt(ts.substring(11, 13)),
   };
 
-  if (obj.timestamp.substr(14, 5) < '00:04') {
-    obj.isHourStart = obj.timestamp.substr(14, 5) < '00:04';
+  if (obj.timestamp.substr(14, 5) <= firstTick) {
+    obj.isHourStart = true;
+    if (obj.timestamp.substr(11, 2) === '00') {
+      obj.isDayStart = true;
+    }
   }
-  if (obj.timestamp.substr(14, 5) > '59:56') {
-    obj.isHourEnd = obj.timestamp.substr(14, 5) > '59:56';
+
+  if (obj.timestamp.substr(14, 5) > lastTick) {
+    obj.isHourEnd = true;
+    if (obj.timestamp.substr(11, 2) === '23') {
+      obj.isDayEnd = true;
+    }
   }
 
   // Process the elements based on their count
   if (elements === 1) {
     listType = 'list1';
+    //obj.listType = 'list1';
     obj.power = hex2Dec(msg.substr(index + 6, 8)) / 1000;
   }
 
@@ -60,6 +73,7 @@ const listDecode = async function (msg) {
 
   if (elements === 9 || elements === 14) {
     listType = 'list2';
+    obj.listType = 'list2';
     index += 0;
     obj.currentL1 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.voltagePhase1 = hex2Dec(msg.substr(index += 10, 8)) / 10;
@@ -67,6 +81,7 @@ const listDecode = async function (msg) {
 
   if (elements === 13 || elements === 18) {
     listType = 'list2';
+    obj.listType = 'list2';
     index += 0;
     obj.currentL1 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
     obj.currentL2 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
@@ -83,6 +98,7 @@ const listDecode = async function (msg) {
   // Datetime format: 2023-01-10T18:00:00
   if (elements === 14 || elements === 18) {
     listType = 'list3';
+    obj.listType = 'list3';
     obj.meterDate = getAmsTime(msg, index += 12);
     index += 14;
     obj.lastMeterConsumption = hex2Dec(msg.substr(index += 12, 8)) / 1000;
@@ -104,7 +120,7 @@ const listDecode = async function (msg) {
 const listHandler = async function (buf) {
   const hex = buf.toString('hex').toUpperCase();
   const listObject = await listDecode(hex);
-  const list = listType;  //result.list;
+  const list = obj.listType;  //result.list;
   if (debug) {
     if (list === 'list1') {
       event.emit('hex1', hex);

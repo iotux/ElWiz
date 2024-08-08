@@ -20,6 +20,15 @@ if (config.storage !== 'none') {
 const onPlugEvent1 = async function (obj) {
   // No prices for listtype 1
   obj = await mergePrices('list1', obj);
+
+  if (config.calculateCost && obj.isHourEnd !== undefined) {
+    try {
+      obj = await calculateCost('list1', obj);
+    } catch (error) {
+      console.log('onPlugEvent1 calling calculateCost', error);
+    }
+  }
+
   // Send to publish
   if (debug) {
     obj.cacheType = config.cacheType || 'file';
@@ -32,15 +41,13 @@ const onPlugEvent2 = async function (obj) {
   // Needed for HA cost calculation
   obj = await mergePrices('list2', obj);
 
-  //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-  if (config.calculateCost) {
+  if (config.calculateCost && (obj.isHourEnd !== undefined)) {
     try {
       obj = await calculateCost('list2', obj);
     } catch (error) {
       console.log('onPlugEvent2 calling calculateCost', error);
     }
   }
-  //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
   if (debug) {
     obj.cacheType = config.cacheType || 'file';

@@ -66,8 +66,8 @@ const hassAnnounce = async function () {
   announce = hassDevice('sensor', 'Consumption Today', 'consumption_today', 'energy', 'total', 'kWh', 'consumptionToday');
   await mqttClient.publish(`${announceTopic}/consumptionToday/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
-  announce = hassDevice('sensor', 'Consumption last hour', 'consumption_last_hour', 'energy', 'total', 'kWh', 'consumptionLastHour');
-  await mqttClient.publish(`${announceTopic}/consumptionLastHour/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
+  //announce = hassDevice('sensor', 'Consumption last hour', 'consumption_last_hour', 'energy', 'total', 'kWh', 'consumptionLastHour');
+  //await mqttClient.publish(`${announceTopic}/consumptionLastHour/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
   if (hasProduction) {
     announce = hassDevice('sensor', 'Last meter production', 'last_meter_production', 'energy', 'total_increasing', 'kWh', 'lastMeterProduction');
@@ -76,11 +76,11 @@ const hassAnnounce = async function () {
     announce = hassDevice('sensor', 'Production Current hour', 'production_current_hour', 'energy', 'total', 'kWh', 'productionCurrentHour');
     await mqttClient.publish(`${announceTopic}/productionCurrentHour/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
-    announce = hassDevice('sensor', 'Accumulated production today', 'accumulated_production', 'energy', 'total', 'kWh', 'accumulatedProduction');
-    await mqttClient.publish(`${announceTopic}/accumulatedProduction/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
+    announce = hassDevice('sensor', 'Production today', 'production_today', 'energy', 'total', 'kWh', 'productionToday');
+    await mqttClient.publish(`${announceTopic}/productionToday/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
-    announce = hassDevice('sensor', 'Production last hour', 'production_last_hour', 'energy', 'total', 'kWh', 'productionLastHour');
-    await mqttClient.publish(`${announceTopic}/productionLastHour/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
+    //announce = hassDevice('sensor', 'Production last hour', 'production_last_hour', 'energy', 'total', 'kWh', 'productionLastHour');
+    //await mqttClient.publish(`${announceTopic}/productionLastHour/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
   }
 
   announce = hassDevice('sensor', 'Top Hours Average', 'top_hours_average', 'energy', 'total', 'kWh', 'topHoursAverage');

@@ -1,9 +1,9 @@
 
 const MQTTClient = require("../mqtt/mqtt");
-const { format, formatISO } = require("date-fns");
+const { format, formatISO, nextDay } = require("date-fns");
 const configFile = "./config.yaml";
 // const { event } = require('../misc/misc.js')
-const { skewDays, loadYaml } = require("../misc/util.js");
+const { skewDays, loadYaml, isNewDay } = require("../misc/util.js");
 
 const config = loadYaml(configFile);
 const debug = config.mergeprices.debug || false;
@@ -159,37 +159,30 @@ async function getSummary(priceObject) {
  */
 async function mergePrices(list, obj) {
   const idx = obj.hourIndex;
-  if (obj.isHourEnd !== undefined) {
-    //obj.spotPrice = dayPrices.hourly[idx].spotPrice;
+  const today = obj.timestamp.substr(0, 10);
+
+  // isHourStart and isHourEnd can possibly be in list1 or list2
+  // it depends on the AMS meter timing
+  if (obj.isHourStart !== undefined && obj.isHourStart === true) {
+    if (obj.isDayStart !== undefined && obj.isDayStart === true) {
+      dayPrices = nextDayPrices;
+      nextDayAvailable = false;
+    }
+    obj.spotPrice = dayPrices.hourly[idx].spotPrice;
     obj.gridFixedPrice = dayPrices.hourly[idx].gridFixedPrice;
     obj.supplierFixedPrice = dayPrices.hourly[idx].supplierFixedPrice;
-    //obj.consumptionCurrentHour2 = obj.consumptionCurrentHour;
-    if (debug) console.log('List1: mergePrices', obj);
   }
 
-  if (list === "list1") {
-
-  }
-
-  if (list === "list2") {
+  // Needed for HA cost calculation
+  if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
     obj.spotPrice = dayPrices.hourly[idx].spotPrice;
-    if (debug) console.log('List2: mergePrices', obj);
+    obj.gridFixedPrice = dayPrices.hourly[idx].gridFixedPrice;
+    obj.supplierFixedPrice = dayPrices.hourly[idx].supplierFixedPrice;
   }
 
   if (list === "list3") {
     //const hourlyProperties = ['startTime', 'endTime', 'spotPrice', 'gridFixedPrice', 'supplierFixedPrice']; //, 'customerPrice'];
     //const dailyProperties = ['minPrice', 'maxPrice', 'avgPrice', 'peakPrice', 'offPeakPrice1', 'offPeakPrice2'];
-
-    let prevDayPrices = {};
-    if (obj.isNewDay) {
-      dayPrices = twoDaysData[1];
-      prevDayPrices = twoDaysData[0];
-      nextDayAvailable = false;
-      obj.currentSummary = await getSummary(dayPrices);
-      if (nextDayAvailable)
-        obj.nextDaySummary = await getSummary(nextDayPrices);
-    }
-
     obj.startTime = dayPrices.hourly[idx].startTime;
     obj.endTime = dayPrices.hourly[idx].endTime;
     obj.spotPrice = dayPrices.hourly[idx].spotPrice;
@@ -206,10 +199,9 @@ async function mergePrices(list, obj) {
     obj.spotBelowAverage = dayPrices.hourly[idx].spotPrice < obj.avgPrice ? 1 : 0;
 
     const hours = 7;
-    obj.cheapHours = await findCheapHours(dayPrices, hours);
+    //obj.cheapHours = await findCheapHours(dayPrices, hours);
     obj.pricesBelowAverage = await findPricesBelowAverage(dayPrices);
-    if (debug)
-      console.log("pricesBelowAverage", JSON.stringify(obj.pricesBelowAverage, null, 2));
+    //if (debug) console.log("pricesBelowAverage", JSON.stringify(obj.pricesBelowAverage, null, 2));
 
     if (nextDayAvailable) {
       obj.startTimeDay2 = nextDayPrices.hourly[idx].startTime;
@@ -225,12 +217,14 @@ async function mergePrices(list, obj) {
       obj.offPeakPrice1Day2 = nextDayPrices.daily.offPeakPrice1;
       obj.offPeakPrice2Day2 = nextDayPrices.daily.offPeakPrice2;
 
-      obj.cheapHoursNextDay = await findCheapHours(nextDayPrices, hours);
+      //obj.cheapHoursNextDay = await findCheapHours(nextDayPrices, hours);
       obj.pricesBelowAverageDay2 = await findPricesBelowAverage(nextDayPrices);
-      if (debug) console.log("pricesBelowAverageDay2", JSON.stringify(obj.pricesBelowAverageDay2, null, 2));
+      //if (debug) console.log("pricesBelowAverageDay2", JSON.stringify(obj.pricesBelowAverageDay2, null, 2));
     }
-    if (debug) console.log('List3: mergePrices:', obj);
   }
+
+  if (debug && (list !== 'list1' || obj.isHourStart !== undefined || obj.isHourEnd !== undefined))
+    console.log('mergePrices', JSON.stringify(obj, null, 2));
 
   return obj;
 }

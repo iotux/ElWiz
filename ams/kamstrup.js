@@ -13,6 +13,12 @@ const configFile = './config.yaml';
 const config = loadYaml(configFile);
 const debug = config.amscalc.debug || false;
 
+// As Kamstrup dosen't provide List1 packets, the following values may need asjusment
+// TODO: Add to config?
+const firstTick = config.amsFirstTick || '00:04';
+const lastTick = config.amsLastTick || '59:56';
+
+
 // Aidon constants
 const KAMSTRUP_CONSTANTS = {
   // It may be possible to remove '09060' from those starting with that pattern
@@ -60,28 +66,41 @@ async function listDecode(buf) {
   msg.data = buf;
 
   obj = {
-    listType: 'list1',
     data: {
+      listType: 'list1',
       // 2022-07-01T00:00:00
       timestamp: ts,
       hourIndex: parseInt(ts.substring(11, 13)),
     }
   };
 
+  if (obj.data.timestamp.substr(14, 5) < firstTick) {
+    obj.data.isHourStart = true;
+    if (obj.data.timestamp.substr(11, 2) === '00') {
+      obj.data.isDayStart = true;
+    }
+  }
+
+  if (obj.data.timestamp.substr(14, 5) > lastTick) {
+    obj.data.isHourEnd = true;
+    if (obj.data.timestamp.substr(11, 2) === '23') {
+      obj.data.isDayEnd = true;
+    }
+  }
+
   for (const key in KAMSTRUP_CONSTANTS) {
     const constant = KAMSTRUP_CONSTANTS[key];
     const dataIndex = hasData(msg.data, constant);
     if (dataIndex > -1) {
       switch (key) {
-        case 'LIST_2': obj.listType = 'list2'; break;
-        case 'LIST_3': obj.listType = 'list3'; break;
+        case 'LIST_2': obj.data.listType = 'list2'; break;
+        case 'LIST_3': obj.data.listType = 'list3'; break;
 
         case 'METER_TIMESTAMP':
           obj.data.timestamp = getAmsTime(msg.data, dataIndex);
           break;
         case 'METER_VERSION':
           obj.data.meterVersion = 'Kamstrup_' + hex2Ascii(msg.data.substr(dataIndex, 10));
-          //obj.listType = 'list2';
           break;
         case 'METER_ID':
           obj.data.meterID = hex2Ascii(msg.data.substr(dataIndex, 32));
@@ -124,7 +143,6 @@ async function listDecode(buf) {
           obj.data.isNewHour = obj.data.meterDate.substr(14, 2) === '00';
           obj.data.isNewDay = obj.data.meterDate.substr(11, 5) === '00:00';
           obj.data.isNewMonth = (obj.data.meterDate.substr(8, 2) === '01' && obj.data.isNewDay);
-          //obj.listType = 'list3';
           break;
         case 'LAST_METER_CONSUMPTION':
           obj.data.lastMeterConsumption = hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
@@ -145,10 +163,10 @@ async function listDecode(buf) {
   if (Object.getOwnPropertyNames(obj.data).length === 0) {
     console.error('Raw data packet exception : ', JSON.stringify(msg));
   }
-  if (obj.listType === 'list1') {
+  if (obj.data.listType === 'list1') {
     obj.data.isLastList1 = obj.data.timestamp.substr(14, 5) > '59:57';
   }
-  if (obj.listType === 'list2') {
+  if (obj.data.listType === 'list2') {
     obj.data.isLastList2 = obj.data.timestamp.substr(14, 5) > '59:45';
   }
 
@@ -163,7 +181,7 @@ async function listHandler(buf) {
   const hex = buf.toString('hex').toUpperCase();
   const result = await listDecode(hex);
   const listObject = result.data;
-  const list = result.listType;
+  const list = listObject.listType;
   if (debug) {
     if (list === 'list1') {
       event.emit('hex1', hex);
