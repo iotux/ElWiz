@@ -6,8 +6,8 @@ RUN apt-get update && apt-get install tzdata -y
 #    apt install less -y
 
 ENV TZ="Europe/Oslo"
-ENV HOST localhost
-ENV PORT 3000
+ENV HOST="localhost"
+ENV PORT=3000
 
 RUN npm install pm2 -g
 
