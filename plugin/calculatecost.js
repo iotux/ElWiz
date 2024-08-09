@@ -44,25 +44,25 @@ async function calcCost(obj, kWh) {
 */
 //calc: async function (list, obj) {
 async function calculateCost(list, obj) {
-  if (obj.isHourEnd !== undefined) {
+  if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
     obj.customerPrice = await getCustomerPrice(obj);
     obj.costLastHour = await calcCost(obj, await db.get('consumptionCurrentHour'));
     obj.rewardLastHour = parseFloat((gridKwhReward * await db.get('productionCurrentHour')).toFixed(4));
     delete (obj.gridFixedPrice);
     delete (obj.supplierFixedPrice);
 
-    if (obj.isDayEnd !== undefined) {
-      obj.accumulatedCost = 0;
-      obj.accumulatedReward = 0;
-      await db.set('accumulatedCost', 0);
-      await db.set('accumulatedReward', 0);
-    } else {
-      obj.accumulatedCost = await db.get('accumulatedCost') + obj.costLastHour;
-      obj.accumulatedReward = await db.get('accumulatedReward') + obj.rewardLastHour;
-      await db.set('accumulatedCost', obj.accumulatedCost);
-      await db.set('accumulatedReward', obj.accumulatedReward);
-    }
+    obj.accumulatedCost = await db.get('accumulatedCost') + obj.costLastHour;
+    obj.accumulatedReward = await db.get('accumulatedReward') + obj.rewardLastHour;
+    await db.set('accumulatedCost', obj.accumulatedCost);
+    await db.set('accumulatedReward', obj.accumulatedReward);
     //await db.sync();
+  }
+
+  if (obj.isDayStart !== undefined && obj.isDayStart === true) {
+    obj.accumulatedCost = 0;
+    obj.accumulatedReward = 0;
+    await db.set('accumulatedCost', 0);
+    await db.set('accumulatedReward', 0);
   }
 
   if (debug && (list !== 'list1' || obj.isHourEnd !== undefined))
