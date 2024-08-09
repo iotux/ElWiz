@@ -251,6 +251,7 @@ async function amsCalc(list, obj) {
   // For Kamstrup AMS meters this happens during List2
   // Real consumption and production iternal counters are realigned with AMS in List3
   if (obj.power !== undefined) {
+    // For Kaifa and possibly Aidon meters, this happens during List1 and List2
     await consumptionCounter.setEffect(obj.power);
     const consumptionCurrent = parseFloat((await consumptionCounter.getEnergy()).toFixed(decimals));
     // Fetch old values && add new consumption
@@ -264,6 +265,7 @@ async function amsCalc(list, obj) {
   }
 
   if (obj.powerProduction !== undefined) {
+    // For Kaifa meters, this happens during List2
     await productionCounter.setEffect(obj.powerProduction);
     const productionCurrent = parseFloat((await productionCounter.getEnergy()).toFixed(decimals));
     obj.lastMeterProduction = parseFloat((await db.get('lastMeterProduction') + productionCurrent).toFixed(decimals)) || 0;
@@ -275,14 +277,20 @@ async function amsCalc(list, obj) {
     //await db.sync();
   }
 
-  if (obj.isHourEnd !== undefined) {
+  if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
     // sortedHourlyConsumption not exposed by obj, but used by sortHourlyConsumption()
-    const sortedHourlyConsumption = await sortHourlyConsumption(obj.timestamp, obj.consumptionCurrentHour);
+    obj.sortedHourlyConsumption = await sortHourlyConsumption(obj.timestamp, obj.consumptionCurrentHour);
     obj.topConsumptionHours = await updateTopHours(obj.timestamp, obj.consumptionCurrentHour);
     obj.topHoursAverage = await getTopHoursAverage(obj.topConsumptionHours, topHoursCount);
-    await db.set('sortedHourlyConsumption', sortedHourlyConsumption);
+    await db.set('sortedHourlyConsumption', obj.sortedHourlyConsumption);
     await db.set('topConsumptionHours', obj.topConsumptionHours);
     await db.set('topHoursAverage', obj.topHoursAverage);
+    if (debug) {
+      console.log('sortedHourlyConsumption:');
+      console.table(obj.sortedHourlyConsumption);
+      console.log('topConsumptionHours:');
+      console.table(obj.topConsumptionHours);
+    }
   }
 
   if (list === 'list1') {
