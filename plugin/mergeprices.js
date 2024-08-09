@@ -105,30 +105,6 @@ function parseJsonSafely(message) {
   }
 }
 
-async function findCheapHours(priceObject, hourCount = 5) {
-  const prices = priceObject.hourly;
-  const filteredPrices = prices.map(
-    ({
-      startTime,
-      endTime,
-      spotPrice,
-      gridFixedPrice,
-      supplierFixedPrice,
-    }) => ({
-      hour: format(new Date(startTime), "HH"),
-      //ts: startTime,
-      spotPrice,
-      //fixedPrice: parseFloat((gridFixedPrice + supplierFixedPrice).toFixed(4)),
-    })
-  );
-  return filteredPrices
-    .sort((a, b) => a.spotPrice - b.spotPrice)
-    .slice(0, hourCount)
-    .sort((a, b) => a.hour - b.hour);
-  //return filteredPrices.sort((a, b) => a.spotPrice - b.spotPrice).slice(0, hourCount).sort((a, b) => a.timestamp - b.timestamp);
-  //return cheap; //filteredPrices.sort((a, b) => a.hour - b.hour);
-}
-
 async function findPricesBelowAverage(priceObject) {
   const prices = priceObject.hourly;
   const average = dayPrices.daily.avgPrice;
@@ -147,10 +123,6 @@ async function findPricesBelowAverage(priceObject) {
   //return filteredPrices;
 }
 
-async function getSummary(priceObject) {
-  return priceObject.daily;
-}
-
 /**
  * Merge price information from today and next day prices into an object
  * @param {string} list - The list identifier
@@ -159,7 +131,6 @@ async function getSummary(priceObject) {
  */
 async function mergePrices(list, obj) {
   const idx = obj.hourIndex;
-  const today = obj.timestamp.substr(0, 10);
 
   // isHourStart and isHourEnd can possibly be in list1 or list2
   // it depends on the AMS meter timing
@@ -168,40 +139,19 @@ async function mergePrices(list, obj) {
       dayPrices = nextDayPrices;
       nextDayAvailable = false;
     }
-    obj.spotPrice = dayPrices.hourly[idx].spotPrice;
-    obj.gridFixedPrice = dayPrices.hourly[idx].gridFixedPrice;
-    obj.supplierFixedPrice = dayPrices.hourly[idx].supplierFixedPrice;
-  }
-
-  // Needed for HA cost calculation
-  if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
-    obj.spotPrice = dayPrices.hourly[idx].spotPrice;
-    obj.gridFixedPrice = dayPrices.hourly[idx].gridFixedPrice;
-    obj.supplierFixedPrice = dayPrices.hourly[idx].supplierFixedPrice;
-  }
-
-  if (list === "list3") {
-    //const hourlyProperties = ['startTime', 'endTime', 'spotPrice', 'gridFixedPrice', 'supplierFixedPrice']; //, 'customerPrice'];
-    //const dailyProperties = ['minPrice', 'maxPrice', 'avgPrice', 'peakPrice', 'offPeakPrice1', 'offPeakPrice2'];
     obj.startTime = dayPrices.hourly[idx].startTime;
     obj.endTime = dayPrices.hourly[idx].endTime;
     obj.spotPrice = dayPrices.hourly[idx].spotPrice;
     obj.gridFixedPrice = dayPrices.hourly[idx].gridFixedPrice;
     obj.supplierFixedPrice = dayPrices.hourly[idx].supplierFixedPrice;
-
     obj.minPrice = dayPrices.daily.minPrice;
     obj.maxPrice = dayPrices.daily.maxPrice;
     obj.avgPrice = dayPrices.daily.avgPrice;
     obj.peakPrice = dayPrices.daily.peakPrice;
     obj.offPeakPrice1 = dayPrices.daily.offPeakPrice1;
     obj.offPeakPrice2 = dayPrices.daily.offPeakPrice2;
-
     obj.spotBelowAverage = dayPrices.hourly[idx].spotPrice < obj.avgPrice ? 1 : 0;
-
-    const hours = 7;
-    //obj.cheapHours = await findCheapHours(dayPrices, hours);
     obj.pricesBelowAverage = await findPricesBelowAverage(dayPrices);
-    //if (debug) console.log("pricesBelowAverage", JSON.stringify(obj.pricesBelowAverage, null, 2));
 
     if (nextDayAvailable) {
       obj.startTimeDay2 = nextDayPrices.hourly[idx].startTime;
@@ -216,11 +166,15 @@ async function mergePrices(list, obj) {
       obj.peakPriceDay2 = nextDayPrices.daily.peakPrice;
       obj.offPeakPrice1Day2 = nextDayPrices.daily.offPeakPrice1;
       obj.offPeakPrice2Day2 = nextDayPrices.daily.offPeakPrice2;
-
-      //obj.cheapHoursNextDay = await findCheapHours(nextDayPrices, hours);
       obj.pricesBelowAverageDay2 = await findPricesBelowAverage(nextDayPrices);
-      //if (debug) console.log("pricesBelowAverageDay2", JSON.stringify(obj.pricesBelowAverageDay2, null, 2));
     }
+  } // isHourStart
+
+  // Needed for HA cost calculation
+  if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
+    obj.spotPrice = dayPrices.hourly[idx].spotPrice;
+    obj.gridFixedPrice = dayPrices.hourly[idx].gridFixedPrice;
+    obj.supplierFixedPrice = dayPrices.hourly[idx].supplierFixedPrice;
   }
 
   if (debug && (list !== 'list1' || obj.isHourStart !== undefined || obj.isHourEnd !== undefined))
