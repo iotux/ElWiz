@@ -60,7 +60,9 @@ const mqttClient = new MQTTClient(mqttUrl, mqttOpts, 'hassPublish');
 
 let gridDayHourPrice;
 let gridNightHourPrice;
-let supplierPrice;
+
+let gridFixedPrice;
+let supplierFixedPrice;
 
 const runNodeSchedule = config.runNodeSchedule;
 const scheduleHours = config.scheduleHours;
@@ -196,7 +198,7 @@ async function getNordPoolPrices(dayOffset) {
           const price = rows[curHour].Columns[priceRegion].Value;
           const startTime = rows[curHour].StartTime;
           const endTime = rows[curHour].EndTime;
-          const gridPrice =
+          const floatingPrice =
             curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
           let spotPrice = price.toString().replace(/ /g, '').replace(/(\d),/g, '.$1') / 100;
           spotPrice += (spotPrice * spotVatPercent) / 100;
@@ -204,8 +206,11 @@ async function getNordPoolPrices(dayOffset) {
             startTime,
             endTime,
             spotPrice: parseFloat(spotPrice.toFixed(4)),
-            gridFixedPrice: parseFloat(gridPrice.toFixed(4)),
-            supplierFixedPrice: parseFloat(supplierPrice.toFixed(4)),
+            floatingPrice: floatingPrice,
+            // Merged grid and supplier prices into fixec price
+            //gridFixedPrice: gridFixedPrice,
+            //supplierFixedPrice: supplierFixedPrice,
+            fixedPrice: gridFixedPrice + supplierFixedPrice,
           };
           oneDayPrices.hourly.push(priceObj);
         }
@@ -279,7 +284,7 @@ async function getEntsoePrices(dayOffset) {
           };
 
           for (let curHour = 0; curHour <= 23; curHour++) {
-            const gridPrice = curHour >= dayHoursStart && curHour < dayHoursEnd
+            const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd
               ? gridDayHourPrice
               : gridNightHourPrice;
             let spotPrice = (realMeat.Point[curHour]['price.amount']._text * currencyRate) / 1000;
@@ -288,8 +293,8 @@ async function getEntsoePrices(dayOffset) {
               startTime: `${priceDate}T${addZero(curHour)}:00:00`,
               endTime: curHour === 23 ? `${nextDate}T00:00:00` : `${priceDate}T${addZero(curHour + 1)}:00:00`,
               spotPrice: parseFloat(spotPrice.toFixed(4)),
-              gridFixedPrice: parseFloat(gridPrice.toFixed(4)),
-              supplierFixedPrice: parseFloat(supplierPrice.toFixed(4)),
+              floatingPrice: floatingPrice,
+              fixedPrice: gridFixedPrice + supplierFixedPrice,
             };
             oneDayPrices.hourly.push(priceObj);
 
@@ -362,17 +367,22 @@ async function retireDays(offset) {
 }
 
 async function init() {
-  let price = gridDayPrice / 24;
-  price += gridMonthPrice / 720; // 30 x 24 is close enough;
-  gridNightHourPrice = price + energyNightPrice;
-  gridNightHourPrice += (gridNightHourPrice * gridVatPercent) / 100;
+  let nightPrice = energyNightPrice + (energyNightPrice * gridVatPercent) / 100;
+  gridNightHourPrice = parseFloat(nightPrice.toFixed(4));
 
-  gridDayHourPrice = price + energyDayPrice;
-  gridDayHourPrice += (gridDayHourPrice * gridVatPercent) / 100;
+  let dayPrice = energyDayPrice + (energyDayPrice * gridVatPercent) / 100;
+  gridDayHourPrice = parseFloat(dayPrice.toFixed(4));
 
-  supplierPrice = supplierDayPrice / 24;
-  supplierPrice += supplierMonthPrice / 720;
-  supplierPrice += (supplierPrice * supplierVatPercent) / 100;
+
+  let fixedPrice = gridDayPrice / 24;
+  fixedPrice += gridMonthPrice / 720;
+  fixedPrice += (fixedPrice * gridVatPercent) / 100;
+  gridFixedPrice = parseFloat(fixedPrice.toFixed(4));
+
+  fixedPrice = supplierDayPrice / 24;
+  fixedPrice += supplierMonthPrice / 720;
+  fixedPrice += (fixedPrice * supplierVatPercent) / 100;
+  supplierFixedPrice = parseFloat(fixedPrice.toFixed(4));
 }
 
 async function run() {

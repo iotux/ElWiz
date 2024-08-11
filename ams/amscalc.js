@@ -119,7 +119,7 @@ async function sortHourlyConsumption(currentDate, consumption) {
   // TODO: Check if the timeskew is correct with the current logic
   return sortedHours.concat({
     //time: getPreviousHour(currentDate).substring(0, 19),
-    time: currentDate.substring(0, 13) + ':00:00',
+    startTime: currentDate.substring(0, 13) + ':00:00',
     consumption: consumption
   }).sort((a, b) => b.consumption - a.consumption);
 }
@@ -147,13 +147,13 @@ async function updateTopHours(currentDate, consumption) {
   }
   const lastConsumption = {
     //time: getPreviousHour(currentDate).substring(0, 19),
-    time: currentDate.substring(0, 13) + ':00:00',
+    startTime: currentDate.substring(0, 13) + ':00:00',
     consumption: consumption
   }
   // Extract the date part of the lastConsumption time
-  const lastDate = lastConsumption.time.substring(0, 10);
+  const lastDate = lastConsumption.startTime.substring(0, 10);
   // Find the index of the element in topHours with the same date part
-  const indexToUpdate = topHours.findIndex(({ time }) => time.substring(0, 10) === lastDate);
+  const indexToUpdate = topHours.findIndex(({ startTime }) => startTime.substring(0, 10) === lastDate);
   // If an element is found and its consumption is smaller than lastConsumption
   if (indexToUpdate >= 0 && topHours[indexToUpdate].consumption < lastConsumption.consumption) {
     // Remove the element at indexToUpdate
@@ -277,6 +277,11 @@ async function amsCalc(list, obj) {
     //await db.sync();
   }
 
+  // Keep consuptionLastHour as a one-hour value for HA
+  if (obj.isHourStart !== undefined && obj.isHourStart === true) {
+    obj.consumptionLastHour = obj.consumptionCurrentHour;
+  }
+
   if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
     // sortedHourlyConsumption not exposed by obj, but used by sortHourlyConsumption()
     obj.sortedHourlyConsumption = await sortHourlyConsumption(obj.timestamp, obj.consumptionCurrentHour);
@@ -302,6 +307,7 @@ async function amsCalc(list, obj) {
     delete obj.meterVersion;
     delete obj.meterID;
     delete obj.meterModel;
+    // db.sync() is timed for now (misc/dbinit.js)
     //if (await db.get('isVirgin') === false) {
     //await db.sync();
     //}
@@ -324,7 +330,6 @@ async function amsCalc(list, obj) {
         console.log('amsCalc: Unicache:db', data);
       });
     }
-    //await db.sync();
   }
 
   if (debug && (list !== 'list1' || obj.isHourStart !== undefined || obj.isHourEnd !== undefined))

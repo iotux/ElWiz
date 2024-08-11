@@ -24,16 +24,14 @@ async function calcReward(obj, kWh) {
   return kWh * gridKwhReward;
 }
 
-async function getCustomerPrice(obj) {
-  let price = (obj.gridFixedPrice + obj.supplierFixedPrice);
-  price += (gridKwhPrice + supplierKwhPrice + energyTax);
-  return parseFloat(price.toFixed(4));
+async function getCustomerPrice(obj, kWh) {
+  const price = parseFloat((obj.spotPrice + obj.floatingPrice + obj.fixedPrice * kWh).toFixed(4));
+  return price;
 }
 
 async function calcCost(obj, kWh) {
-  let price = (obj.gridFixedPrice + obj.supplierFixedPrice);
-  price += (gridKwhPrice + supplierKwhPrice + energyTax) * kWh;
-  return parseFloat(price.toFixed(4));
+  const cost = parseFloat((obj.fixedPrice + obj.floatingPrice * kWh).toFixed(4));
+  return cost;
 }
 
 /**
@@ -45,9 +43,11 @@ async function calcCost(obj, kWh) {
 //calc: async function (list, obj) {
 async function calculateCost(list, obj) {
   if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
-    obj.customerPrice = await getCustomerPrice(obj);
-    obj.costLastHour = await calcCost(obj, await db.get('consumptionCurrentHour'));
-    obj.rewardLastHour = parseFloat((gridKwhReward * await db.get('productionCurrentHour')).toFixed(4));
+    const consumptionCurrentHour = await db.get('consumptionCurrentHour');
+    const productionCurrentHour = await db.get('productionCurrentHour');
+    //obj.customerPrice = await getCustomerPrice(obj, consumptionCurrentHour);
+    obj.costLastHour = await calcCost(obj, consumptionCurrentHour);
+    obj.rewardLastHour = parseFloat((gridKwhReward * productionCurrentHour).toFixed(4));
     delete (obj.gridFixedPrice);
     delete (obj.supplierFixedPrice);
 
@@ -65,7 +65,7 @@ async function calculateCost(list, obj) {
     await db.set('accumulatedReward', 0);
   }
 
-  if (debug && (list !== 'list1' || obj.isHourEnd !== undefined))
+  if (debug && (list !== 'list1' || obj.isHourStart !== undefined || obj.isHourEnd !== undefined))
     console.log('calculateCost', JSON.stringify(obj, null, 2));
 
   return obj;

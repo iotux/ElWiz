@@ -66,8 +66,9 @@ const hassAnnounce = async function () {
   announce = hassDevice('sensor', 'Consumption Today', 'consumption_today', 'energy', 'total', 'kWh', 'consumptionToday');
   await mqttClient.publish(`${announceTopic}/consumptionToday/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
-  //announce = hassDevice('sensor', 'Consumption last hour', 'consumption_last_hour', 'energy', 'total', 'kWh', 'consumptionLastHour');
-  //await mqttClient.publish(`${announceTopic}/consumptionLastHour/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
+  // Keeping this for one-hour consumption
+  announce = hassDevice('sensor', 'Consumption last hour', 'consumption_last_hour', 'energy', 'total', 'kWh', 'consumptionLastHour');
+  await mqttClient.publish(`${announceTopic}/consumptionLastHour/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
   if (hasProduction) {
     announce = hassDevice('sensor', 'Last meter production', 'last_meter_production', 'energy', 'total_increasing', 'kWh', 'lastMeterProduction');

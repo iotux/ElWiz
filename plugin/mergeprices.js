@@ -2,7 +2,6 @@
 const MQTTClient = require("../mqtt/mqtt");
 const { format, formatISO, nextDay } = require("date-fns");
 const configFile = "./config.yaml";
-// const { event } = require('../misc/misc.js')
 const { skewDays, loadYaml, isNewDay } = require("../misc/util.js");
 
 const config = loadYaml(configFile);
@@ -135,6 +134,7 @@ async function mergePrices(list, obj) {
   // isHourStart and isHourEnd can possibly be in list1 or list2
   // it depends on the AMS meter timing
   if (obj.isHourStart !== undefined && obj.isHourStart === true) {
+    //const kWh = obj.consumptionCurrentHour;
     if (obj.isDayStart !== undefined && obj.isDayStart === true) {
       dayPrices = nextDayPrices;
       nextDayAvailable = false;
@@ -142,8 +142,8 @@ async function mergePrices(list, obj) {
     obj.startTime = dayPrices.hourly[idx].startTime;
     obj.endTime = dayPrices.hourly[idx].endTime;
     obj.spotPrice = dayPrices.hourly[idx].spotPrice;
-    obj.gridFixedPrice = dayPrices.hourly[idx].gridFixedPrice;
-    obj.supplierFixedPrice = dayPrices.hourly[idx].supplierFixedPrice;
+    obj.floatingPrice = dayPrices.hourly[idx].floatingPrice;
+    obj.fixedPrice = dayPrices.hourly[idx].fixedPrice;
     obj.minPrice = dayPrices.daily.minPrice;
     obj.maxPrice = dayPrices.daily.maxPrice;
     obj.avgPrice = dayPrices.daily.avgPrice;
@@ -152,14 +152,12 @@ async function mergePrices(list, obj) {
     obj.offPeakPrice2 = dayPrices.daily.offPeakPrice2;
     obj.spotBelowAverage = dayPrices.hourly[idx].spotPrice < obj.avgPrice ? 1 : 0;
     obj.pricesBelowAverage = await findPricesBelowAverage(dayPrices);
-
     if (nextDayAvailable) {
       obj.startTimeDay2 = nextDayPrices.hourly[idx].startTime;
       obj.endTimeDay2 = nextDayPrices.hourly[idx].endTime;
       obj.spotPriceDay2 = nextDayPrices.hourly[idx].spotPrice;
-      obj.gridFixedPriceDay2 = nextDayPrices.hourly[idx].gridFixedPrice;
-      obj.supplierFixedPriceDay2 = nextDayPrices.hourly[idx].supplierFixedPrice;
-
+      obj.floatingPriceDay2 = nextDayPrices.hourly[idx].floatingPrice;
+      obj.fixedPriceDay2 = nextDayPrices.hourly[idx].fixedPrice;
       obj.minPriceDay2 = nextDayPrices.daily.minPrice;
       obj.maxPriceDay2 = nextDayPrices.daily.maxPrice;
       obj.avgPriceDay2 = nextDayPrices.daily.avgPrice;
@@ -173,8 +171,10 @@ async function mergePrices(list, obj) {
   // Needed for HA cost calculation
   if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
     obj.spotPrice = dayPrices.hourly[idx].spotPrice;
-    obj.gridFixedPrice = dayPrices.hourly[idx].gridFixedPrice;
-    obj.supplierFixedPrice = dayPrices.hourly[idx].supplierFixedPrice;
+    obj.floatingPrice = dayPrices.hourly[idx].floatingPrice;
+    obj.fixedPrice = dayPrices.hourly[idx].fixedPrice;
+    obj.customerPrice = parseFloat((obj.spotPrice + obj.floatingPrice + obj.fixedPrice / obj.consumptionCurrentHour).toFixed(4));
+    obj.testHourCost = obj.customerPrice * obj.consumptionCurrentHour;
   }
 
   if (debug && (list !== 'list1' || obj.isHourStart !== undefined || obj.isHourEnd !== undefined))
