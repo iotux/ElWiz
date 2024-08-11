@@ -277,12 +277,9 @@ async function amsCalc(list, obj) {
     //await db.sync();
   }
 
-  // Keep consuptionLastHour as a one-hour value for HA
-  if (obj.isHourStart !== undefined && obj.isHourStart === true) {
-    obj.consumptionLastHour = obj.consumptionCurrentHour;
-  }
-
   if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
+    // Keep consuptionLastHour as a one-hour value for HA
+    obj.consumptionLastHour = await db.get('consumptionCurrentHour');
     // sortedHourlyConsumption not exposed by obj, but used by sortHourlyConsumption()
     obj.sortedHourlyConsumption = await sortHourlyConsumption(obj.timestamp, obj.consumptionCurrentHour);
     obj.topConsumptionHours = await updateTopHours(obj.timestamp, obj.consumptionCurrentHour);
