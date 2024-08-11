@@ -174,7 +174,6 @@ async function mergePrices(list, obj) {
     obj.floatingPrice = dayPrices.hourly[idx].floatingPrice;
     obj.fixedPrice = dayPrices.hourly[idx].fixedPrice;
     obj.customerPrice = parseFloat((obj.spotPrice + obj.floatingPrice + obj.fixedPrice / obj.consumptionCurrentHour).toFixed(4));
-    obj.testHourCost = obj.customerPrice * obj.consumptionCurrentHour;
   }
 
   if (debug && (list !== 'list1' || obj.isHourStart !== undefined || obj.isHourEnd !== undefined))
