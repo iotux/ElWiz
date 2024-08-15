@@ -58,7 +58,7 @@ async function calculateCost(list, obj) {
     //await db.sync();
   }
 
-  if (obj.isDayStart !== undefined && obj.isDayStart === true) {
+  if (obj.isNewDay !== undefined && obj.isNewDay === true) {
     obj.accumulatedCost = 0;
     obj.accumulatedReward = 0;
     await db.set('accumulatedCost', 0);
