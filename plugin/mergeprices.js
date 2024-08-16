@@ -133,12 +133,14 @@ async function mergePrices(list, obj) {
 
   // isHourStart and isHourEnd can possibly be in list1 or list2
   // it depends on the AMS meter timing
-  if (obj.isNewHour !== undefined && obj.isNewHour === true) {
+  if (obj.isHourStart !== undefined && obj.isHourStart === true) {
     //const kWh = obj.consumptionCurrentHour;
-    if (obj.isNewDay !== undefined && obj.isNewDay === true) {
+
+    if (idx === 0 && nextDayAvailable) {
       dayPrices = nextDayPrices;
       nextDayAvailable = false;
     }
+
     obj.startTime = dayPrices.hourly[idx].startTime;
     obj.endTime = dayPrices.hourly[idx].endTime;
     obj.spotPrice = dayPrices.hourly[idx].spotPrice;
