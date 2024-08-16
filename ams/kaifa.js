@@ -10,7 +10,7 @@ const config = loadYaml(configFile);
 
 const debug = config.amscalc.debug || false;
 
-const firstTick = config.amsFirstTick || '00:04';
+//const firstTick = config.amsFirstTick || '00:04';
 const lastTick = config.amsLastTick || '59:56';
 
 
@@ -18,6 +18,9 @@ let len;
 let obj = {};
 let elements;
 let listType;
+
+let isHourStarted = false;
+
 /**
  * Decode the list message and extract relevant information
  * @param {string} msg - Hexadecimal message string to be decoded
@@ -25,24 +28,35 @@ let listType;
  */
 const listDecode = async function (msg) {
   let index = msg.indexOf('FF800000') + 8;
-  elements = hex2Dec(msg.substr((index + 2), 2));
+  const elements = hex2Dec(msg.substr((index + 2), 2));
   const ts = getAmsTime(msg, 38);
+  const hourIndex = parseInt(ts.substring(11, 13));
+  const minuteIndex = parseInt(ts.substring(14, 16));
+  const timeSubStr = ts.substring(14, 19);
+
   obj = {
     listType: 'list1',
     timestamp: ts,
-    hourIndex: parseInt(ts.substring(11, 13)),
+    hourIndex: hourIndex,
   };
 
-  if (obj.timestamp.substr(14, 5) <= firstTick) {
+  // Check if the current time is at the start of the hour
+  if (!isHourStarted && minuteIndex === 0) {
     obj.isHourStart = true;
-    if (obj.timestamp.substr(11, 2) === '00') {
+    isHourStarted = true;  // Mark that the start of the hour has been handled
+    if (obj.hourIndex === 0) {
       obj.isDayStart = true;
     }
   }
 
-  if (obj.timestamp.substr(14, 5) > lastTick) {
+  // Reset the isHourStarted flag when it's no longer the start of the hour
+  if (minuteIndex !== 0) {
+    isHourStarted = false;
+  }
+
+  if (timeSubStr > lastTick) {
     obj.isHourEnd = true;
-    if (obj.timestamp.substr(11, 2) === '23') {
+    if (hourIndex === 23) {
       obj.isDayEnd = true;
     }
   }
@@ -52,6 +66,7 @@ const listDecode = async function (msg) {
     listType = 'list1';
     //obj.listType = 'list1';
     obj.power = hex2Dec(msg.substr(index + 6, 8)) / 1000;
+    console.log('list1: ', obj);
   }
 
   if (elements >= 9) {
