@@ -13,11 +13,7 @@ const debug = config.amscalc.debug || false;
 //const firstTick = config.amsFirstTick || '00:04';
 const lastTick = config.amsLastTick || '59:56';
 
-
-let len;
 let obj = {};
-let elements;
-let listType;
 
 let isHourStarted = false;
 
@@ -28,7 +24,7 @@ let isHourStarted = false;
  */
 const listDecode = async function (msg) {
   let index = msg.indexOf('FF800000') + 8;
-  const elements = hex2Dec(msg.substr((index + 2), 2));
+  const elements = hex2Dec(msg.substring(index + 2, index + 4));
   const ts = getAmsTime(msg, 38);
   const hourIndex = parseInt(ts.substring(11, 13));
   const minuteIndex = parseInt(ts.substring(14, 16));
@@ -63,47 +59,39 @@ const listDecode = async function (msg) {
 
   // Process the elements based on their count
   if (elements === 1) {
-    listType = 'list1';
-    //obj.listType = 'list1';
-    obj.power = hex2Dec(msg.substr(index + 6, 8)) / 1000;
+    obj.power = hex2Dec(msg.substring(index + 6, index + 14)) / 1000;
     console.log('list1: ', obj);
-  }
-
-  if (elements >= 9) {
-    index = index + 6;
-    len = hex2Dec(msg.substr(index, 2)) * 2;
-    obj.meterVersion = hex2Ascii(msg.substr(index + 2, len));
+  } else if (elements >= 9) {
+    index += 6;
+    const len = hex2Dec(msg.substring(index, index + 2)) * 2;
+    obj.meterVersion = hex2Ascii(msg.substring(index + 2, index + 2 + len));
     index += 4 + len;
-    len = hex2Dec(msg.substr(index, 2)) * 2;
-    obj.meterID = hex2Ascii(msg.substr(index + 2, len));
-    index += 4 + len;
-    len = hex2Dec(msg.substr(index, 2)) * 2;
-    obj.meterModel = hex2Ascii(msg.substr(index + 2, len));
-    index += 4 + len;
-    obj.power = hex2Dec(msg.substr(index, 8)) / 1000;
-    obj.powerProduction = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.powerReactive = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.powerProductionReactive = hex2Dec(msg.substr(index += 10, 8)) / 1000;
+    const meterIdLen = hex2Dec(msg.substring(index, index + 2)) * 2;
+    obj.meterID = hex2Ascii(msg.substring(index + 2, index + 2 + meterIdLen));
+    index += 4 + meterIdLen;
+    const meterModelLen = hex2Dec(msg.substring(index, index + 2)) * 2;
+    obj.meterModel = hex2Ascii(msg.substring(index + 2, index + 2 + meterModelLen));
+    index += 4 + meterModelLen;
+    obj.power = hex2Dec(msg.substring(index, index + 8)) / 1000;
+    obj.powerProduction = hex2Dec(msg.substring(index + 10, index + 18)) / 1000;
+    obj.powerReactive = hex2Dec(msg.substring(index + 20, index + 28)) / 1000;
+    obj.powerProductionReactive = hex2Dec(msg.substring(index + 30, index + 38)) / 1000;
   }
 
   if (elements === 9 || elements === 14) {
-    listType = 'list2';
     obj.listType = 'list2';
-    index += 0;
-    obj.currentL1 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.voltagePhase1 = hex2Dec(msg.substr(index += 10, 8)) / 10;
+    obj.currentL1 = hex2Dec(msg.substring(index + 10, index + 18)) / 1000;
+    obj.voltagePhase1 = hex2Dec(msg.substring(index + 20, index + 28)) / 10;
   }
 
   if (elements === 13 || elements === 18) {
-    listType = 'list2';
     obj.listType = 'list2';
-    index += 0;
-    obj.currentL1 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.currentL2 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.currentL3 = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.voltagePhase1 = hex2Dec(msg.substr(index += 10, 8)) / 10;
-    obj.voltagePhase2 = hex2Dec(msg.substr(index += 10, 8)) / 10;
-    obj.voltagePhase3 = hex2Dec(msg.substr(index += 10, 8)) / 10;
+    obj.currentL1 = hex2Dec(msg.substring(index + 10, index + 18)) / 1000;
+    obj.currentL2 = hex2Dec(msg.substring(index + 20, index + 28)) / 1000;
+    obj.currentL3 = hex2Dec(msg.substring(index + 30, index + 38)) / 1000;
+    obj.voltagePhase1 = hex2Dec(msg.substring(index + 40, index + 48)) / 10;
+    obj.voltagePhase2 = hex2Dec(msg.substring(index + 50, index + 58)) / 10;
+    obj.voltagePhase3 = hex2Dec(msg.substring(index + 60, index + 68)) / 10;
 
     if (obj.voltagePhase2 === 0) {
       obj.voltagePhase2 = (Math.sqrt((obj.voltagePhase1 - obj.voltagePhase3 * 0.5) ** 2 + (obj.voltagePhase3 * 0.866) ** 2)).toFixed(0) * 1;
@@ -112,17 +100,16 @@ const listDecode = async function (msg) {
 
   // Datetime format: 2023-01-10T18:00:00
   if (elements === 14 || elements === 18) {
-    listType = 'list3';
     obj.listType = 'list3';
-    obj.meterDate = getAmsTime(msg, index += 12);
-    index += 14;
-    obj.lastMeterConsumption = hex2Dec(msg.substr(index += 12, 8)) / 1000;
-    obj.lastMeterProduction = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.lastMeterConsumptionReactive = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.lastMeterProductionReactive = hex2Dec(msg.substr(index += 10, 8)) / 1000;
-    obj.isNewHour = obj.meterDate.substr(14, 5) === '00:10';
-    obj.isNewDay = obj.meterDate.substr(11, 8) === '00:00:10';
-    obj.isNewMonth = (obj.meterDate.substr(8, 2) === '01' && obj.isNewDay);
+    obj.meterDate = getAmsTime(msg, index + 12);
+    index += 26;
+    obj.lastMeterConsumption = hex2Dec(msg.substring(index, index + 8)) / 1000;
+    obj.lastMeterProduction = hex2Dec(msg.substring(index + 10, index + 18)) / 1000;
+    obj.lastMeterConsumptionReactive = hex2Dec(msg.substring(index + 20, index + 28)) / 1000;
+    obj.lastMeterProductionReactive = hex2Dec(msg.substring(index + 30, index + 38)) / 1000;
+    obj.isNewHour = obj.meterDate.substring(14, 19) === '00:10';
+    obj.isNewDay = obj.meterDate.substring(11, 19) === '00:00:10';
+    obj.isNewMonth = (obj.meterDate.substring(8, 10) === '01' && obj.isNewDay);
   }
 
   return (obj);
@@ -135,7 +122,7 @@ const listDecode = async function (msg) {
 const listHandler = async function (buf) {
   const hex = buf.toString('hex').toUpperCase();
   const listObject = await listDecode(hex);
-  const list = obj.listType;  //result.list;
+  const list = listObject.listType;
   if (debug) {
     if (list === 'list1') {
       event.emit('hex1', hex);

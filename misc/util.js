@@ -135,13 +135,13 @@ function hasData(data, pattern) {
 }
 
 function getAmsTime(msg, index) {
-  const Y = hex2Dec(msg.substr(index, 4));
-  const M = hex2Dec(msg.substr(index += 4, 2)) - 1;
-  const D = hex2Dec(msg.substr(index += 2, 2));
-  const h = hex2Dec(msg.substr(index += 4, 2));
-  const m = hex2Dec(msg.substr(index += 2, 2));
-  const s = hex2Dec(msg.substr(index += 2, 2));
-  // return formatISO(new Date(Y, M, D, h, m, s), "yyyy-MM-dd'T'HH:mm:ss");
+  const Y = hex2Dec(msg.substring(index, index + 4));
+  const M = hex2Dec(msg.substring(index + 4, index + 6)) - 1;
+  const D = hex2Dec(msg.substring(index + 6, index + 8));
+  const h = hex2Dec(msg.substring(index + 10, index + 12));
+  const m = hex2Dec(msg.substring(index + 12, index + 14));
+  const s = hex2Dec(msg.substring(index + 14, index + 16));
+
   return formatISO(new Date(Y, M, D, h, m, s), { representation: 'complete' });
 }
 
