@@ -47,6 +47,8 @@ const KAMSTRUP_CONSTANTS = {
 
 let obj = {};
 
+let isHourStarted = false;
+
 /**
  * Converts a hexadecimal value to a decimal value with a sign.
  * @param {string} hex - The hexadecimal value to be converted.
@@ -74,16 +76,23 @@ async function listDecode(buf) {
     }
   };
 
-  if (obj.data.timestamp.substr(14, 5) < firstTick) {
+  // Check if the current time is at the start of the hour
+  if (!isHourStarted && minuteIndex === 0) {
     obj.data.isHourStart = true;
-    if (obj.data.timestamp.substr(11, 2) === '00') {
+    isHourStarted = true;  // Mark that the start of the hour has been handled
+    if (obj.data.hourIndex === 0) {
       obj.data.isDayStart = true;
     }
   }
 
-  if (obj.data.timestamp.substr(14, 5) > lastTick) {
+  // Reset the isHourStarted flag when it's no longer the start of the hour
+  if (minuteIndex !== 0) {
+    isHourStarted = false;
+  }
+
+  if (timeSubStr > lastTick) {
     obj.data.isHourEnd = true;
-    if (obj.data.timestamp.substr(11, 2) === '23') {
+    if (hourIndex === 23) {
       obj.data.isDayEnd = true;
     }
   }

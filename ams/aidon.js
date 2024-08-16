@@ -15,7 +15,6 @@ const configFile = './config.yaml';
 const config = loadYaml(configFile);
 const debug = config.amscalc.debug || false;
 
-const firstTick = config.amsFirstTick || '00:04';
 const lastTick = config.amsLastTick || '59:56';
 
 // Aidon constants
@@ -42,6 +41,8 @@ const AIDON_CONSTANTS = {
 
 let obj = {};
 
+let isHourStarted = false;
+
 /**
  * Converts a hexadecimal value to a decimal value with a sign.
  * @param {string} hex - The hexadecimal value to be converted.
@@ -57,29 +58,40 @@ function hex2DecSign(hex) {
 
 async function listDecode(buf) {
   let ts = getDateTime();
+  const hourIndex = parseInt(ts.substring(11, 13));
+  const minuteIndex = parseInt(ts.substring(14, 16));
+  const timeSubStr = ts.substring(14, 19);
+
   const msg = {};
   msg.data = buf;
 
+  // 2022-07-01T00:00:00
   obj = {
     data: {
       listType: 'list1',
-      // 2022-07-01T00:00:00
       timestamp: ts,
-      hourIndex: parseInt(ts.substring(11, 13)),
+      hourIndex: hourIndex,
     },
   };
 
-  if (obj.data.timestamp.substr(14, 5) < firstTick) {
-    obj.data.isHourStart = true;
-    if (obj.data.timestamp.substr(11, 2) === '00') {
-      obj.data.isDayStart = true;
+  // Check if the current time is at the start of the hour
+  if (!isHourStarted && minuteIndex === 0) {
+    obj.isHourStart = true;
+    isHourStarted = true;  // Mark that the start of the hour has been handled
+    if (obj.hourIndex === 0) {
+      obj.isDayStart = true;
     }
   }
 
-  if (obj.data.timestamp.substr(14, 5) > lastTick) {
-    obj.data.isHourEnd = true;
-    if (obj.data.timestamp.substr(11, 2) === '23') {
-      obj.data.isDayEnd = true;
+  // Reset the isHourStarted flag when it's no longer the start of the hour
+  if (minuteIndex !== 0) {
+    isHourStarted = false;
+  }
+
+  if (timeSubStr > lastTick) {
+    obj.isHourEnd = true;
+    if (hourIndex === 23) {
+      obj.isDayEnd = true;
     }
   }
 
