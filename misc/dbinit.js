@@ -13,7 +13,7 @@ const cacheOptions = {
   //cacheType: config.cacheType || 'file',
   cacheType: 'file',
   syncOnWrite: false,
-  syncInterval: 10, // seconds
+  //:wqsyncInterval: 10, // seconds
   savePath: config.savePath || './data',
   debug: cacheDebug
 };
