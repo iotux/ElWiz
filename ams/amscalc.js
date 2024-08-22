@@ -277,7 +277,7 @@ async function amsCalc(list, obj) {
     //await db.sync();
   }
 
-  if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
+  if (obj.isHourEnd !== undefined) {
     // Keep consuptionLastHour as a one-hour value for HA
     obj.consumptionLastHour = await db.get('consumptionCurrentHour');
     // sortedHourlyConsumption not exposed by obj, but used by sortHourlyConsumption()
@@ -301,13 +301,7 @@ async function amsCalc(list, obj) {
   }
 
   if (list === 'list2') {
-    delete obj.meterVersion;
-    delete obj.meterID;
-    delete obj.meterModel;
-    // db.sync() is timed for now (misc/dbinit.js)
-    //if (await db.get('isVirgin') === false) {
-    //await db.sync();
-    //}
+    await db.sync();
   }
 
   // Once every hour
@@ -327,6 +321,7 @@ async function amsCalc(list, obj) {
         console.log('amsCalc: Unicache:db', data);
       });
     }
+    await db.sync();
   }
 
   if (debug && (list !== 'list1' || obj.isHourStart !== undefined || obj.isHourEnd !== undefined))

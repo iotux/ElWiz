@@ -8,12 +8,11 @@ mqttOptions:
 # meterModel can be kaifa, aidon or kamstrup
 meterModel: kaifa
 
-# First and last seconds for hourly calculations
+# Last seconds for hourly calculations
 # The values are tested on kaifa and
 # will probably work for aidon AMS meters
 # Values may need adjustment for Kamstrup meters
-amsFirstTick: "00:00"
-amsLastTick: "59:56"
+amsLastMessage: "59:56"
 
 # Tibber Pulse listening topic
 topic: tibber
