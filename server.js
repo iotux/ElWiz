@@ -286,13 +286,13 @@ function saveThresholds(idx, threshold, where) {
       if (topic3 === 'adjustLeftAvgOffset') {
         const parsed = parseFloat(message.toString());
         leftAvgOffsetFactor = parsed === 0 ? 0 : leftAvgOffsetFactor += parsed * stepFactor;
-        saveThresholds(0, leftAvgOffsetFactor, 'Line 296');
+        saveThresholds(0, leftAvgOffsetFactor, 'adjustLeftDisp, topic3');
         updateAvgData(0, leftAvgOffsetFactor, 'adjustLeftDisp, topic3');
         wsSendAll('chart', 'update', chartData);
       } else if (topic3 === 'adjustRightAvgOffset') {
         const parsed = parseFloat(message.toString());
         rightAvgOffsetFactor = parsed === 0 ? 0 : rightAvgOffsetFactor += parsed * stepFactor;
-        saveThresholds(1, rightAvgOffsetFactor, 'Line 305');
+        saveThresholds(1, rightAvgOffsetFactor, 'adjustRightDisp, topic3');
         updateAvgData(24, rightAvgOffsetFactor, 'adjustRightDisp, topic3');
         wsSendAll('chart', 'update', chartData);
       }
@@ -396,9 +396,16 @@ function saveThresholds(idx, threshold, where) {
     startOffset = startOffset === 24 ? 24 : 0;
 
     chartData.forEach((h, idx) => {
+      //adjustment = h.avgPrice < 0 ? adjustment * -1 : adjustment;
+
       // Modify only 24 elements starting from the startOffset index
       if (idx >= startOffset && idx < startOffset + 24) {
-        h.thresholdLevel = parseFloat((h.avgPrice + h.avgPrice * fixedOffset / 100 + h.avgPrice * adjustment / 100).toFixed(4));
+        if (h.avgPrice > 0) {
+          h.thresholdLevel = parseFloat((h.avgPrice + h.avgPrice * fixedOffset / 100 + h.avgPrice * adjustment / 100).toFixed(4));
+        } else {
+          h.thresholdLevel = parseFloat((h.avgPrice - h.avgPrice * fixedOffset / 100 - h.avgPrice * adjustment / 100).toFixed(4));
+        }
+
         h.isBelowThreshold = h.spotPrice < h.thresholdLevel ? 1 : 0;
       }
     })
