@@ -390,31 +390,41 @@ function saveThresholds(idx, threshold, where) {
       console.log('updateChartData processed', chartData.length, 'entries.');
   } // updateChartData()
 
-  async function updateAvgData(startOffset, adjustment, from) {
+  async function updateAvgData(startOffset, stepFactor, from) {
     if (debug) console.log('updateAvgData invoked from', from);
+
     // Ensure startOffset is either 0 or 24
     startOffset = startOffset === 24 ? 24 : 0;
 
-    chartData.forEach((h, idx) => {
-      //adjustment = h.avgPrice < 0 ? adjustment * -1 : adjustment;
+    // Determine the vertical scale range
+    const minPrice = Math.min(...chartData.map(h => h.avgPrice));
+    const maxPrice = Math.max(...chartData.map(h => h.avgPrice));
+    const verticalRange = maxPrice - minPrice;
 
+    const adjustment = 1; // Adjust this value to control step height
+    const scaledAdjustment = stepFactor * adjustment; // Directly scale adjustment by stepFactor
+
+    chartData.forEach((h, idx) => {
       // Modify only 24 elements starting from the startOffset index
       if (idx >= startOffset && idx < startOffset + 24) {
         if (h.avgPrice > 0) {
-          h.thresholdLevel = parseFloat((h.avgPrice + h.avgPrice * fixedOffset / 100 + h.avgPrice * adjustment / 100).toFixed(4));
+          h.thresholdLevel = parseFloat((h.avgPrice + (scaledAdjustment / 100) * verticalRange).toFixed(4));
         } else {
-          h.thresholdLevel = parseFloat((h.avgPrice - h.avgPrice * fixedOffset / 100 - h.avgPrice * adjustment / 100).toFixed(4));
+          h.thresholdLevel = 0;
         }
 
         h.isBelowThreshold = h.spotPrice < h.thresholdLevel ? 1 : 0;
       }
-    })
+    });
 
     if (chartData[startOffset].startTime.slice(0, 10) === currentDate) {
       publishData(startOffset, 'updateAvgData');
       wsSendAll('chart', 'update', chartData);
     }
   }
+
+
+
 
   function publishData(startOffset, from) {
     if (debug)
