@@ -412,7 +412,6 @@ function saveThresholds(idx, threshold, where) {
         } else {
           h.thresholdLevel = 0;
         }
-
         h.isBelowThreshold = h.spotPrice < h.thresholdLevel ? 1 : 0;
       }
     });

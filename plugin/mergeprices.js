@@ -54,7 +54,7 @@ mqttClient.on("message", (topic, message) => {
       if (timerInit) {
         timerInit = false;
         setTimeout(() => {
-          if (twoDaysData.length === 2) {
+          if (twoDaysData.length > 2) {
             twoDaysData = twoDaysData.slice(-2);
           }
           if (twoDaysData.length > 1) {
