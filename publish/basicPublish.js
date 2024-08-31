@@ -1,34 +1,37 @@
 
-const yaml = require('yamljs');
 const { event } = require('../misc/misc.js');
-const Mqtt = require('../mqtt/mqtt.js');
+const { loadYaml } = require('../misc/util.js');
+const MQTTClient = require("../mqtt/mqtt");
 
 const configFile = './config.yaml';
-const config = yaml.load(configFile);
+const config = loadYaml(configFile);
 
-let client;
+const mqttUrl = config.mqttUrl || 'mqtt://localhost:1883';
+const mqttOpts = config.mqttOptions;
+const mqttClient = new MQTTClient(mqttUrl, mqttOpts, 'hassPublish');
+mqttClient.waitForConnect();
 
 /*
  * Publishes a plain basic object with only Pulse data
  * and possibly price and cost information
 */
-function onPubEvent1 (obj) {
+function onPubEvent1(obj) {
   delete obj.timestamp;
   obj.publisher = 'basicPublish';
   console.log('List1: basicPublish', obj);
   // forward(obj);
-  client.publish(config.pubTopic + '/list1', JSON.stringify(obj, !config.DEBUG, 2), config.list1Opts);
+  mqttClient.publish(config.pubTopic + '/list1', JSON.stringify(obj, !config.DEBUG, 2), config.list1Opts);
 }
 
-function onPubEvent2 (obj) {
+function onPubEvent2(obj) {
   console.log('List2: basicPublish', obj);
   // forward(obj);
-  client.publish(config.pubTopic + '/list2', JSON.stringify(obj, !config.DEBUG, 2), config.list2Opts);
+  mqttClient.publish(config.pubTopic + '/list2', JSON.stringify(obj, !config.DEBUG, 2), config.list2Opts);
 }
 
-function onPubEvent3 (obj) {
+function onPubEvent3(obj) {
   console.log('List3: basicPublish', obj);
-  client.publish(config.pubTopic + '/list3', JSON.stringify(obj, !config.DEBUG, 2), config.list3Opts);
+  mqttClient.publish(config.pubTopic + '/list3', JSON.stringify(obj, !config.DEBUG, 2), config.list3Opts);
   // forward(obj);
 }
 

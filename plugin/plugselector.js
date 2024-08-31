@@ -1,14 +1,13 @@
 
 // const { default: isThisHour } = require("date-fns/isThisHour/index");
-const yaml = require('yamljs');
 const configFile = './config.yaml';
 const { event } = require('../misc/misc.js');
+const { loadYaml } = require('../misc/util.js');
 //require('../storage/redisdb.js');
 const { mergePrices } = require('../plugin/mergeprices.js');
 const { calculateCost } = require('../plugin/calculatecost.js');
-const config = yaml.load(configFile);
-const debug = config.DEBUG || false;
-
+const config = loadYaml(configFile);
+const debug = config.plugselector.debug || false;
 const publisher = require('../publish/' + config.publisher + '.js');
 
 let storage;
@@ -20,6 +19,16 @@ if (config.storage !== 'none') {
 
 const onPlugEvent1 = async function (obj) {
   // No prices for listtype 1
+  obj = await mergePrices('list1', obj);
+
+  if (config.calculateCost && obj.isHourEnd !== undefined) {
+    try {
+      obj = await calculateCost('list1', obj);
+    } catch (error) {
+      console.log('onPlugEvent1 calling calculateCost', error);
+    }
+  }
+
   // Send to publish
   if (debug) {
     obj.cacheType = config.cacheType || 'file';
@@ -29,21 +38,16 @@ const onPlugEvent1 = async function (obj) {
 };
 
 const onPlugEvent2 = async function (obj) {
-  // No prices for listtype 2
-  // Send to publish
+  // Needed for HA cost calculation
   obj = await mergePrices('list2', obj);
 
-  //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-  /*
-  if (config.calculateCost) {
+  if (config.calculateCost && (obj.isHourEnd !== undefined)) {
     try {
       obj = await calculateCost('list2', obj);
     } catch (error) {
-      console.log('onPlugEvent3 calling calculateCost', error);
+      console.log('onPlugEvent2 calling calculateCost', error);
     }
   }
-  */
-  //xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
   if (debug) {
     obj.cacheType = config.cacheType || 'file';
@@ -67,6 +71,7 @@ const onPlugEvent3 = async function (obj) {
     } catch (error) {
       console.log('calling mergePrices', error);
     }
+
     if (config.calculateCost) {
       try {
         obj = await calculateCost('list3', obj);
@@ -74,6 +79,7 @@ const onPlugEvent3 = async function (obj) {
         console.log('onPlugEvent3 calling calculateCost', error);
       }
     }
+
   }
 
   if (debug) {

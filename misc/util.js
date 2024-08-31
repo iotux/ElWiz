@@ -1,3 +1,7 @@
+
+const fs = require('fs');
+const yaml = require('js-yaml');
+
 const { subHours, addHours, format, formatISO } = require('date-fns');
 
 const weekDays = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
@@ -131,13 +135,13 @@ function hasData(data, pattern) {
 }
 
 function getAmsTime(msg, index) {
-  const Y = hex2Dec(msg.substr(index, 4));
-  const M = hex2Dec(msg.substr(index += 4, 2)) - 1;
-  const D = hex2Dec(msg.substr(index += 2, 2));
-  const h = hex2Dec(msg.substr(index += 4, 2));
-  const m = hex2Dec(msg.substr(index += 2, 2));
-  const s = hex2Dec(msg.substr(index += 2, 2));
-  // return formatISO(new Date(Y, M, D, h, m, s), "yyyy-MM-dd'T'HH:mm:ss");
+  const Y = hex2Dec(msg.substring(index, index + 4));
+  const M = hex2Dec(msg.substring(index + 4, index + 6)) - 1;
+  const D = hex2Dec(msg.substring(index + 6, index + 8));
+  const h = hex2Dec(msg.substring(index + 10, index + 12));
+  const m = hex2Dec(msg.substring(index + 12, index + 14));
+  const s = hex2Dec(msg.substring(index + 14, index + 16));
+
   return formatISO(new Date(Y, M, D, h, m, s), { representation: 'complete' });
 }
 
@@ -151,6 +155,26 @@ function isNewDay(date) {
 }
 function isNewMonth(date) {
   return date.substr(8, 2) === '01' && date.substr(11, 8) === '00:00:10';
+}
+
+function getCurrencySymbol(symbol = 'EUR') {
+  let result = Intl.NumberFormat('eur', {
+    style: 'currency',
+    currency: symbol,
+    currencyDisplay: 'narrowSymbol',
+    maximumSignificantDigits: 1
+  }).format(0);
+  return result.replace(/0/, '').trim();
+}
+
+function loadYaml(configPath) {
+  try {
+    const fileContents = fs.readFileSync(configPath, 'utf8');
+    const data = yaml.load(fileContents);
+    return data;
+  } catch (error) {
+    console.error(`Error reading or parsing the YAML file: ${error}`);
+  }
 }
 
 module.exports = {
@@ -174,5 +198,7 @@ module.exports = {
   replaceChar,
   weekDay,
   upTime,
-  getMacAddress
+  getMacAddress,
+  getCurrencySymbol,
+  loadYaml
 };

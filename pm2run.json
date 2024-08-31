@@ -5,7 +5,7 @@
       "script": "./elwiz.js"
     },
     {
-      "name": "NP-prices",
+      "name": "Prices",
       "script": "./fetchprices.js"
     },
     {
@@ -13,8 +13,8 @@
       "script": "./fetch-eu-currencies.js"
     },
     {
-      "name": "EU-prices",
-      "script": "./fetch-eu-prices.js"
+      "name": "chart",
+      "script": "./server.js"
     }
   ]
 }

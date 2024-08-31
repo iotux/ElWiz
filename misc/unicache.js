@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 
 /**
  * Get properties from an object using a key string with dot notation.
@@ -38,7 +39,8 @@ module.exports = class UniCache {
    * @param {string} [options.savePath] - The path for file-based cache storage.
    * @param {number} [options.syncInterval] - The sync interval in seconds.
    * @param {boolean} [options.syncOnWrite] - Whether to sync on write.
-   * @param {boolean} [options.syncOnClose] - Whether to sync on .
+   * @param {boolean} [options.syncOnClose] - Whether to sync on.
+   * @param {boolean} [options.debug] - Whether to enable debug logging.
    */
   constructor(cacheName, options) {
     this.isConnected = false;
@@ -46,16 +48,17 @@ module.exports = class UniCache {
     this.cacheType = options.cacheType;
     this.savePath = options.savePath;
     this.cacheName = cacheName;
+    this.filePath = `${this.savePath}/${this.cacheName}.json`
     this.redisKey = undefined;
     this.dbPrefix = undefined;
+    this.debug = options.debug || false;
     this.options = options || {};
-    //console.log('UniCache options:', this.options);
 
     if (this.options.syncInterval) {
+      if (this.options.debug) {
+        console.log('UniCache sync interval:', this.options.syncInterval * 1000 || 86400000);
+      }
       setInterval(() => {
-        if (false) {
-          console.log('UniCache sync interval:', this.options.syncInterval * 1000 || 86400000);
-        }
         this.saveCacheData();
       }, (this.options.syncInterval * 1000 || 86400000));
     }
@@ -83,7 +86,8 @@ module.exports = class UniCache {
           },
         });
         this.client.on("error", (err) => {
-          this.isConnected = false; console.log('Redis error:', err);
+          this.isConnected = false;
+          console.error('Redis error:', err);
         });
         this.client.on('connect', () => {
           if (this.client.get(this.redisKey) !== null) {
@@ -96,13 +100,33 @@ module.exports = class UniCache {
       if (!fs.existsSync(this.savePath)) {
         fs.mkdirSync(this.savePath, { recursive: true });
       }
-      if (this.cacheName !== null)
-        this.filePath = this.savePath + '/' + this.cacheName + '.json';
       if (fs.existsSync(this.filePath)) {
         this.fetchCacheData();
       }
     }
+    if (this.options.debug) {
+      console.log('UniCache created:', this.cacheName);
+      console.log('UniCache options:', this.options);
+    }
   } // Constructor
+
+  async existsPath(path) {
+    try {
+      await fs.access(path);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async existsFile(file) {
+    try {
+      await fs.promises.access(file);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
 
   /**
    * Returns a Promise that resolves with a boolean indicating whether the
@@ -176,10 +200,10 @@ module.exports = class UniCache {
       if (this.cacheType === 'redis') {
         //await this.ensureRedisConnection();
         data = await JSON.parse(await this.client.get(this.redisKey));
-        console.log('UniCache: Fetched data from Redis:', this.redisKey);
+        if (this.options.debug) console.log('UniCache: Fetched data from Redis:', this.redisKey);
       } else {
         data = await JSON.parse(fs.readFileSync(this.filePath));
-        console.log('UniCache: fetched data from file:', this.filePath);
+        if (this.options.debug) console.log('UniCache: fetched data from file:', this.filePath);
       }
       if (typeof data === 'object') {
         this.data = data;
@@ -197,11 +221,11 @@ module.exports = class UniCache {
     if (this.cacheType === 'redis') {
       //await this.ensureRedisConnection();
       await this.client.set(this.redisKey, JSON.stringify(this.data));
-      console.log('Unicache: saved to Redis:', this.redisKey);
+      if (this.options.debug) console.log('Unicache: saved to Redis:', this.redisKey);
     } else {
       this.filePath = this.savePath + '/' + this.cacheName + '.json';
       fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf-8');
-      console.log('Unicache: saved to file:', this.filePath);
+      if (this.options.debug) console.log('Unicache: saved to file:', this.filePath);
     }
   }
 
@@ -267,7 +291,7 @@ module.exports = class UniCache {
  * @return {string} The file name with the provided key.
  */
   async fileName(key) {
-    return this.savePath + '/' + key + '.json';
+    return `${this.savePath}/${key}.json`;
   }
 
   /**
@@ -341,10 +365,10 @@ module.exports = class UniCache {
     if (Object.keys(this.data).length === 0) {
       await this.fetchCacheData();
     } else {
-      console.log('UniCache: retrieved from memory');
+      if (this.options.debug) console.log('UniCache: retrieved from memory');
       return this.data;
     }
-    console.log('UniCache: retrieved from cache');
+    if (this.options.debug) console.log('UniCache: retrieved from cache');
     return this.data;
   }
 
@@ -394,7 +418,7 @@ module.exports = class UniCache {
     } else {
       if (Object.keys(this.data).length === 0) {
         await this.fetchCacheData();
-        console.log('Object fetched from cache');
+        if (this.options.debug) console.log('Object fetched from cache');
       }
     }
     return this.data;
@@ -432,7 +456,7 @@ module.exports = class UniCache {
       let keys = [];
       // unfortunately it's not possible to use
       // filename globbing on a directory search
-      console.log('dbKeys', this.savePath)
+      if (this.options.debug) console.log('dbKeys', this.savePath)
       const files = fs.readdirSync(this.savePath + '/');
       // returns a list of filenames without the extension
       files.forEach((file) => {
@@ -450,15 +474,43 @@ module.exports = class UniCache {
    * @param {string} key - the key to check for object existence
    * @return {Promise<boolean>} a promise that resolves to a boolean indicating if the object exists
    */
+  async xexistsObject(key) {
+    if (key === this.redisKey)
+      return true
+    //return this.data;
+    try {
+      if (this.cacheType === 'redis') {
+        //await this.ensureRedisConnection();
+        const keys = await this.client.keys(key);
+        return keys.length > 0;
+      } else {
+        Promise.resolve(this.fileName(key))
+          .then(function (name) {
+            if (this.options.debug) console.log('Next day', name)
+            return fs.existsSync(name, 'utf-8');
+          })
+      }
+    } catch (err) {
+      console.log(err)
+    }
+  }
+
   async existsObject(key) {
-    //if (key === this.redisKey)
-    //  return this.data;
-    if (this.cacheType === 'redis') {
-      //await this.ensureRedisConnection();
-      const keys = await this.client.keys(key);
-      return keys.length > 0;
-    } else {
-      return fs.existsSync(this.fileName(key));
+    if (key === this.redisKey) {
+      if (this.options.debug) console.log('Key matches redisKey:', key);
+      return true;
+    }
+    try {
+      if (this.cacheType === 'redis') {
+        const keys = await this.client.keys(key);
+        return keys.length > 0;
+      } else {
+        const fileName = await this.fileName(key);
+        return fs.existsSync(fileName);
+      }
+    } catch (err) {
+      console.error(`Error checking existence of object with key ${key}:`, err);
+      return false;
     }
   }
 
@@ -505,11 +557,18 @@ module.exports = class UniCache {
     }
     this.redisKey = key;
     try {
+      let data;
       if (this.cacheType === 'redis') {
         //await this.ensureRedisConnection();
         return JSON.parse(await this.client.get(key));
       } else {
-        return JSON.parse(fs.readFileSync(this.fileName(key), 'utf-8'));
+        const fileName = await this.fileName(key);
+        data = await JSON.parse(fs.readFileSync(fileName));
+      }
+      if (typeof data === 'object') {
+        this.data = data;
+        this.memSaved = true;
+        return this.data;
       }
     } catch (err) {
       this.redisKey = false;
@@ -529,12 +588,13 @@ module.exports = class UniCache {
     if (await this.existsObject(key)) {
       if (this.cacheType === 'redis') {
         await this.client.del(key);
-        console.log('UniCache: deleted:', key);
+        if (this.options.debug) console.log('UniCache: deleted:', key);
       } else {
         fs.unlinkSync(await this.fileName(key));
-        console.log('UniCache: deleted:', this.fileName(key));
+        if (this.options.debug) console.log('UniCache: deleted:', this.fileName(key));
       }
       this.memSaved = false;
     }
   }
 };
+

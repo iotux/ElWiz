@@ -1,33 +1,35 @@
 #!/usr/bin/env node
 
-'use strict';
+"use strict";
 
-const fs = require('fs');
-const yaml = require('yamljs');
-const convert = require('xml-js');
-const request = require('axios');
-const { format } = require('date-fns');
-const { skewDays } = require('./misc/util');
-const UniCache = require('./misc/unicache');
-const config = yaml.load('config.yaml');
+const fs = require("fs");
+const convert = require("xml-js");
+const request = require("axios");
+const { format } = require("date-fns");
+const { skewDays, loadYaml } = require("./misc/util");
+const UniCache = require("./misc/unicache");
 
-const savePath = config.currencyFilePath || './data/currencies';
+const config = loadYaml('./config.yaml');
+const savePath = config.currencyFilePath || "./data/currencies";
 const debug = config.DEBUG;
-const cacheType = config.cacheType || 'file';
+const cacheType = config.cacheType || "file";
 
-const namePrefix = 'currencies-';
-const url = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml';
+const namePrefix = "currencies-";
+const url =
+  config.currencyUrl ||
+  "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
+console.log(url);
 const keepDays = config.keepDays || 7;
 
 const runNodeSchedule = config.runNodeSchedule || true;
 // Currency rates are available around 16:00 hours
 const scheduleHours = config.scheduleHours;
-const scheduleMinutes = config.scheduleMinutes;
+const scheduleMinutes = config.scheduleEuMinutes;
 
 let schedule;
 let runSchedule;
 if (runNodeSchedule) {
-  schedule = require('node-schedule');
+  schedule = require("node-schedule");
   runSchedule = new schedule.RecurrenceRule();
   runSchedule.hour = scheduleHours;
   runSchedule.minute = scheduleMinutes;
@@ -45,10 +47,10 @@ const currencyDb = new UniCache(cacheName, DB_OPTIONS);
 
 const options = {
   headers: {
-    accept: 'application/xml',
-    'Content-Type': 'text/xml'
+    accept: "application/xml",
+    "Content-Type": "text/xml",
   },
-  method: 'GET'
+  method: "GET",
 };
 
 function getEuroRates(cur) {
@@ -56,35 +58,37 @@ function getEuroRates(cur) {
   for (let i = 0; i < cur.length; i++) {
     obj[cur[i]._attributes.currency] = cur[i]._attributes.rate * 1;
   }
+  obj["EUR"] = 1;
   return obj;
 }
+
 async function getCurrencies() {
   retireDays(keepDays);
 
   request(url, options)
     .then(function (body) {
       const result = convert.xml2js(body.data, { compact: true, spaces: 4 });
-      const root = result['gesmes:Envelope'].Cube.Cube;
+      const root = result["gesmes:Envelope"].Cube.Cube;
       const obj = {
-        status: 'OK',
+        status: "OK",
         date: root._attributes.time,
-        base: 'EUR',
-        rates: getEuroRates(root.Cube)
+        base: "EUR",
+        rates: getEuroRates(root.Cube),
       };
 
       //currencyDb.createObject(`${DB_PREFIX}latest`, obj);
       currencyDb.init(obj);
-      console.log('Currencies stored as', `${DB_PREFIX}latest`);
+      console.log("Currencies stored as", `${DB_PREFIX}latest`);
       currencyDb.createObject(`${DB_PREFIX}${obj.date}`, obj);
-      console.log('Currencies stored as', `${DB_PREFIX}${obj.date}`);
+      console.log("Currencies stored as", `${DB_PREFIX}${obj.date}`);
       if (debug) {
         console.log(JSON.stringify(obj, null, 2));
       }
     })
     .catch(function (err) {
       if (err.response) {
-        console.log('Error:', err.response.status, err.response.statusText);
-        console.log('Headers:', err.response.headers);
+        console.log("Error:", err.response.status, err.response.statusText);
+        console.log("Headers:", err.response.headers);
       }
     });
 }
@@ -93,7 +97,7 @@ async function retireDays(offset) {
   offset *= -1;
   const retireDate = skewDays(offset);
   const keys = await currencyDb.dbKeys(`${DB_PREFIX}${retireDate}'*'`);
-  console.log('Retiring', keys);
+  console.log("Retiring", keys);
   keys.forEach(async (key) => {
     if (key <= `${DB_PREFIX}${retireDate}`) {
       await currencyDb.deleteObject(key);
@@ -102,7 +106,7 @@ async function retireDays(offset) {
 }
 
 if (runNodeSchedule) {
-  console.log('Fetch currency rates scheduling started..');
+  console.log("Fetch currency rates scheduling started..");
   schedule.scheduleJob(runSchedule, getCurrencies);
 }
 

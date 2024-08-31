@@ -1,95 +1,87 @@
-
-const yaml = require('yamljs');
 const mqtt = require('mqtt');
 
-const configFile = './config.yaml';
+class MQTTClient {
+  constructor(brokerUrl, mqttOptions = {}, caller = null) {
+    this.brokerUrl = brokerUrl;
+    this.mqttOptions = mqttOptions;
+    this.caller = caller;
+    this.connected = false;
+    this.onConnectResolve = null;
 
-/*
- *
- *
- *
-*/
-
-let config;
-try {
-  config = yaml.load(configFile);
-} catch (err) {
-  console.error('Error loading config.yaml:', err.message);
-  process.exit(1);
-}
-
-// const requiredConfigKeys = ['mqttBroker', 'brokerPort', 'userName', 'password', 'pubNotice', 'willMessage'];
-const requiredConfigKeys = ['mqttBroker', 'brokerPort', 'pubNotice', 'willMessage'];
-for (const key of requiredConfigKeys) {
-  if (!config.hasOwnProperty(key) || config[key] === null) {
-    console.error(`Missing configuration value: ${key}`);
-    console.error('Edit your "config.yaml" file');
-    process.exit(1);
+    this.client = this.init();
   }
-}
 
-const MQTT = {
-  virgin: true,
-  client: undefined,
-  broker: undefined,
-  connected: false,
-  mqttOptions: {},
+  init() {
+    this.client = mqtt.connect(this.brokerUrl, this.mqttOptions);
 
-  isConnected: function () {
-    return this.connected;
-  },
-
-  init: function () {
-    if (this.virgin) {
-      this.virgin = false;
-
-      if (config.mqttBroker === null) {
-        console.log('\nBroker IP address or hostname missing');
-        console.log('Edit your "config.yaml" file\n');
+    this.client.on('error', (err) => {
+      if (err.errno === 'ENOTFOUND') {
+        console.log('\nNot connected to broker');
+        console.log('Check your configuration\n');
         process.exit(0);
+      } else {
+        console.log('Client error: ', err);
       }
+    });
 
-      this.broker = config.mqttBroker + ':' + config.brokerPort;
-      this.mqttOptions = {
-        username: config.userName,
-        password: config.password,
-        will: {
-          topic: config.pubNotice,
-          payload: config.willMessage
-        }
-      };
+    this.client.on('close', () => {
+      this.connected = false;
+      console.log(`Disconnected from ${this.brokerUrl} Attempting to reconnect...`);
+      this.client.reconnect();
+    });
 
-      this.client = mqtt.connect('mqtt://' + this.broker, this.mqttOptions);
+    this.client.on('connect', () => {
+      this.connected = true;
+      if (this.caller === null) {
+        console.log(`Connected to ${this.brokerUrl}`);
+      } else {
+        console.log(`Connected to ${this.brokerUrl} from ${this.caller}`);
+      }
+      if (this.onConnectResolve) {
+        this.onConnectResolve();
+      }
+    });
 
-      this.client.on('error', function (err) {
-        if (err.errno === 'ENOTFOUND') {
-          console.log('\nNot connectd to broker');
-          console.log('Check your "config.yaml" file\n');
-          process.exit(0);
-        } else { console.log('Client error: ', err); }
-      });
-
-      this.client.on('close', () => {
-        console.log('Disconnected from the MQTT broker. Attempting to reconnect...');
-        this.client.reconnect();
-      });
-
-      this.client.on('connect', () => {
-        console.log('Connected to MQTT broker...');
-        this.connected = true;
-      });
-
-    }
-  },
-
-  mqttClient: function () {
-    this.init();
-    if (this.client !== undefined) {
-      return this.client;
-    } else {
-      console.log('Check your "config.yaml" file\n');
-    }
+    return this.client;
   }
-};
 
-module.exports = MQTT;
+  async waitForConnect() {
+    return new Promise((resolve) => {
+      if (this.connected) {
+        resolve();
+      } else {
+        this.onConnectResolve = resolve;
+      }
+    });
+  }
+
+  publish(topic, message, options) {
+    return new Promise((resolve, reject) => {
+      this.client.publish(topic, message, options, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  subscribe(topic, options) {
+    return new Promise((resolve, reject) => {
+      this.client.subscribe(topic, options, (err, granted) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(granted);
+        }
+      });
+    });
+  }
+
+  on(event, callback) {
+    this.client.on(event, callback);
+  }
+}
+
+module.exports = MQTTClient;

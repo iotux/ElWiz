@@ -1,141 +1,124 @@
-const yaml = require('yamljs');
-const Mqtt = require('../mqtt/mqtt.js');
-const { format } = require('date-fns');
-const configFile = './config.yaml';
-// const { event } = require('../misc/misc.js')
-const { skewDays } = require('../misc/util.js');
 
-const config = yaml.load(configFile);
-const priceTopic = config.priceTopic || 'elwiz/prices';
+const MQTTClient = require("../mqtt/mqtt");
+const { format, formatISO, nextDay } = require("date-fns");
+const configFile = "./config.yaml";
+const { skewDays, loadYaml, isNewDay } = require("../misc/util.js");
 
-const mqttClient = Mqtt.mqttClient();
+const config = loadYaml(configFile);
+const debug = config.mergeprices.debug || false;
+
+const priceTopic = config.priceTopic || "elwiz/prices";
+
+const mqttUrl = config.mqttUrl || 'mqtt://localhost:1883';
+const mqttOpts = config.mqttOptions;
+const mqttClient = new MQTTClient(mqttUrl, mqttOpts, 'mergePrices');
+mqttClient.waitForConnect();
 
 let prevDayPrices = {};
 let dayPrices = {};
 let nextDayPrices = {};
-let prevDayH23 = {};
-let todayH23 = {};
-let hourlyPrice = {};
-let nextDayHourlyPrice = {};
+
+let twoDaysData = [];
+let timerInit = true;
+
 let nextDayAvailable = false;
 
-mqttClient.on('connect', () => {
-  mqttClient.subscribe(priceTopic + '/#', (err) => {
-    if (err) {
-      console.log('Subscription error');
-    }
-  });
+mqttClient.subscribe(priceTopic + "/#", (err) => {
+  if (err) {
+    console.log("mergePrices: Subscription error");
+  }
 });
 
-mqttClient.on('message', (topic, message) => {
-  const yesterday = skewDays(-1);
+mqttClient.on("message", (topic, message) => {
   const today = skewDays(0);
-  const tomorrow = skewDays(1);
-  const [topic1, topic2, date] = topic.split('/');
-  if (topic1 + '/' + topic2 === priceTopic) {
-    if (date === yesterday) {
-      prevDayPrices = JSON.parse(message.toString());
-      prevDayH23 = prevDayPrices.hourly[23];
-    } else if (date === today) {
-      nextDayAvailable = false;
-      dayPrices = JSON.parse(message.toString());
-      todayH23 = dayPrices.hourly[23];
-      hourlyPrice = [prevDayH23].concat(dayPrices.hourly).slice(0, 24)
-      // If today's price date is present, nextDayPrices
-      // are not available yet, so set them equal to dayPrices
-      //!!!!!!!!!!!!!!!
-      nextDayPrices = JSON.parse(JSON.stringify(dayPrices));
-      nextDayHourlyPrice = [todayH23].concat(nextDayPrices.hourly).slice(0, 24)
-      // Update the last hour price
-    } else if (date === tomorrow) {
-      nextDayAvailable = true;
-      nextDayPrices = JSON.parse(message.toString());
-      todayH23 = dayPrices.hourly[23];
-      //nextDayHourlyPrice = skewPrices(nextDayPrices, todayH23);
-      nextDayHourlyPrice = [todayH23].concat(nextDayPrices.hourly).slice(0, 24)
+  const [topic1, topic2, topic3] = topic.split("/");
+  if (`${topic1}/${topic2}` === priceTopic) {
+    const result = parseJsonSafely(message)
+    if (!result.error) {
+      // Fetch 2 days of price data
+      if (twoDaysData.length < 2) {
+        twoDaysData.push(result.data);
+      } else if (result.data.priceDate > twoDaysData[1].priceDate) {
+        twoDaysData.push(result.data);
+        twoDaysData = twoDaysData.slice(-2);
+      } else {
+        if (debug)
+          console.log('Pricedata skipped ', result.data.priceDate);
+      }
+
+      // MQTT price data handling
+      // Give time for receiving 2 - 3 MQTT messages
+      // before activating "handleMessages()"
+      // Then reset "timerInit" after a delay
+      if (timerInit) {
+        timerInit = false;
+        setTimeout(() => {
+          //if (twoDaysData.length > 2) {
+          //  twoDaysData = twoDaysData.slice(-2);
+          //}
+          if (twoDaysData.length > 1) {
+            if (twoDaysData[1].priceDate === today) {
+              prevDayPrices = twoDaysData[0];
+              dayPrices = twoDaysData[1];
+              nextDayAvailable = false;
+            } else {
+              dayPrices = twoDaysData[0];
+              nextDayPrices = twoDaysData[1];
+              nextDayAvailable = true;
+            }
+          } else {
+            console.log('mergePrices: Price data is missing');
+          }
+          timerInit = true;
+        }, 500);
+      }
+    } else {
+      console.log('mergePrices:', result.error);
     }
   }
-  //console.log('hourlyPrice', hourlyPrice);
 });
 
-async function skewPrices(priceObject, todayH23) {
-  const skewedPrices = [todayH23].concat(priceObject.hourly).slice(0, 24);
-  return skewedPrices;
+function parseJsonSafely(message) {
+  let buffer;
+  try {
+    buffer = message.toString();
+  } catch (err) {
+    console.log('mergePrices: Error converting buffer to string:', err);
+    return { error: true, message: 'Message cannot be parsed as atring', data: null };
+  }
+  // Trim the input to remove leading/trailing whitespace
+  const trimmedString = buffer.trim();
+
+  // Check if the input is empty
+  if (trimmedString === '') {
+    return { error: true, message: 'Empty string cannot be parsed as JSON.', data: null };
+  }
+
+  // Attempt to parse the JSON string
+  try {
+    const data = JSON.parse(trimmedString);
+    return { error: false, message: 'Successfully parsed JSON.', data: data };
+  } catch (error) {
+    return { error: true, message: `Error parsing JSON: ${error.message}`, data: null };
+  }
 }
 
-async function mergeData(priceObject, todayH23) {
-  // Strip off the summary (priceObject.daily)
-  const prices = [todayH23].concat(priceObject.hourly).slice(0, 24);
-  const filteredPrices = prices.map(({ startTime, endTime, spotPrice, gridFixedPrice, supplierFixedPrice }) => ({
-    hour: format(new Date(endTime), 'HH'),
-    //timestamp: endTime,
-    startTime,
-    endTime,
-    spotPrice,
-    fixedPrice: parseFloat((gridFixedPrice + supplierFixedPrice).toFixed(4)),
-  }));
-  //console.log('filteredPrices', filteredPrices);
-  return filteredPrices;
-}
-
-async function sortPrices(priceObject, todayH23) {
-  //const summary = priceObject.daily;
-  const prices = [todayH23].concat(priceObject).slice(0, 24);
-  const filteredPrices = prices.map(({ endTime, spotPrice, gridFixedPrice, supplierFixedPrice }) => ({
-    hour: format(new Date(endTime), 'HH'),
-    timestamp: endTime,
-    spotPrice,
-    fixedPrice: parseFloat((gridFixedPrice + supplierFixedPrice).toFixed(4)),
-  }));
-  return filteredPrices.sort((a, b) => a.customerPrice - b.customerPrice);
-}
-
-async function findCheapHours(priceObject, hourCount = 5) {
-  //const summary = priceObject.daily;
-  //prices = [todayH23].concat(priceObject.hourly).slice(0, 24);
+async function findPricesBelowAverage(priceObject) {
   const prices = priceObject.hourly;
-  const filteredPrices = prices.map(({ startTime, endTime, spotPrice, gridFixedPrice, supplierFixedPrice }) => ({
-    hour: format(new Date(startTime), 'HH'),
-    //ts: startTime,
-    spotPrice,
-    //fixedPrice: parseFloat((gridFixedPrice + supplierFixedPrice).toFixed(4)),
-  }));
-  return filteredPrices.sort((a, b) => a.spotPrice - b.spotPrice).slice(0, hourCount).sort((a, b) => a.hour - b.hour);
-  //return filteredPrices.sort((a, b) => a.spotPrice - b.spotPrice).slice(0, hourCount).sort((a, b) => a.timestamp - b.timestamp);
-  //return cheap; //filteredPrices.sort((a, b) => a.hour - b.hour);
-}
+  const average = dayPrices.daily.avgPrice;
+  const filteredPrices = prices
+    .filter(({ spotPrice }) => spotPrice < average) // Filter prices below average
+    .map(({ startTime, spotPrice }) => ({
+      hour: format(new Date(startTime), "HH"),
+      spotPrice,
+    }));
 
-async function splitPrices(priceObj, todayH23, threshold1, threshold2) {
-  const summary = priceObj.daily;
-  const prices = priceObj.hourly;
-  const sortedPrices = await sortPrices(prices, todayH23);
-
-  //thres1 = threshold1 * highestPrice / 100;
-  //thres2 = threshold2 * highestPrice / 100;
-  //console.log('sortedPrices', sortedPrices)
-  const filtered2 = sortedPrices.filter(price => price.spotPrice < threshold2 * summary.maxPrice / 100);
-  //!!!console.log('threshold2', filtered2.sort((a, b) => a.hour - b.hour));
-
-  const table1 = sortedPrices.filter(price => price.spotPrice < threshold1 * summary.maxPrice / 100);
-  //!!!console.log('threshold1', table1.sort((a, b) => a.hour - b.hour))
-
-  let lastHour = parseInt(table1[table1.length - 1].hour);
-  const table2 = filtered2.filter(price => {
-    const currentHour = parseInt(price.hour);
-    if (currentHour <= lastHour) return false;
-    lastHour = currentHour;
-    return true;
-  });
-
-  //table2 = table2.sort((a, b) => a.hour - b.hour)
   return {
-    lowLevel: table1.sort((a, b) => a.hour - b.hour),
-    mediumLevel: table2.sort((a, b) => a.hour - b.hour)
+    date: priceObject.priceDate,
+    avgPrice: average,
+    hours: filteredPrices,
   };
-}
-
-async function getSummary(priceObject) {
-  return priceObject.daily;
+  //return filteredPrices;
 }
 
 /**
@@ -145,82 +128,58 @@ async function getSummary(priceObject) {
  * @returns {Promise<Object>} - The merged object with price information
  */
 async function mergePrices(list, obj) {
+  const idx = obj.hourIndex;
 
-  if (list === 'list1') {
-    //return obj;
-  }
+  // isHourStart and isHourEnd can possibly be in list1 or list2
+  // it depends on the AMS meter timing
+  if (obj.isHourStart !== undefined && obj.isHourStart === true) {
+    //const kWh = obj.consumptionCurrentHour;
 
-  if (list === 'list2') {
-    //return obj;
-  }
-  //if (list === 'list1' || list === 'list2') return obj;
-
-  if (list === 'list3') {
-    const idx = obj.hourIndex; //parseInt(obj.timestamp.substring(11, 13));
-    //const hourlyProperties = ['startTime', 'endTime', 'spotPrice', 'gridFixedPrice', 'supplierFixedPrice']; //, 'customerPrice'];
-    //const dailyProperties = ['minPrice', 'maxPrice', 'avgPrice', 'peakPrice', 'offPeakPrice1', 'offPeakPrice2'];
-    let prevDayPrices = {};
-    if (obj.isNewDay) {
-      nextDayAvailable = false;
-      //obj.currentSummary = await getSummary(dayPrices);
-      //obj.nextDaySummary = await getSummary(nextDayPrices);
-      prevDayPrices = dayPrices;
+    if (idx === 0 && nextDayAvailable) {
       dayPrices = nextDayPrices;
-      hourlyPrice = nextDayHourlyPrice;
-      obj.currentSummary = await getSummary(dayPrices);
-      obj.nextDaySummary = await getSummary(nextDayPrices);
+      nextDayAvailable = false;
     }
 
-    obj.startTime = hourlyPrice[idx].startTime;
-    obj.endTime = hourlyPrice[idx].endTime;
-    obj.spotPrice = hourlyPrice[idx].spotPrice;
-    obj.gridFixedPrice = hourlyPrice[idx].gridFixedPrice;
-    obj.supplierFixedPrice = hourlyPrice[idx].supplierFixedPrice;
-
+    obj.startTime = dayPrices.hourly[idx].startTime;
+    obj.endTime = dayPrices.hourly[idx].endTime;
+    obj.spotPrice = dayPrices.hourly[idx].spotPrice;
+    obj.floatingPrice = dayPrices.hourly[idx].floatingPrice;
+    obj.fixedPrice = dayPrices.hourly[idx].fixedPrice;
     obj.minPrice = dayPrices.daily.minPrice;
     obj.maxPrice = dayPrices.daily.maxPrice;
     obj.avgPrice = dayPrices.daily.avgPrice;
     obj.peakPrice = dayPrices.daily.peakPrice;
     obj.offPeakPrice1 = dayPrices.daily.offPeakPrice1;
     obj.offPeakPrice2 = dayPrices.daily.offPeakPrice2;
-    obj.spotBelowAverage = dayPrices.hourly[idx].spotPrice < obj.avgPrice ? true : false
+    obj.spotBelowAverage = dayPrices.hourly[idx].spotPrice < obj.avgPrice ? 1 : 0;
+    obj.pricesBelowAverage = await findPricesBelowAverage(dayPrices);
+    if (nextDayAvailable) {
+      obj.startTimeDay2 = nextDayPrices.hourly[idx].startTime;
+      obj.endTimeDay2 = nextDayPrices.hourly[idx].endTime;
+      obj.spotPriceDay2 = nextDayPrices.hourly[idx].spotPrice;
+      obj.floatingPriceDay2 = nextDayPrices.hourly[idx].floatingPrice;
+      obj.fixedPriceDay2 = nextDayPrices.hourly[idx].fixedPrice;
+      obj.minPriceDay2 = nextDayPrices.daily.minPrice;
+      obj.maxPriceDay2 = nextDayPrices.daily.maxPrice;
+      obj.avgPriceDay2 = nextDayPrices.daily.avgPrice;
+      obj.peakPriceDay2 = nextDayPrices.daily.peakPrice;
+      obj.offPeakPrice1Day2 = nextDayPrices.daily.offPeakPrice1;
+      obj.offPeakPrice2Day2 = nextDayPrices.daily.offPeakPrice2;
+      obj.pricesBelowAverageDay2 = await findPricesBelowAverage(nextDayPrices);
+    }
+  } // isHourStart
 
-    obj.minPriceDay2 = nextDayPrices.daily.minPrice;
-    obj.maxPriceDay2 = nextDayPrices.daily.maxPrice;
-    obj.avgPriceDay2 = nextDayPrices.daily.avgPrice;
-    obj.peakPriceDay2 = nextDayPrices.daily.peakPrice;
-    obj.offPeakPrice1Day2 = nextDayPrices.daily.offPeakPrice1;
-    obj.offPeakPrice2Day2 = nextDayPrices.daily.offPeakPrice2;
-    obj.spotBelowAverageDay2 = nextDayPrices.hourly[idx].spotPrice < obj.avgPriceDay2 ? true : false
-
-    //if (nextDayAvailable) {
-    //const nextDayHourlyPrice = await skewPrices(nextDayPrices, todayH23)
-    obj.startTimeDay2 = nextDayHourlyPrice[idx].startTime;
-    obj.endTimeDay2 = nextDayHourlyPrice[idx].endTime;
-    obj.spotPriceDay2 = nextDayHourlyPrice[idx].spotPrice;
-    obj.gridFixedPriceDay2 = nextDayHourlyPrice[idx].gridFixedPrice;
-    obj.supplierFixedPriceDay2 = nextDayHourlyPrice[idx].supplierFixedPrice;
-    //}
-    //console.log('MergePrices: list3', obj);
-    const hours = 7;
-    obj.cheapHours = await findCheapHours(dayPrices, hours);
-    if (nextDayAvailable)
-      obj.cheapHoursNextDay = await findCheapHours(nextDayPrices, hours);
-    //console.log('hourlyPrice', hourlyPrice);
+  // Needed for HA cost calculation
+  if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
+    obj.spotPrice = dayPrices.hourly[idx].spotPrice;
+    obj.floatingPrice = dayPrices.hourly[idx].floatingPrice;
+    obj.fixedPrice = dayPrices.hourly[idx].fixedPrice;
+    obj.customerPrice = parseFloat((obj.spotPrice + obj.floatingPrice + obj.fixedPrice / obj.consumptionCurrentHour).toFixed(4));
   }
-  //console.log('nextDayPrices:', nextDayPrices);
 
-  //let idx = obj.timestamp.substring(11, 13) * 1;
-  //console.log('obj ============> ', obj);
-  //!!!const twoTables = await splitPrices(dayPrices, prevDayH23, 90, 95);
-  //!!!console.log('twoTables', twoTables);
-  //const idx = parseInt(obj.meterDate.substring(11, 13));
-  //const idx = parseInt(obj.timestamp.substring(11, 13));
+  if (debug && (list !== 'list1' || obj.isHourStart !== undefined || obj.isHourEnd !== undefined))
+    console.log('mergePrices', JSON.stringify(obj, null, 2));
 
-  //if (obj.isNewDay) {
-  //  obj.currentSummary = await getSummary(dayPrices);
-  //  obj.nextDaySummary = await getSummary(nextDayPrices);
-  //}
   return obj;
 }
 

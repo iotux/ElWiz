@@ -1,5 +1,3 @@
-const yaml = require("yamljs");
-const configFile = "./config.yaml";
 const amsCalc = require("../ams/amscalc.js");
 const { event } = require("../misc/misc.js");
 const {
@@ -9,12 +7,15 @@ const {
   getAmsTime,
   getDateTime,
   replaceChar,
+  loadYaml
 } = require("../misc/util.js");
 
 // Load broker and topics preferences from config file
-const config = yaml.load(configFile);
-// const debug = config.DEBUG || false;
-const amsDebug = config.amsDebug || false;
+const configFile = './config.yaml';
+const config = loadYaml(configFile);
+const debug = config.amscalc.debug || false;
+
+const lastTick = config.amsLastTick || '59:56';
 
 // Aidon constants
 const AIDON_CONSTANTS = {
@@ -31,7 +32,7 @@ const AIDON_CONSTANTS = {
   VOLTAGE_PHASE_1: "020309060100200700FF12",
   VOLTAGE_PHASE_2: "020309060100340700FF12",
   VOLTAGE_PHASE_3: "020309060100480700FF12",
-  DATE: "020209060000010000FF090C",
+  METER_DATE: "020209060000010000FF090C",
   LAST_METER_CONSUMPTION: "020309060100010800FF06",
   LAST_METER_PRODUCTION: "020309060100020800FF06",
   LAST_METER_CONSUMPTION_REACTIVE: "020309060100030800FF06",
@@ -39,6 +40,8 @@ const AIDON_CONSTANTS = {
 };
 
 let obj = {};
+
+let isHourStarted = false;
 
 /**
  * Converts a hexadecimal value to a decimal value with a sign.
@@ -53,105 +56,109 @@ function hex2DecSign(hex) {
   return dec;
 }
 
-async function listDecode(buf) {
+async function listDecode(msg) {
   let ts = getDateTime();
-  const msg = {};
-  msg.data = buf;
+  const hourIndex = parseInt(ts.substring(11, 13));
+  const minuteIndex = parseInt(ts.substring(14, 16));
+  const timeSubStr = ts.substring(14, 19);
 
   obj = {
-    listType: "list1",
-    data: {
-      // 2022-07-01T00:00:00
-      timestamp: ts,
-      isNewHour: false,
-      isNewDay: false,
-      isNewMonth: false,
-      isLastList2: false,
-    },
+    listType: 'list1',
+    timestamp: ts,
+    hourIndex: hourIndex,
   };
+
+  // Check if the current time is at the start of the hour
+  if (!isHourStarted && minuteIndex === 0) {
+    obj.isHourStart = true;
+    isHourStarted = true;  // Mark that the start of the hour has been handled
+    if (obj.hourIndex === 0) {
+      obj.isDayStart = true;
+    }
+  }
+
+  // Reset the isHourStarted flag when it's no longer the start of the hour
+  if (minuteIndex !== 0) {
+    isHourStarted = false;
+  }
+
+  if (timeSubStr > lastTick) {
+    obj.isHourEnd = true;
+    if (hourIndex === 23) {
+      obj.isDayEnd = true;
+    }
+  }
 
   for (const key in AIDON_CONSTANTS) {
     const constant = AIDON_CONSTANTS[key];
-    const dataIndex = hasData(msg.data, constant);
+    const dataIndex = hasData(msg, constant);
     if (dataIndex > -1) {
       switch (key) {
         case "METER_VERSION":
-          // Assume that the timestamp is slightly delayed compared to the AMS List2 and List3 interval
-          obj.data.timestamp = replaceChar(ts, 18, "0"); // Align the timestamp
-          obj.data.meterVersion = hex2Ascii(msg.data.substr(dataIndex, 22));
-          obj.isLastList2 = obj.data.timestamp.substr(11, 5) === "00:00";
           obj.listType = "list2";
+          obj.meterVersion = hex2Ascii(msg.substring(dataIndex, dataIndex + 22));
           break;
         case "METER_ID":
-          obj.data.meterID = hex2Ascii(msg.data.substr(dataIndex, 32));
+          obj.meterID = hex2Ascii(msg.substring(dataIndex, dataIndex + 32));
           break;
         case "METER_MODEL":
-          obj.data.meterModel = hex2Ascii(msg.data.substr(dataIndex, 8));
+          obj.meterModel = hex2Ascii(msg.substring(dataIndex, dataIndex + 8));
           break;
         case "POWER":
-          obj.data.power = hex2Dec(msg.data.substr(dataIndex, 8)) / 1000;
+          obj.power = hex2Dec(msg.substring(dataIndex, dataIndex + 8)) / 1000;
           break;
         case "POWER_PRODUCTION":
-          obj.data.powerProduction =
-            hex2Dec(msg.data.substr(dataIndex, 8)) / 1000;
+          obj.powerProduction = hex2Dec(msg.substring(dataIndex, dataIndex + 8)) / 1000;
           break;
         case "POWER_REACTIVE":
-          obj.data.powerReactive =
-            hex2Dec(msg.data.substr(dataIndex, 8)) / 1000;
+          obj.powerReactive = hex2Dec(msg.substring(dataIndex, dataIndex + 8)) / 1000;
           break;
         case "POWER_PRODUCTION_REACTIVE":
-          obj.data.powerProductionReactive =
-            hex2Dec(msg.data.substr(dataIndex, 8)) / 1000;
+          obj.powerProductionReactive = hex2Dec(msg.substring(dataIndex, dataIndex + 8)) / 1000;
           break;
         case "CURRENT_L1":
-          obj.data.currentL1 = hex2DecSign(msg.data.substr(dataIndex, 4)) / 10;
+          obj.currentL1 = hex2DecSign(msg.substring(dataIndex, dataIndex + 4)) / 10;
           break;
         case "CURRENT_L2":
-          obj.data.currentL2 = hex2DecSign(msg.data.substr(dataIndex, 4)) / 10;
+          obj.currentL2 = hex2DecSign(msg.substring(dataIndex, dataIndex + 4)) / 10;
           break;
         case "CURRENT_L3":
-          obj.data.currentL3 = hex2DecSign(msg.data.substr(dataIndex, 4)) / 10;
+          obj.currentL3 = hex2DecSign(msg.substring(dataIndex, dataIndex + 4)) / 10;
           break;
         case "VOLTAGE_PHASE_1":
-          obj.data.voltagePhase1 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
+          obj.voltagePhase1 = hex2Dec(msg.substring(dataIndex, dataIndex + 4)) / 10;
           break;
         case "VOLTAGE_PHASE_2":
-          obj.data.voltagePhase2 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
+          obj.voltagePhase2 = hex2Dec(msg.substring(dataIndex, dataIndex + 4)) / 10;
           break;
         case "VOLTAGE_PHASE_3":
-          obj.data.voltagePhase3 = hex2Dec(msg.data.substr(dataIndex, 4)) / 10;
+          obj.voltagePhase3 = hex2Dec(msg.substring(dataIndex, dataIndex + 4)) / 10;
           break;
-        case "DATE":
-          obj.data.timestamp = replaceChar(ts, 18, "0"); // Align the timestamp
-          obj.data.meterDate = getAmsTime(msg.data, dataIndex);
-          obj.hourIndex = parseInt(obj.data.meterDate.substr(11, 2));
-          obj.isNewHour = obj.data.meterDate.substr(14, 5) === "00:10";
-          obj.isNewDay = obj.data.meterDate.substr(11, 8) === "00:00:10";
-          obj.isNewMonth = obj.data.meterDate.substr(8, 2) === "01" && obj.isNewDay;
-
+        case "METER_DATE":
           obj.listType = "list3";
+          obj.timestamp = replaceChar(ts, 18, "0"); // Align the timestamp
+          obj.meterDate = getAmsTime(msg, dataIndex);
+          obj.isNewHour = obj.meterDate.substring(14, 19) === "00:10";
+          obj.isNewDay = obj.meterDate.substring(11, 19) === "00:00:10";
+          obj.isNewMonth = obj.meterDate.substring(8, 10) === "01" && obj.isNewDay;
           break;
         case "LAST_METER_CONSUMPTION":
-          obj.data.lastMeterConsumption =
-            hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
+          obj.lastMeterConsumption = hex2Dec(msg.substring(dataIndex, dataIndex + 8)) / 100;
           break;
         case "LAST_METER_PRODUCTION":
-          obj.data.lastMeterProduction =
-            hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
+          obj.lastMeterProduction = hex2Dec(msg.substring(dataIndex, dataIndex + 8)) / 100;
           break;
         case "LAST_METER_CONSUMPTION_REACTIVE":
-          obj.data.lastMeterConsumptionReactive =
-            hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
+          obj.lastMeterConsumptionReactive = hex2Dec(msg.substring(dataIndex, dataIndex + 8)) / 100;
           break;
         case "LAST_METER_PRODUCTION_REACTIVE":
-          obj.data.lastMeterProductionReactive =
-            hex2Dec(msg.data.substr(dataIndex, 8)) / 100;
+          obj.lastMeterProductionReactive = hex2Dec(msg.substring(dataIndex, dataIndex + 8)) / 100;
           break;
       }
     }
   }
 
-  if (Object.getOwnPropertyNames(obj.data).length === 0) {
+  if (Object.getOwnPropertyNames(obj).length === 0) {
     console.error("Raw data packet exception : ", JSON.stringify(msg));
   }
 
@@ -163,11 +170,10 @@ async function listDecode(buf) {
  * @param {Buffer} buf - The list data buffer to be handled.
  */
 async function listHandler(buf) {
-  const hex = await buf.toString("hex").toUpperCase();
-  const result = await listDecode(hex);
-  const listObject = result.data;
-  const list = result.listType;
-  if (amsDebug) {
+  const hex = buf.toString("hex").toUpperCase();
+  const listObject = await listDecode(hex);
+  const list = listObject.listType;
+  if (debug) {
     if (list === "list1") {
       event.emit("hex1", hex);
     } else if (list === "list2") {

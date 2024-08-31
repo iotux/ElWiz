@@ -1,10 +1,11 @@
 
-const yaml = require('yamljs');
 const db = require('../misc/dbinit.js');
+const { loadYaml } = require('../misc/util.js')
+
 const configFile = './config.yaml';
+const config = loadYaml(configFile);
 
-const config = yaml.load(configFile);
-
+const debug = config.calculatecost.debug || false;
 const {
   gridKwhPrice,
   supplierKwhPrice,
@@ -23,37 +24,16 @@ async function calcReward(obj, kWh) {
   return kWh * gridKwhReward;
 }
 
-/**
- * Calculate the price for the given kWh.
- * @param {Object} obj - The object containing necessary information.
- * @param {number} kWh - The kilowatt-hours to calculate the price for.
- * @returns {number} - The calculated price.
- */
-async function calcPrice(obj, kWh) {
-  // Actual price per kWh this hour (experimental)
-  let price = (obj.gridFixedPrice + obj.supplierFixedPrice) / kWh;
-  //let price = obj.fixedPrice / kWh;
-  price += (gridKwhPrice + supplierKwhPrice + energyTax);
-  price += obj.spotPrice;
-  return parseFloat(price.toFixed(4));
+async function getCustomerPrice(obj, kWh) {
+  const price = parseFloat((obj.spotPrice + obj.floatingPrice + obj.fixedPrice * kWh).toFixed(4));
+  return price;
 }
 
-/**
- * Calculate the cost for the given kWh.
- * @param {Object} obj - The object containing necessary information.
- * @param {number} kWh - The kilowatt-hours to calculate the cost for.
- * @returns {number} - The calculated cost
- */
 async function calcCost(obj, kWh) {
-  // Cost this hour
-  let cost = (obj.gridFixedPrice + obj.supplierFixedPrice);
-  //let cost = obj.fixedPrice;
-  cost += (gridKwhPrice + supplierKwhPrice + energyTax) * kWh;
-  cost += obj.spotPrice * kWh;
-  return parseFloat(cost.toFixed(4));
+  const cost = parseFloat((obj.fixedPrice + obj.floatingPrice * kWh).toFixed(4));
+  return cost;
 }
 
-//const calculateCost = {
 /**
  * Calculate cost, price, and reward for the given list and object.
  * @param {string} list - The list identifier, currently supporting 'list3' only.
@@ -62,32 +42,33 @@ async function calcCost(obj, kWh) {
 */
 //calc: async function (list, obj) {
 async function calculateCost(list, obj) {
-  if (list === 'list1' || list === 'list2') return obj;
-
-  // List3 is run once every hour
-  if (list === 'list3') {
-    //obj.customerPrice = await calcPrice(obj.currentPrice, obj.accumulatedConsumptionLastHour);
-    //obj.costLastHour = await calcCost(obj.currentPrice, obj.accumulatedConsumptionLastHour);
-    obj.customerPrice = await calcPrice(obj, obj.accumulatedConsumptionLastHour);
-    obj.costLastHour = await calcCost(obj, obj.accumulatedConsumptionLastHour);
-    obj.rewardLastHour = await calcReward(obj, obj.accumulatedProductionLastHour);
+  if (obj.isHourEnd !== undefined && obj.isHourEnd === true) {
+    const consumptionCurrentHour = await db.get('consumptionCurrentHour');
+    const productionCurrentHour = await db.get('productionCurrentHour');
+    //obj.customerPrice = await getCustomerPrice(obj, consumptionCurrentHour);
+    obj.costLastHour = await calcCost(obj, consumptionCurrentHour);
+    obj.rewardLastHour = parseFloat((gridKwhReward * productionCurrentHour).toFixed(4));
     delete (obj.gridFixedPrice);
     delete (obj.supplierFixedPrice);
-    // Once every midnight
-    if (obj.isNewDay) {
-      obj.accumulatedCost = 0;
-      obj.accumulatedReward = 0;
-    } else {
-      obj.accumulatedCost = (await db.get('accumulatedCost') + obj.costLastHour).toFixed(4) * 1;
-      obj.accumulatedReward = await db.get('accumulatedReward') + parseFloat(obj.rewardLastHour.toFixed(4));
-    }
+
+    obj.accumulatedCost = await db.get('accumulatedCost') + obj.costLastHour;
+    obj.accumulatedReward = await db.get('accumulatedReward') + obj.rewardLastHour;
     await db.set('accumulatedCost', obj.accumulatedCost);
     await db.set('accumulatedReward', obj.accumulatedReward);
-    await db.sync();
+    //await db.sync();
   }
-  //console.log(list + ' calculateCost', obj)
+
+  if (obj.isNewDay !== undefined && obj.isNewDay === true) {
+    obj.accumulatedCost = 0;
+    obj.accumulatedReward = 0;
+    await db.set('accumulatedCost', 0);
+    await db.set('accumulatedReward', 0);
+  }
+
+  if (debug && (list !== 'list1' || obj.isHourStart !== undefined || obj.isHourEnd !== undefined))
+    console.log('calculateCost', JSON.stringify(obj, null, 2));
+
   return obj;
 };
-//};
 
 module.exports = { calculateCost };
