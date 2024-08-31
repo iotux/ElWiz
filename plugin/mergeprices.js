@@ -30,9 +30,7 @@ mqttClient.subscribe(priceTopic + "/#", (err) => {
 });
 
 mqttClient.on("message", (topic, message) => {
-  const yesterday = skewDays(-1);
   const today = skewDays(0);
-  const tomorrow = skewDays(1);
   const [topic1, topic2, topic3] = topic.split("/");
   if (`${topic1}/${topic2}` === priceTopic) {
     const result = parseJsonSafely(message)
@@ -42,6 +40,7 @@ mqttClient.on("message", (topic, message) => {
         twoDaysData.push(result.data);
       } else if (result.data.priceDate > twoDaysData[1].priceDate) {
         twoDaysData.push(result.data);
+        twoDaysData = twoDaysData.slice(-2);
       } else {
         if (debug)
           console.log('Pricedata skipped ', result.data.priceDate);
@@ -54,9 +53,9 @@ mqttClient.on("message", (topic, message) => {
       if (timerInit) {
         timerInit = false;
         setTimeout(() => {
-          if (twoDaysData.length > 2) {
-            twoDaysData = twoDaysData.slice(-2);
-          }
+          //if (twoDaysData.length > 2) {
+          //  twoDaysData = twoDaysData.slice(-2);
+          //}
           if (twoDaysData.length > 1) {
             if (twoDaysData[1].priceDate === today) {
               prevDayPrices = twoDaysData[0];

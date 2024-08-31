@@ -38,23 +38,24 @@ const announceBinaryTopic = `${haAnnounceTopic}/binary_sensor/ElWizChart`;
 const avtyTopic = `${haBaseTopic}/chart/status`;
 const statTopic = `${haBaseTopic}/chart`
 
+const currencyCode = serverConfig.currencyCode || 'EUR';
+
 const fixedOffset = serverConfig.fixedAverageOffset || 0;
 const stepFactor = serverConfig.adjustmentStepFactor || 1;
-const currencyCode = serverConfig.currencyCode || 'EUR';
+const verticalStepCount = serverConfig.verticalStepCount || 50;
 
 mqttOpts.will = { topic: avtyTopic, payload: 'offline', retain: true, qos: 0 };
 const mqttClient = new MQTTClient(mqttUrl, mqttOpts, 'chartServer');
 const pubOpts = { retain: true, qos: 0 };
 
-// Client creates a unique clientId
-//const timestamp = new Date().getTime() * 1 + '';
-//const clientId = Math.floor((Math.random() * 900) + 100) + timestamp.substr(10);
 const wss = new WebSocket.Server({ port: wsServerPort });
 
-// Stored as [leftAvgOffsetFactor, rightAvgOffsetFactor]
+// Storage: ./data/thresholds.json = [{ date: skewDays(-1), threshold: 0 }, { date: skewDays(0), threshold: 0 }];
 let leftAvgOffsetFactor = 0;
 let rightAvgOffsetFactor = 0;
-//let offsetFactors = [{ date: skewDays(-1), threshold: 0 }, { date: skewDays(0), threshold: 0 }];
+let offsetFactors;
+let maxPrice = 0;
+
 
 let isVirgin = true;
 //let hasDayAheadPrices = false;
@@ -97,9 +98,6 @@ async function skewDays(days) {
   const date = new Date(Date.now() + oneDay * days);
   return getDateString(date);
 }
-
-let offsetFactors; // = [{ date: skewDays(-1), threshold: 0 }, { date: skewDays(0), threshold: 0 }];
-
 
 async function getOffsets() {
   offsetFactors = [{ date: await skewDays(-1), threshold: 0 }, { date: await skewDays(0), threshold: 0 }]
@@ -264,6 +262,7 @@ function saveThresholds(idx, threshold, where) {
           twoDaysData.push(result.data);
         } else if (result.data.priceDate > twoDaysData[1].priceDate) {
           twoDaysData.push(result.data);
+          twoDaysData = twoDaysData.slice(-2);
         } else {
           if (debug)
             console.log('Pricedata skipped ', result.data.priceDate);
@@ -301,18 +300,19 @@ function saveThresholds(idx, threshold, where) {
 
 
   function handleMessages() {
+    const today = skewDays(0);
     //hasDayAheadPrices = false;
     isOnRightSide = false;
 
     if (debug)
       console.log('twoDaysData length', twoDaysData.length);
 
-    if (twoDaysData.length > 2) {
-      twoDaysData = twoDaysData.slice(-2);
-    }
+    //if (twoDaysData.length > 2) {
+    //  twoDaysData = twoDaysData.slice(-2);
+    //}
 
     if (twoDaysData.length > 1) {
-      isOnRightSide = twoDaysData[1].priceDate === skewDays(0);
+      isOnRightSide = twoDaysData[1].priceDate === today;
 
       if (twoDaysData[1].priceDate > offsetFactors[1].date) {
         offsetFactors.push({ date: twoDaysData[1].priceDate, threshold: 0 });
@@ -351,10 +351,19 @@ function saveThresholds(idx, threshold, where) {
       return;
     }
 
-    //hourlyData = prices.hourly;
     const avgPrice = prices.daily.avgPrice;
-    const fixed = avgPrice * fixedOffset / 100;
-    const adjust = avgPrice * adjustment / 100;
+
+    // Vertical range = highest price in a 2 days period
+    if (prices.daily.maxPrice > maxPrice) {
+      maxPrice = prices.daily.maxPrice;
+    }
+
+    // verticalStepCount = step count for the vertical range
+    const fixed = (maxPrice / verticalStepCount) * fixedOffset;
+    const adjust = (maxPrice / verticalStepCount) * adjustment;
+
+    if (debug)
+      console.log('maxPrice', maxPrice, 'avgPrice', avgPrice, 'fixed', fixed, 'adjust', adjust);
 
     const thresholdLevel = adjustment === 0 ? parseFloat((avgPrice + fixed).toFixed(4)) : parseFloat((avgPrice + fixed + adjust).toFixed(4));
     // This check ensures that the function proceeds only if there's meaningful data to process.
@@ -390,25 +399,25 @@ function saveThresholds(idx, threshold, where) {
       console.log('updateChartData processed', chartData.length, 'entries.');
   } // updateChartData()
 
-  async function updateAvgData(startOffset, stepFactor, from) {
+  async function updateAvgData(startOffset, adjustment, from) {
     if (debug) console.log('updateAvgData invoked from', from);
 
     // Ensure startOffset is either 0 or 24
     startOffset = startOffset === 24 ? 24 : 0;
+    const dayIndex = startOffset === 0 ? 0 : 1;
+    const avgPrice = twoDaysData[dayIndex].daily.avgPrice;
+    // Vertical range = 0..maxPrice
+    const fixed = (maxPrice / verticalStepCount) * fixedOffset;
+    const adjust = (maxPrice / verticalStepCount) * adjustment;
 
-    // Determine the vertical scale range
-    const minPrice = Math.min(...chartData.map(h => h.avgPrice));
-    const maxPrice = Math.max(...chartData.map(h => h.avgPrice));
-    const verticalRange = maxPrice - minPrice;
-
-    const adjustment = 1; // Adjust this value to control step height
-    const scaledAdjustment = stepFactor * adjustment; // Directly scale adjustment by stepFactor
+    if (debug)
+      console.log('maxPrice', maxPrice, 'avgPrice', avgPrice, 'fixed', fixed, 'adjust', adjust);
 
     chartData.forEach((h, idx) => {
       // Modify only 24 elements starting from the startOffset index
       if (idx >= startOffset && idx < startOffset + 24) {
-        if (h.avgPrice > 0) {
-          h.thresholdLevel = parseFloat((h.avgPrice + (scaledAdjustment / 100) * verticalRange).toFixed(4));
+        if (avgPrice > 0) {
+          h.thresholdLevel = parseFloat((avgPrice + fixed + adjust).toFixed(3));
         } else {
           h.thresholdLevel = 0;
         }

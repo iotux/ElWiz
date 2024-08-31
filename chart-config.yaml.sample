@@ -29,7 +29,8 @@ serverConfig:
   # adjustLeftAvgOffset and adjustRightAvgOffset
   # MQTT messages
   adjustmentStepFactor: 1.0
-
+  verticalStepCount: 50
+  
   # Change according to your own language/country
   currencyCode: NOK
 
