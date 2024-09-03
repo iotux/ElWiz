@@ -301,6 +301,9 @@ async function amsCalc(list, obj) {
   }
 
   if (list === 'list2') {
+    delete obj.meterVersion;
+    delete obj.meterID;
+    delete obj.meterModel;
     await db.sync();
   }
 
