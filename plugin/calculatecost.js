@@ -51,8 +51,8 @@ async function calculateCost(list, obj) {
     delete (obj.gridFixedPrice);
     delete (obj.supplierFixedPrice);
 
-    obj.accumulatedCost = await db.get('accumulatedCost') + obj.costLastHour;
-    obj.accumulatedReward = await db.get('accumulatedReward') + obj.rewardLastHour;
+    obj.accumulatedCost = parseFloat((await db.get('accumulatedCost') + obj.costLastHour).toFixed(4));
+    obj.accumulatedReward = parseFloat((await db.get('accumulatedReward') + obj.rewardLastHour).toFixed(4));
     await db.set('accumulatedCost', obj.accumulatedCost);
     await db.set('accumulatedReward', obj.accumulatedReward);
     //await db.sync();
