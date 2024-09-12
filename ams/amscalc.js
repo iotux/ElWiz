@@ -11,6 +11,7 @@ const topHoursSize = config.topHoursSize || 10;
 const debug = config.amscalc.debug || false;
 const decimals = 4
 
+let virgin = true;
 /**
  * Set and get the minimum power value.
  *
@@ -66,34 +67,53 @@ const averageCalc = new AverageCalculator(120);
 
 class EnergyCounter {
   constructor() {
-    this.consumption = 0;
-    this.effect = 0;
-    this.lastUpdateTime = null;
-    this.correctionFactor = 1; // Initially assume no correction is needed
+    this.kWh = 0; // Holds kWh for the current period
+    this.accumulatedKWh = 0; // Accumulated kWh counter
+    this.power = 0; // Power in kW
+    this.lastUpdateTime = null; // Last time power was updated
   }
 
-  async setEffect(effect) {
+  // Set the power (in kW) and update the kWh
+  async setPower(power) {
     const now = Date.now();
     if (this.lastUpdateTime !== null) {
-      const timeDifference = (now - this.lastUpdateTime) / 1000;
-      this.consumption += this.effect * (timeDifference / 3600) * this.correctionFactor;
+      const timeDifference = (now - this.lastUpdateTime) / 1000; // Time difference in seconds
+      const kWh = this.power * (timeDifference / 3600); // Calculate kWh from power and time
+      this.kWh += kWh;
+      this.accumulatedKWh += kWh; // Accumulate kWh over the hour
     }
-    this.effect = effect;
+    this.power = power;
     this.lastUpdateTime = now;
   }
 
-  async getEnergy(actualConsumption) {
-    // If actualConsumption is provided and this.consumption is not zero, update the correction factor
-    if (actualConsumption !== undefined && this.consumption !== 0) {
-      this.correctionFactor = actualConsumption / this.consumption;
-    }
-    const consumption = this.consumption;
-    await this.resetCounter();
-    return consumption;
+  // Get the kWh for the current period and reset the counter
+  async setKWh(kWh) {
+    this.kWh = kWh
   }
 
+  // Get the kWh for the current period and apply the correction factor if provided
+  async getKWh() {
+    // Return the current period's kWh and reset the counter
+    const kWh = this.kWh;
+    //await this.resetCounter(); // Reset the current period counter
+    return kWh;
+  }
+
+  // Return accumulated kWh
+
+  async setAccumulatedKWh(kWh) {
+    this.accumulatedKWh = kWh;
+  }
+
+  // Return accumulated kWh, reset if requested
+  async getAccumulatedKWh() {
+    return this.accumulatedKWh
+    //return parseFloat(this.accumulatedKWh.toFixed(decimals)); // Return this.accumulatedKWh;
+  }
+
+  // Reset the current kWh counter
   async resetCounter() {
-    this.consumption = 0;
+    this.kWh = 0;
   }
 }
 
@@ -101,7 +121,7 @@ const consumptionCounter = new EnergyCounter();
 const productionCounter = new EnergyCounter();
 
 // Update the kW value when available
-// consumptionCounter.setEffect(newKWValue);
+// consumptionCounter.setPower(newKWValue);
 
 // To get the consumption and reset the counter
 // const consumption = consumptionCounter.getEnergy();
@@ -181,13 +201,14 @@ async function setInitialValues(obj) {
   //await db.set('prevDayMeterProductionReactive', obj.lastMeterProductionReactive);
 
   // Set initial values = current to prevent huge false values on first run
+  await db.set('lastMeterConsumption', obj.lastMeterConsumption);
   await db.set('prevHourMeterConsumption', obj.lastMeterConsumption);
   await db.set('prevDayMeterConsumption', obj.lastMeterConsumption);
-  await db.set('prevDayMeterProduction', obj.lastMeterProduction);
   await db.set('prevMonthMeterConsumption', obj.lastMeterConsumption);
-  await db.set('prevMonthMeterProduction', obj.lastMeterProduction);
-  await db.set('lastMeterConsumption', obj.lastMeterConsumption);
   await db.set('lastMeterProduction', obj.lastMeterProduction);
+  await db.set('prevHourMeterProduction', obj.lastMeterProduction);
+  await db.set('prevDayMeterProduction', obj.lastMeterProduction);
+  await db.set('prevMonthMeterProduction', obj.lastMeterProduction);
 }
 
 async function handleMonthlyCalculations(obj) {
@@ -224,6 +245,9 @@ async function handleHourlyCalculations(obj) {
   // Align actual consumption and production with meter reading
   await db.set('lastMeterConsumption', obj.lastMeterConsumption);
   await db.set('lastMeterProduction', obj.lastMeterProduction);
+
+  await consumptionCounter.setAccumulatedKWh(0);
+  await productionCounter.setAccumulatedKWh(0);
   // Reactive data not used for now
   //await db.set('lastMeterConsumptionReactive', obj.lastMeterConsumptionReactive);
   //await db.set('lastMeterProductionReactive', obj.lastMeterProductionReactive);
@@ -231,6 +255,16 @@ async function handleHourlyCalculations(obj) {
   await db.set('productionCurrentHour', 0);
   obj.consumptionCurrentHour = 0;
   obj.productionCurrentHour = 0;
+}
+
+async function init() {
+  if (virgin) {
+    await consumptionCounter.setKWh(await db.get('consumptionCurrentHour'));
+    await consumptionCounter.setAccumulatedKWh(await db.get('consumptionToday'));
+    await productionCounter.setKWh(await db.get('productionCurrentHour'));
+    await productionCounter.setAccumulatedKWh(await db.get('productionToday'));
+  }
+  virgin = false;
 }
 
 /**
@@ -241,52 +275,58 @@ async function handleHourlyCalculations(obj) {
  * @returns {Object} - The updated object with calculated values.
  */
 async function amsCalc(list, obj) {
-  obj.minPower = await getMinPower(obj.power);
-  obj.maxPower = await getMaxPower(obj.power);
-  await averageCalc.addPower(obj.power);
-  obj.averagePower = parseFloat((await averageCalc.getAveragePower()).toFixed(decimals));
-
+  //if (virgin) await init();
   // "Out of band" calculation of consumption & production
   // For Kaifa and possibly Aidon AMS meters this happens during List1 and List2
   // For Kamstrup AMS meters this happens during List2
   // Real consumption and production iternal counters are realigned with AMS in List3
-  if (obj.power !== undefined) {
-    // For Kaifa and possibly Aidon meters, this happens during List1 and List2
-    await consumptionCounter.setEffect(obj.power);
-    const consumptionCurrent = parseFloat((await consumptionCounter.getEnergy()).toFixed(decimals));
-    // Fetch old values && add new consumption
-    obj.lastMeterConsumption = parseFloat((await db.get('lastMeterConsumption') + consumptionCurrent).toFixed(decimals)) || 0;
-    obj.consumptionCurrentHour = parseFloat((await db.get('consumptionCurrentHour') + consumptionCurrent).toFixed(decimals)) || 0;
-    obj.consumptionToday = parseFloat((await db.get('consumptionToday') + consumptionCurrent).toFixed(decimals)) || 0;
-    // Save new values
+  //if (obj.power !== undefined && obj.power !== null) {
+  if (obj.power !== undefined && obj.power !== null) {
+    obj.minPower = await getMinPower(obj.power);
+    obj.maxPower = await getMaxPower(obj.power);
+    await averageCalc.addPower(obj.power);
+    obj.averagePower = parseFloat((await averageCalc.getAveragePower()).toFixed(decimals));
+
+    // Set power for both instances (with and without correction factor)
+    await consumptionCounter.setPower(obj.power);
+    // Fetch the current kWh values for both instances
+    const currKWh = await consumptionCounter.getKWh();
+
+    // Only fetch correction factor and handle hourly data in 'list3'
+    if (list === 'list3') {
+      // Fetch accumulated kWh for both instances
+      const accumulatedKWh = await consumptionCounter.getAccumulatedKWh();
+      //console.log('accumulatedKWh:', accumulatedKWh);
+    } else {
+      // Handle calculated values for other lists (list1, list2)
+      obj.lastMeterConsumption = parseFloat((await db.get('lastMeterConsumption') + currKWh).toFixed(decimals)) || 0;
+    }
+    //###############################################/
+    obj.consumptionCurrentHour = parseFloat((obj.lastMeterConsumption - (await db.get('prevHourMeterConsumption'))).toFixed(decimals)) || 0;
+    obj.consumptionToday = parseFloat((obj.lastMeterConsumption - (await db.get('prevDayMeterConsumption'))).toFixed(decimals)) || 0;
+
+    // Reset counters for the next hour
+    await consumptionCounter.setKWh(0);
+
+    // Save the consumption values to the database
     await db.set('lastMeterConsumption', obj.lastMeterConsumption);
     await db.set('consumptionCurrentHour', obj.consumptionCurrentHour);
     await db.set('consumptionToday', obj.consumptionToday);
   }
 
-  if (obj.powerProduction !== undefined) {
-    // For Kaifa meters, this happens during List2
-    await productionCounter.setEffect(obj.powerProduction);
-    const productionCurrent = parseFloat((await productionCounter.getEnergy()).toFixed(decimals));
-    obj.lastMeterProduction = parseFloat((await db.get('lastMeterProduction') + productionCurrent).toFixed(decimals)) || 0;
-    obj.productionCurrentHour = parseFloat((await db.get('productionCurrentHour') + productionCurrent).toFixed(decimals)) || 0;
-    obj.productionToday = parseFloat((await db.get('productionToday') + productionCurrent).toFixed(decimals)) || 0;
-    await db.set('lastMeterProduction', obj.lastMeterProduction);
-    await db.set('productionCurrentHour', obj.productionCurrentHour);
-    await db.set('productionToday', obj.productionToday);
-    //await db.sync();
-  }
-
   if (obj.isHourEnd !== undefined) {
-    // Keep consuptionLastHour as a one-hour value for HA
-    obj.consumptionLastHour = await db.get('consumptionCurrentHour');
-    // sortedHourlyConsumption not exposed by obj, but used by sortHourlyConsumption()
-    obj.sortedHourlyConsumption = await sortHourlyConsumption(obj.timestamp, obj.consumptionCurrentHour);
-    obj.topConsumptionHours = await updateTopHours(obj.timestamp, obj.consumptionCurrentHour);
+    const consumptionCurrentHour = await db.get('consumptionCurrentHour');
+
+    // Only update HA-related values before the next hour
+    obj.sortedHourlyConsumption = await sortHourlyConsumption(obj.timestamp, consumptionCurrentHour);
+    obj.topConsumptionHours = await updateTopHours(obj.timestamp, consumptionCurrentHour);
     obj.topHoursAverage = await getTopHoursAverage(obj.topConsumptionHours, topHoursCount);
+
+    // These updates should not interfere with the correction factor calculation
     await db.set('sortedHourlyConsumption', obj.sortedHourlyConsumption);
     await db.set('topConsumptionHours', obj.topConsumptionHours);
     await db.set('topHoursAverage', obj.topHoursAverage);
+
     if (debug) {
       console.log('sortedHourlyConsumption:');
       console.table(obj.sortedHourlyConsumption);
@@ -295,27 +335,22 @@ async function amsCalc(list, obj) {
     }
   }
 
+
   if (list === 'list1') {
     // Don't include for debug
     //console.log('amsCalc:', JSON.stringify(obj, null, 2));
   }
 
   if (list === 'list2') {
-    delete obj.meterVersion;
-    delete obj.meterID;
-    delete obj.meterModel;
     await db.sync();
   }
 
   // Once every hour
   if (list === 'list3') {
-    delete obj.meterVersion;
-    delete obj.meterID;
-    delete obj.meterModel;
-
     if (await db.get('isVirgin')) {
       await setInitialValues(obj);
     }
+    //await consumptionCounter.setAccumulatedKWh(0);
     await handleHourlyCalculations(obj);
     await handleDailyCalculations(obj);
     await handleMonthlyCalculations(obj);
@@ -325,6 +360,12 @@ async function amsCalc(list, obj) {
       });
     }
     await db.sync();
+  }
+
+  if (obj.meterVersion !== undefined) {
+    delete obj.meterVersion;
+    delete obj.meterID;
+    delete obj.meterModel;
   }
 
   if (debug && (list !== 'list1' || obj.isHourStart !== undefined || obj.isHourEnd !== undefined))

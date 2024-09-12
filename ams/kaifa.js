@@ -31,6 +31,7 @@ const listDecode = async function (msg) {
     listType: 'list1',
     timestamp: ts,
     hourIndex: hourIndex,
+    power: null
   };
 
   if (!isHourStarted && minuteIndex === 0) {
@@ -38,6 +39,8 @@ const listDecode = async function (msg) {
     isHourStarted = true;
     if (hourIndex === 0) {
       obj.isDayStart = true;
+      if (ts.substring(8, 10) === '01')
+        obj.isMonthStart = true;
     }
   }
 

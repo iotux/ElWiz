@@ -26,6 +26,7 @@ const energySavings = {
   //lastMeterProductionReactive: 0,
   //prevDayMeterConsumptionReactive: 0,
   //prevDayMeterProductionReactive: 0,
+
   // Consumption cache
   consumptionCurrentHour: 0,
   consumptionToday: 0,
@@ -33,6 +34,7 @@ const energySavings = {
   prevHourMeterConsumption: 0,
   prevDayMeterConsumption: 0,
   prevMonthMeterConsumption: 0,
+
   // Production cache
   productionCurrentHour: 0,
   productionToday: 0,
@@ -40,17 +42,23 @@ const energySavings = {
   prevHourMeterProduction: 0,
   prevDayMeterProduction: 0,
   prevMonthMeterProduction: 0,
+
   // Hourly consumption cache 
   topHoursAverage: 0,
   sortedHourlyConsumption: [],
   topConsumptionHours: [],
+
   // Cost and reward cache
   accumulatedCost: 0,
   accumulatedReward: 0,
+
   // Calculated power cache
   minPower: 9999999,
   maxPower: 0,
   averagePower: 0,
+
+  // Correction factor cache
+  previousCorrectionFactor: 1,  // New field added
 };
 
 let db;

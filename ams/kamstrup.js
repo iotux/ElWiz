@@ -69,6 +69,7 @@ async function listDecode(msg) {
     listType: 'list1',
     timestamp: ts,
     hourIndex: hourIndex,
+    power: null
   };
 
   // Check if the current time is at the start of the hour
@@ -77,6 +78,8 @@ async function listDecode(msg) {
     isHourStarted = true;  // Mark that the start of the hour has been handled
     if (hourIndex === 0) {
       obj.isDayStart = true;
+      if (ts.substring(8, 10) === '01')
+        obj.isMonthStart = true;
     }
   }
 
