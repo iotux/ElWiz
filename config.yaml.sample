@@ -106,7 +106,7 @@ priceAccessToken: <insert your token here>
 entsoeBaseUrl: "https://web-api.tp.entsoe.eu/api"
 
 # Base-URL for Nord Pool
-nordpoolBaseUrl: "https://www.nordpoolgroup.com/api/marketdata/page/10"
+nordpoolBaseUrl: "https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices"
 
 # Choose "nordpool" or "entsoe" as priority
 priceFetchPriority: nordpool

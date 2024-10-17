@@ -1,61 +1,63 @@
----
-- 10Y1001A1001A44P #1  SE1
-- 10Y1001A1001A45N #2  SE2
-- 10Y1001A1001A46L #3  SE3
-- 10Y1001A1001A47J #4  SE4
-- 10YFI-1--------U #5  FI
-- 10YDK-1--------W #6  DK1
-- 10YDK-2--------M #7  DK2
-- 10YNO-1--------2 #8  NO1 Oslo
-- 10YNO-2--------T #9  NO2 Kr.sand
-- 10Y1001A1001A48H #10 NO5 Bergen
-- 10YNO-3--------J #12 NO3 Tr.heim, Molde
-- 10YNO-4--------9 #13 NO4 Trømsø
+## Entso E-Zones
+```yaml
+#1  - 10Y1001A1001A44P SE1
+#2  - 10Y1001A1001A45N SE2
+#3  - 10Y1001A1001A46L SE3
+#4  - 10Y1001A1001A47J SE4
+#5  - 10YFI-1--------U FI
+#6  - 10YDK-1--------W DK1
+#7  - 10YDK-2--------M DK2
+#8  - 10YNO-1--------2 NO1 Oslo
+#9  - 10YNO-2--------T NO2 Kr.sand
+#10 - 10Y1001A1001A48H NO5 Bergen
+#12 - 10YNO-3--------J NO3 Tr.heim, Molde
+#13 - 10YNO-4--------9 NO4 Trømsø
 
-- 10Y1001A1001A39I #14 EE, Estonia
-- 10YLV-1001A00074 #15 LV, Latvia
-- 10YLT-1001A0008Q #16 LT, Lithuania
-- 10YAT-APG------L #17 AT, Austria
-- 10YBE----------2 #18 BE, Belgium
-- 10Y1001A1001A82H #19 DE-LU 
-- 10YFR-RTE------C #20 FR, France
-- 10YNL----------L #21 NL, Netherlands
-- 10YPL-AREA-----S #22 PL, Poland
+#14 - 10Y1001A1001A39I EE, Estonia
+#15 - 10YLV-1001A00074 LV, Latvia
+#16 - 10YLT-1001A0008Q LT, Lithuania
+#17 - 10YAT-APG------L AT, Austria
+#18 - 10YBE----------2 BE, Belgium
+#19 - 10Y1001A1001A82H DE-LU 
+#20 - 10YFR-RTE------C FR, France
+#21 - 10YNL----------L NL, Netherlands
+#22 - 10YPL-AREA-----S PL, Poland
 
-- 10YAL-KESH-----5 #23 AL, Albania
-- 10Y1001A1001B004 #24 AM, Armenia
-- 10Y1001A1001B05V #25 AZ, Azerbaijan
-- 10YBA-JPCC-----D #26 BA, Bosnia and Herz.
-- 10YCA-BULGARIA-R #27 BG, Bulgaria
-- 10YCH-SWISSGRIDZ #28 CH, Switzerland
-- 10YCY-1001A0003J #29 CY, Cyprus
-- 10YCZ-CEPS-----N #30 CZ, Czech Republic
-- 10YES-REE------0 #31 ES, Spain
-- 10YGB----------A #32 GB, National Grid
-- 10Y1001A1001B012 #33 GE, Georgia
-- 10YGR-HTSO-----Y #34 GR, Greece
-- 10YHR-HEP------M #35 HR, Croatia
-- 10YHU-MAVIR----U #36 HU, Hungary
-- 10Y1001A1001A699 #39 IT-Brindisi
-- 10Y1001A1001A70O #40 IT-Centre-North
-- 10Y1001A1001A71M #41 IT-Centre-South
-- 10Y1001A1001A72K #42 IT-Foggia
-- 10Y1001A1001A73I #43 IT-North
-- 10Y1001A1001A74G #44 IT-Sardinia
-- 10Y1001A1001A75E #45 IT-Sicily
-- 10Y1001A1001A76C #46 IT-Priolo
-- 10Y1001A1001A77A #47 IT-Rossano
-- 10Y1001A1001A788 #48 IT-South
-- 10Y1001C--00096J #49 IT-Calabria
-- 10Y1001A1001A990 #50 MD, Moldova
-- 10YCS-CG-TSO---S #51 ME, Montenegro
-- 10YMK-MEPSO----8 #52 MK, North Macedonia
-- 10Y1001A1001A93C #53 MT, Malta
-- 10YPT-REN------W #54 PT, Portugal
-- 10YRO-TEL------P #55 RO, Romania
-- 10YSI-ELES-----O #56 SI, Slovenia
-- 10YSK-SEPS-----K #57 SK, Slovakia
-- 10YCS-SERBIATSOV #58 RS, Serbia
-- 10YTR-TEIAS----W #59 TR, Turkey
-- 10Y1001C--00003F #60 UA, Ukraine
-- 10Y1001C--00100H #61 XK, Kosovo
+#23 - 10YAL-KESH-----5 AL, Albania
+#24 - 10Y1001A1001B004 AM, Armenia
+#25 - 10Y1001A1001B05V AZ, Azerbaijan
+#26 - 10YBA-JPCC-----D BA, Bosnia and Herz.
+#27 - 10YCA-BULGARIA-R BG, Bulgaria
+#28 - 10YCH-SWISSGRIDZ CH, Switzerland
+#29 - 10YCY-1001A0003J CY, Cyprus
+#30 - 10YCZ-CEPS-----N CZ, Czech Republic
+#31 - 10YES-REE------0 ES, Spain
+#32 - 10YGB----------A GB, National Grid
+#33 - 10Y1001A1001B012 GE, Georgia
+#34 - 10YGR-HTSO-----Y GR, Greece
+#35 - 10YHR-HEP------M HR, Croatia
+#36 - 10YHU-MAVIR----U HU, Hungary
+#39 - 10Y1001A1001A699 IT-Brindisi
+#40 - 10Y1001A1001A70O IT-Centre-North
+#41 - 10Y1001A1001A71M IT-Centre-South
+#42 - 10Y1001A1001A72K IT-Foggia
+#43 - 10Y1001A1001A73I IT-North
+#44 - 10Y1001A1001A74G IT-Sardinia
+#45 - 10Y1001A1001A75E IT-Sicily
+#46 - 10Y1001A1001A76C IT-Priolo
+#47 - 10Y1001A1001A77A IT-Rossano
+#48 - 10Y1001A1001A788 IT-South
+#49 - 10Y1001C--00096J IT-Calabria
+#50 - 10Y1001A1001A990 MD, Moldova
+#51 - 10YCS-CG-TSO---S ME, Montenegro
+#52 - 10YMK-MEPSO----8 MK, North Macedonia
+#53 - 10Y1001A1001A93C MT, Malta
+#54 - 10YPT-REN------W PT, Portugal
+#55 - 10YRO-TEL------P RO, Romania
+#56 - 10YSI-ELES-----O SI, Slovenia
+#57 - 10YSK-SEPS-----K SK, Slovakia
+#58 - 10YCS-SERBIATSOV RS, Serbia
+#59 - 10YTR-TEIAS----W TR, Turkey
+#60 - 10Y1001C--00003F UA, Ukraine
+#61 - 10Y1001C--00100H XK, Kosovo
+```

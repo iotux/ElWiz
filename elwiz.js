@@ -19,6 +19,7 @@ const programPid = process.pid;
 const configFile = './config.yaml';
 const config = loadYaml(configFile);
 
+const messageFormat = config.messageFormat || 'raw';
 const meterModel = config.meterModel;
 const meter = `./ams/${meterModel}.js`;
 require(meter);
@@ -28,6 +29,10 @@ const watchValue = 15;
 const mqttUrl = config.mqttUrl || 'mqtt://localhost:1883';
 const mqttOpts = config.mqttOptions;
 const mqttClient = new MQTTClient(mqttUrl, mqttOpts, 'ElWiz');
+
+let topic = [];
+topic.push(config.topic) || 'tibber';
+
 mqttClient.waitForConnect();
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -48,10 +53,14 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
       setInterval(() => this.watch(), 1000);
       console.log(`${programName} is performing, PID: `, programPid);
 
-      this.mqttClient.subscribe(config.topic, (err) => {
-        if (err) {
-          console.log('Subscription error');
-        }
+      topic.forEach((topic) => {
+        this.mqttClient.subscribe(topic, function (err) {
+          if (err) {
+            console.log("clientIn error", err);
+          } else {
+            console.log(`Listening on \"${brokerInUrl}\" with topic \"${topic}\"`)
+          }
+        });
       });
 
       event.emit('notice', config.greetMessage);
@@ -103,7 +112,9 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
     async run() {
       this.mqttClient.on('message', (topic, message) => {
-        if (topic === config.topic) {
+        if (messageFormat === 'json') {
+          event.emit(meterModel, { 'topic': topic, 'message': JSON.parse(message) });
+        } else {
           const buf = Buffer.from(message);
           this.processMessage(buf);
         }

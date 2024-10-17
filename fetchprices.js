@@ -4,11 +4,11 @@
 
 const programName = 'fetchprices';
 const fs = require('fs');
-const request = require('axios');
+const axios = require('axios');
 const MQTTClient = require('./mqtt/mqtt');
 const UniCache = require('./misc/unicache');
-const { addZero, skewDays, loadYaml } = require('./misc/util.js');
-const { format, formatISO } = require('date-fns');
+const { addZero, skewDays, loadYaml, getNextDate } = require('./misc/util.js');
+const { format, formatISO, parseISO } = require('date-fns');
 
 // Specific for ENTSO-E
 const convert = require('xml-js');
@@ -17,10 +17,14 @@ const { exit } = require('process');
 const config = loadYaml('./config.yaml');
 const regionMap = loadYaml('./priceregions.yaml');
 
-const nordPoolUrl = config.nordpoolBaseUrl || 'https://www.nordpoolgroup.com/api/marketdata/page/10';
+//const nordPoolUrl = config.nordpoolBaseUrl || 'https://www.nordpoolgroup.com/api/marketdata/page/10';
+const nordPoolUrl = `https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices?market=DayAhead`;
+//const url = `${nordPoolUrl}&deliveryArea=${this.regionCode}&currency=${this.priceCurrency}&date=${urlDate}`;
+
+
 const baseUrl = config.entsoeBaseUrl || 'https://web-api.tp.entsoe.eu/api';
 const entsoeToken = config.priceAccessToken || null;
-const priceRegion = config.priceRegion || 8; // Oslo
+//const priceRegion = config.priceRegion || 8; // Oslo
 const region = config.regionCode || 'NO1';
 const regionCode = regionMap[region];
 
@@ -132,8 +136,20 @@ async function nordpoolDate(offset) {
   const oneDay = 24 * 60 * 60 * 1000;
   const now = new Date();
   const date = new Date(now.getTime() + oneDay * offset);
-  const ret = format(date, 'dd-MM-yyyy');
+  const ret = format(date, 'yyyy-MM-dd');
   return ret;
+}
+
+function xnordpoolDate(offset) {
+  let date = new Date();
+  date.setHours(0, 0, 0, 0); // Set to local midnight
+  date.setDate(date.getDate() + offset); // Apply day offset
+  const timezoneOffset = date.getTimezoneOffset() * 60000;
+  // Adjust the local midnight to UTC by adding the timezone offset
+  const utcDate = new Date(date.getTime() + timezoneOffset);
+  // Format the UTC date as 'yyyyMMddHHmm'
+  const formattedUtcDate = format(utcDate, 'yyyy-MM-dd');
+  return formattedUtcDate;
 }
 
 function entsoeDate(offset) {
@@ -146,6 +162,12 @@ function entsoeDate(offset) {
   // Format the UTC date as 'yyyyMMddHHmm'
   const formattedUtcDate = format(utcDate, 'yyyyMMddHHmm');
   return formattedUtcDate;
+}
+
+function utcToLocalDateTime(isoString) {
+  // If no argument is provided, use the current time
+  const date = isoString ? parseISO(isoString) : new Date();
+  return formatISO(date, { representation: 'complete' });
 }
 
 function averageCalc(arr, key, start = 0, end) {
@@ -168,10 +190,6 @@ function averageCalc(arr, key, start = 0, end) {
   return count > 0 ? sum / count : null;
 }
 
-function entsoeUrl(entsoeToken, region, periodStart, periodEnd) {
-  return `${baseUrl}?documentType=A44&securityToken=${entsoeToken}&in_Domain=${region}&out_Domain=${region}&periodStart=${periodStart}&periodEnd=${periodEnd}`;
-}
-
 async function getNordPoolPrices(dayOffset) {
   const priceDate = skewDays(dayOffset);
   const priceName = PRICE_DB_PREFIX + priceDate;
@@ -179,63 +197,49 @@ async function getNordPoolPrices(dayOffset) {
   let oneDayPrices;
 
   if (missingPrice) {
-    const url = `${nordPoolUrl}/${priceCurrency}/${await nordpoolDate(dayOffset)}`;
+    const url = `${nordPoolUrl}&deliveryArea=${region}&currency=${priceCurrency}&date=${await nordpoolDate(dayOffset)}`;
+    console.log(`Fetching: ${url}`);
     console.log(`Fetching: ${priceName}`);
     try {
-      const body = await request(url, nordPoolOpts);
-      const data = body.data.data;
-      const rows = data.Rows;
-      oneDayPrices = {
-        priceDate,
-        priceProvider: 'Nord Pool',
-        priceProviderUrl: url,
-        hourly: [],
-        daily: {},
-      };
+      const response = await axios.get(url, nordPoolOpts);
+      if (response.status === 200 && response.data) {
+        const data = response.data;
+        const hourly = data.multiAreaEntries;
+        let minPrice = 9999;
+        let maxPrice = 0;
+        oneDayPrices = {
+          priceDate: priceDate,
+          priceProvider: 'Nord Pool',
+          priceProviderUrl: url,
+          hourly: [],
+          daily: {},
+        };
 
-      if (rows[0].Columns[priceRegion].Value !== '-') {
         for (let curHour = 0; curHour <= 23; curHour++) {
-          const price = rows[curHour].Columns[priceRegion].Value;
-          const startTime = rows[curHour].StartTime;
-          const endTime = rows[curHour].EndTime;
           const floatingPrice =
             curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
-          let spotPrice = price.toString().replace(/ /g, '').replace(/(\d),/g, '.$1') / 100;
+          let spotPrice = hourly[curHour].entryPerArea[region] / 1000;
           spotPrice += (spotPrice * spotVatPercent) / 100;
           const priceObj = {
-            startTime,
-            endTime,
+            startTime: utcToLocalDateTime(hourly[curHour].deliveryStart),
+            ensTime: utcToLocalDateTime(hourly[curHour].deliveryEnd),
             spotPrice: parseFloat(spotPrice.toFixed(4)),
             floatingPrice: floatingPrice,
-            // Merged grid and supplier prices into fixec price
-            //gridFixedPrice: gridFixedPrice,
-            //supplierFixedPrice: supplierFixedPrice,
-            fixedPrice: gridFixedPrice + supplierFixedPrice,
-          };
+            fixedPrice: gridFixedPrice + supplierFixedPrice
+          }
           oneDayPrices.hourly.push(priceObj);
-        }
 
-        let minPrice = parseFloat(rows[24].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/,/g, '.')) * 0.001;
-        let maxPrice = parseFloat(rows[25].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/,/g, '.')) * 0.001;
-        let avgPrice = parseFloat(rows[26].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/,/g, '.')) * 0.001;
-
-        let peakPrice = parseFloat(rows[27].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/,/g, '.')) * 0.001;
-        let offPeakPrice1 = parseFloat(rows[28].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/,/g, '.')) * 0.001;
-        let offPeakPrice2 = parseFloat(rows[29].Columns[priceRegion].Value.toString().replace(/ /g, '').replace(/,/g, '.')) * 0.001;
-
-        if (Number.isNaN(peakPrice)) {
-          peakPrice = parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', dayHoursStart, dayHoursEnd - 1).toFixed(4));
-          offPeakPrice1 = parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', 0, dayHoursStart - 1).toFixed(4));
-          offPeakPrice2 = parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', dayHoursEnd, 23).toFixed(4));
+          minPrice = spotPrice < minPrice ? spotPrice : minPrice;
+          maxPrice = spotPrice > maxPrice ? spotPrice : maxPrice;
         }
 
         oneDayPrices.daily = {
-          minPrice: parseFloat((minPrice += (minPrice * spotVatPercent) / 100).toFixed(4)),
-          maxPrice: parseFloat((maxPrice += (maxPrice * spotVatPercent) / 100).toFixed(4)),
-          avgPrice: parseFloat((avgPrice += (avgPrice * spotVatPercent) / 100).toFixed(4)),
-          peakPrice: parseFloat((peakPrice += (peakPrice * spotVatPercent) / 100).toFixed(4)),
-          offPeakPrice1: parseFloat((offPeakPrice1 += (offPeakPrice1 * spotVatPercent) / 100).toFixed(4)),
-          offPeakPrice2: parseFloat((offPeakPrice2 += (offPeakPrice2 * spotVatPercent) / 100).toFixed(4)),
+          minPrice: parseFloat((minPrice + (minPrice * spotVatPercent) / 100).toFixed(4)),
+          maxPrice: parseFloat((maxPrice + (maxPrice * spotVatPercent) / 100).toFixed(4)),
+          avgPrice: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice').toFixed(4)),
+          peakPrice: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', dayHoursStart, dayHoursEnd - 1).toFixed(4)),
+          offPeakPrice1: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', 0, dayHoursStart - 1).toFixed(4)),
+          offPeakPrice2: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', dayHoursEnd, 23).toFixed(4)),
         };
 
         // Store to cache
@@ -255,15 +259,18 @@ async function getNordPoolPrices(dayOffset) {
   }
 }
 
+function entsoeUrl(entsoeToken, region, periodStart, periodEnd) {
+  return `${baseUrl}?documentType=A44&securityToken=${entsoeToken}&in_Domain=${region}&out_Domain=${region}&periodStart=${periodStart}&periodEnd=${periodEnd}`;
+}
+
 async function getEntsoePrices(dayOffset) {
   const priceDate = skewDays(dayOffset);
-  const nextDate = skewDays(dayOffset + 1);
   const priceName = PRICE_DB_PREFIX + priceDate;
   const missingPrice = !(await priceDb.existsObject(priceName));
   let oneDayPrices;
   if (missingPrice) {
     const url = entsoeUrl(entsoeToken, regionCode, entsoeDate(dayOffset), entsoeDate(dayOffset + 1));
-    await request.get(url, entsoeOpts)
+    await axios.get(url, entsoeOpts)
       .then(async function (body) {
         const result = convert.xml2js(body.data, { compact: true, spaces: 4 });
         if (result.Publication_MarketDocument !== undefined) {
@@ -275,7 +282,8 @@ async function getEntsoePrices(dayOffset) {
             return; // Exit the function early if prices are not available
           }
           let minPrice = 9999;
-          let maxPrice = 0; oneDayPrices = {
+          let maxPrice = 0;
+          oneDayPrices = {
             priceDate: priceDate,
             priceProvider: "ENTSO-E",
             priceProviderUrl: entsoeUrl("*****", priceRegion, entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
@@ -284,14 +292,14 @@ async function getEntsoePrices(dayOffset) {
           };
 
           for (let curHour = 0; curHour <= 23; curHour++) {
-            const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd
-              ? gridDayHourPrice
-              : gridNightHourPrice;
+            const floatingPrice =
+              curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
             let spotPrice = (realMeat.Point[curHour]['price.amount']._text * currencyRate) / 1000;
             spotPrice += (spotPrice * spotVatPercent) / 100;
+
             const priceObj = {
-              startTime: `${priceDate}T${addZero(curHour)}:00:00`,
-              endTime: curHour === 23 ? `${nextDate}T00:00:00` : `${priceDate}T${addZero(curHour + 1)}:00:00`,
+              startTime: utcToLocalDateTime(hourly[curHour].deliveryStart),
+              ensTime: utcToLocalDateTime(hourly[curHour].deliveryEnd),
               spotPrice: parseFloat(spotPrice.toFixed(4)),
               floatingPrice: floatingPrice,
               fixedPrice: gridFixedPrice + supplierFixedPrice,
