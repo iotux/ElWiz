@@ -103,7 +103,7 @@ async function getOffsets() {
   offsetFactors = [{ date: await skewDays(-1), threshold: 0 }, { date: await skewDays(0), threshold: 0 }]
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
-    fs.writeFileSync(saveFile, JSON.stringify(thresholds));
+    fs.writeFileSync(saveFile, JSON.stringify(threshold));
     return offsetFactors;
   } else {
     if (!fs.existsSync(saveFile)) {
