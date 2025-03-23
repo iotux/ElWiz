@@ -14,8 +14,18 @@ meterModel: kaifa
 # Values may need adjustment for Kamstrup meters
 amsLastMessage: "59:56"
 
-# Tibber Pulse listening topic
+# For Tibber Pulse, change the next topics
+# according to your own preferencews
+# Tibber Pulse publishing topic
 topic: tibber
+
+# Tibber Pulse command topic
+pulseCommandTopic: rebbit
+
+# pulseRefreshMessage is regularly
+# sent to "pulseCommandTopic"
+pulseRefreshMessage: "batching_disable"
+pulseRrefreshInterval: "-1"
 
 # ElWiz publishing topics
 pubTopic: meter/ams
@@ -61,7 +71,7 @@ cacheType: file
 
 # Possivle storage type
 #   mongodb
-#   mariadb 
+#   mariadb
 #   custom
 #   none
 storage: none
@@ -93,9 +103,9 @@ haAnnounceTopic: homeassistant
 # the Nord Pool power market, and Entso-E
 # (https://transparency.entsoe.eu)
 # One has priority over the other. If for some reason
-# the fetching fails, the program will attempt to fetch 
+# the fetching fails, the program will attempt to fetch
 # the power price from the other. It is worth noting that
-# an "access token" is required to fetch prices from 
+# an "access token" is required to fetch prices from
 # the Entso-E source. You will obtain one by writing
 # an email to "transparency@entsoe.eu" and ask for a token.
 # Without a token, the program will only operate on

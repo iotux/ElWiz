@@ -1,5 +1,5 @@
 // Import required modules
-const UniCache = require('../misc/unicache.js');
+const UniCache = require('@iotux/uni-cache');
 const { loadYaml } = require('../misc/util.js');
 
 // Load configuration
@@ -10,10 +10,10 @@ const config = loadYaml(configFile);
 const cacheDebug = config.unicache.debug || false;
 const cacheName = 'powersave';
 const cacheOptions = {
-  //cacheType: config.cacheType || 'file',
   cacheType: 'file',
   syncOnWrite: false,
-  //:wqsyncInterval: 10, // seconds
+  //syncInterval: 10, // seconds
+  syncOnBreak: true,
   savePath: config.savePath || './data',
   debug: cacheDebug
 };
@@ -43,7 +43,7 @@ const energySavings = {
   prevDayMeterProduction: 0,
   prevMonthMeterProduction: 0,
 
-  // Hourly consumption cache 
+  // Hourly consumption cache
   topHoursAverage: 0,
   sortedHourlyConsumption: [],
   topConsumptionHours: [],
@@ -75,15 +75,13 @@ async function dbInit(name, options, data) {
   db = new UniCache(name, options);
 
   // Check if the cache is empty and initialize it with the provided data
-  if (await db.isEmpty(name)) {
+  if (!await db.existsObject(name)) {
     if (cacheDebug) console.log('Database is empty')
     await db.init(data);
   }
 
-  // Fetch the data from the cache and log it
-  db.fetch().then(function (data) {
-    if (cacheDebug) console.log('Powersave data loaded', data);
-  });
+  // Fetch the cache data on startup
+  return await db.fetch();
 }
 
 dbInit(cacheName, cacheOptions, energySavings);

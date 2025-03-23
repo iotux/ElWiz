@@ -1,16 +1,13 @@
 #!/usr/bin/env node
 
-const { exit } = require('process');
 const fs = require('fs');
-//const yaml = require('js-yaml');
-
 const MQTTClient = require("./mqtt/mqtt");
-
 const notice = require('./publish/notice.js');
-const db = require('./misc/dbinit.js');
 const { event } = require('./misc/misc.js');
 const { loadYaml } = require('./misc/util.js');
 
+require('./misc/dbinit.js');
+require('./ams/pulseControl.js');
 require('./plugin/plugselector.js');
 require('./publish/hassAnnounce.js');
 
@@ -65,10 +62,12 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
       event.emit('notice', config.greetMessage);
 
-      this.setupSignalHandlers();
+      //this.setupSignalHandlers();
       console.log('Running init');
     }
 
+    // Removed signal handlers. Graceful shutdown is now handled by the UniCache module
+    /*
     setupSignalHandlers() {
       process.on('SIGINT', this.handleSignal.bind(this, 'SIGINT'));
       process.on('SIGTERM', this.handleSignal.bind(this, 'SIGTERM'));
@@ -97,6 +96,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         //  break;
       }
     }
+    */
 
     watch() {
       if (!this.timerExpired) {
