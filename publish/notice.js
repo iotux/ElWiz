@@ -18,16 +18,17 @@ mqttClient.waitForConnect();
  */
 function formatStatusData(data) {
   const obj = JSON.parse(data);
+  return obj;
   return {
-    tibberVersion: obj.status.Build,
-    hardWare: obj.status.Hw,
-    ID: obj.status.ID,
-    MAC: getMacAddress(obj.status.ID),
-    upTime: upTime(obj.status.Uptime),
-    SSID: obj.status.ssid,
-    rssi: obj.status.rssi,
-    wifiFail: obj.status.wififail,
-    meter: obj.status.meter,
+    tibberVersion: obj.status.Build || 'unknown',
+    hardWare: obj.status.Hw || 'unknown',
+    ID: obj.status.ID || 'unknown',
+    MAC: getMacAddress(obj.status.ID) || 'unknown',
+    upTime: upTime(obj.status.Uptime) || 'unknown',
+    SSID: obj.status.ssid || 'unknown',
+    rssi: obj.status.rssi || 'unknown',
+    wifiFail: obj.status.wififail || 'unknown',
+    meter: obj.status.meter || 'unknown',
   };
 }
 

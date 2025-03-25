@@ -16,7 +16,6 @@ const refreshInterval = config.pulseRefreshInterval || "-1";
 mqttClient.waitForConnect();
 
 function onContolEvent(obj) {
-  //console.log('onContolEvent', obj);
   mqttClient.publish(`${controlTopic}`, `${refreshMessage} ${refreshInterval}`, { retain: true, qos: 1 });
 }
 

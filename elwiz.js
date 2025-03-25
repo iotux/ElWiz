@@ -66,38 +66,6 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
       console.log('Running init');
     }
 
-    // Removed signal handlers. Graceful shutdown is now handled by the UniCache module
-    /*
-    setupSignalHandlers() {
-      process.on('SIGINT', this.handleSignal.bind(this, 'SIGINT'));
-      process.on('SIGTERM', this.handleSignal.bind(this, 'SIGTERM'));
-      process.on('SIGHUP', this.handleSignal.bind(this, 'SIGHUP'));
-      process.on('SIGUSR1', this.handleSignal.bind(this, 'SIGUSR1'));
-    }
-
-    handleSignal(signal) {
-      switch (signal) {
-        case 'SIGINT':
-        case 'SIGTERM':
-          console.log(`\nGot ${signal}, power saved`);
-          db.sync();
-          exit(0);
-          // Needed to get rid of the missing break warning
-          break;
-        case 'SIGHUP':
-          console.log(`\nGot ${signal}, config loaded`);
-          this.config = yaml.load(configFile);
-          db.sync();
-          this.init();
-          break;
-        //case 'SIGUSR1':
-        //  this.debug = !this.debug;
-        //  console.log(`\nGot ${signal}, debug ${this.debug ? 'ON' : 'OFF'}`);
-        //  break;
-      }
-    }
-    */
-
     watch() {
       if (!this.timerExpired) {
         this.timerValue--;
@@ -133,7 +101,10 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
       }
       const messageType = buf[0];
 
-      if (messageType === 0x7b) {
+      if (messageType === 0x2f) {
+        const msg = buf.toString();
+        event.emit('obis', msg);
+      } else if (messageType === 0x7b) {
         const msg = buf.toString();
         event.emit('status', msg);
       } else if (messageType === 0x7e) {

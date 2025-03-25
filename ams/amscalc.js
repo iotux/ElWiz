@@ -354,11 +354,6 @@ async function amsCalc(list, obj) {
     await handleHourlyCalculations(obj);
     await handleDailyCalculations(obj);
     await handleMonthlyCalculations(obj);
-    if (debug) {
-      await db.fetch().then(function (data) {
-        console.log('amsCalc: Unicache:db', data);
-      });
-    }
     await db.sync();
   }
 

@@ -56,9 +56,6 @@ const energySavings = {
   minPower: 9999999,
   maxPower: 0,
   averagePower: 0,
-
-  // Correction factor cache
-  previousCorrectionFactor: 1,  // New field added
 };
 
 let db;
@@ -77,7 +74,7 @@ async function dbInit(name, options, data) {
   // Check if the cache is empty and initialize it with the provided data
   if (!await db.existsObject(name)) {
     if (cacheDebug) console.log('Database is empty')
-    await db.init(data);
+    await db.save(data);
   }
 
   // Fetch the cache data on startup
