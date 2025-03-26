@@ -256,3 +256,6 @@ publish:
 
 unicache:
   debug: false
+
+hassDebug:
+  debug: false
