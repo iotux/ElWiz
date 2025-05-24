@@ -3,7 +3,13 @@ const { getPreviousHour, skewDays, loadYaml } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
 const configFile = './config.yaml';
-const config = loadYaml(configFile);
+let config;
+try {
+  config = loadYaml(configFile);
+} catch (error) {
+  console.error(`[AmsCalc] Error loading config file ${configFile}: ${error.message}`);
+  throw error; // Re-throw the error to be handled by the caller
+}
 
 const topHoursCount = config.topHoursCount || 3;
 const topHoursSize = config.topHoursSize || 10;

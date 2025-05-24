@@ -14,14 +14,25 @@ require('./publish/hassAnnounce.js');
 const programName = 'ElWiz';
 const programPid = process.pid;
 const configFile = './config.yaml';
-const config = loadYaml(configFile);
+let config;
+try {
+  config = loadYaml(configFile);
+} catch (error) {
+  console.error(`[Main] Fatal error loading config file ${configFile}: ${error.message}`);
+  process.exit(1);
+}
 
 const messageFormat = config.messageFormat || 'raw';
 const meterModel = config.meterModel;
 const meter = `./ams/${meterModel}.js`;
-require(meter);
+try {
+  require(meter);
+} catch (error) {
+  console.error(`[Main] Fatal error loading meter module ${meter}: ${error.message}`);
+  process.exit(1);
+}
 
-const watchValue = 15;
+const watchValue = config.watchValue || 15;
 
 const mqttUrl = config.mqttUrl || 'mqtt://localhost:1883';
 const mqttOpts = config.mqttOptions;

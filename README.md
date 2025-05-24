@@ -306,12 +306,7 @@ This is described in more detail further down, as well as made visible in the ex
 ## Data from Pulse
 
 From **Pulse** comes a start-up message, status messages and **AMS** meter data. **Pulse**, on the other hand, lacks a **LastWill** message. Such a message should normally be sent to the broker when the device is started.
-If the broker loses contact with the device, it will send this message to subscribers. To compensate for this shortcoming, there is a **"watchdog" feature** in **ElWiz**. This is a counter that counts down with an interval of 1 second. When the program receives a message from **Pulse**, the program refreshes this counter. If data from **Pulse** is missing, the counter will continue to count down. When it gets the value 0, the program will send an **MQTT message** as a warning that there is no data from **Pulse**. The counter is initially set to 15 seconds, but this value can be changed in the program code.
-
-```
-// The watchdog timer
-const watchValue = 15;
-```
+If the broker loses contact with the device, it will send this message to subscribers. To compensate for this shortcoming, there is a **"watchdog" feature** in **ElWiz**. This is a counter that counts down with an interval of 1 second. When the program receives a message from **Pulse**, the program refreshes this counter. If data from **Pulse** is missing, the counter will continue to count down. When it gets the value 0, the program will send an **MQTT message** as a warning that there is no data from **Pulse**. This timeout is configurable in `config.yaml` via the `watchValue` parameter (defaults to 15 seconds).
 
 ## MQTT data from ElWiz
 

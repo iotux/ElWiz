@@ -6,7 +6,13 @@ const { hex2Dec, hex2Ascii, getAmsTime, loadYaml } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
 const configFile = './config.yaml';
-const config = loadYaml(configFile);
+let config;
+try {
+  config = loadYaml(configFile);
+} catch (error) {
+  console.error(`[Kaifa] Error loading config file ${configFile}: ${error.message}`);
+  throw error; // Re-throw the error to be handled by the caller
+}
 
 const debug = config.amscalc.debug || false;
 

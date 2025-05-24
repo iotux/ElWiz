@@ -50,6 +50,7 @@ greetMessage: ElWiz is performing
 # Tibber Pulse event messages
 onlineMessage: Pulse is talking
 offlineMessage: Pulse is quiet
+watchValue: 15 # Time in seconds before Pulse is considered offline
 
 # Debug mode at startup
 DEBUG: false

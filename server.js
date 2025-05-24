@@ -10,7 +10,13 @@ const app = express();
 const MQTTClient = require("./mqtt/mqtt");
 const WebSocket = require('ws');
 const configPath = './chart-config.yaml';
-const config = loadYaml(configPath);
+let config;
+try {
+  config = loadYaml(configPath);
+} catch (error) {
+  console.error(`[Server] Fatal error loading config file ${configPath}: ${error.message}`);
+  process.exit(1);
+}
 
 const serverConfig = config.serverConfig;
 let chartConfig = config.chartConfig;
@@ -100,17 +106,34 @@ async function skewDays(days) {
 }
 
 async function getOffsets() {
-  offsetFactors = [{ date: await skewDays(-1), threshold: 0 }, { date: await skewDays(0), threshold: 0 }]
+  let initialOffsets = [{ date: await skewDays(-1), threshold: 0 }, { date: await skewDays(0), threshold: 0 }];
   if (!fs.existsSync(savePath)) {
     fs.mkdirSync(savePath, { recursive: true });
-    fs.writeFileSync(saveFile, JSON.stringify(threshold));
-    return offsetFactors;
+    // Use initialOffsets for writing if the file/path doesn't exist
+    fs.writeFileSync(saveFile, JSON.stringify(initialOffsets)); 
+    return initialOffsets;
   } else {
     if (!fs.existsSync(saveFile)) {
-      fs.writeFileSync(saveFile, JSON.stringify(offsetFactors));
-      return offsetFactors;
+      // Use initialOffsets for writing if the file doesn't exist
+      fs.writeFileSync(saveFile, JSON.stringify(initialOffsets)); 
+      return initialOffsets;
     }
-    return JSON.parse(fs.readFileSync(saveFile));
+    // If the file exists, read and return its content
+    try {
+      const data = JSON.parse(fs.readFileSync(saveFile));
+      // Validate that data is an array and has the expected structure
+      if (Array.isArray(data) && data.length === 2 && data.every(item => typeof item === 'object' && 'date' in item && 'threshold' in item)) {
+        return data;
+      } else {
+        console.warn(`Invalid data structure in ${saveFile}. Reinitializing with default values.`);
+        fs.writeFileSync(saveFile, JSON.stringify(initialOffsets));
+        return initialOffsets;
+      }
+    } catch (error) {
+      console.error(`Error reading or parsing ${saveFile}: ${error}. Reinitializing with default values.`);
+      fs.writeFileSync(saveFile, JSON.stringify(initialOffsets));
+      return initialOffsets;
+    }
   }
 }
 
@@ -165,12 +188,18 @@ function saveThresholds(idx, threshold, where) {
   }
   */
   wss.on('connection', function (client) {
+    let clientId; // Declare clientId here to make it accessible in the close handler
+
     client.on('message', function (message) {
       const data = JSON.parse(message);
       const channel = data['channel'];
       const topic = data['topic'];
       const msg = data['payload'];
-      const clientId = data.clientId;
+      // Assign clientId when the first message is received
+      if (!clientId) {
+        clientId = data.clientId;
+        client.clientId = clientId; // Store clientId on the client object
+      }
       clients.saveClient(clientId, client);
       ws = clients.getClient(clientId);
       if (msg === 'init') {
@@ -181,8 +210,11 @@ function saveThresholds(idx, threshold, where) {
     });
 
     client.on('close', function (connection) {
-      console.log('Connection closed', connection)
-      //delete clients[client];
+      console.log('Connection closed for clientId:', client.clientId, connection);
+      if (client.clientId) {
+        clients.deleteClient(client.clientId);
+        console.log('Client removed:', client.clientId, '. Active clients:', clients.getClientIds());
+      }
     });
   });
 
@@ -353,10 +385,17 @@ function saveThresholds(idx, threshold, where) {
 
     const avgPrice = prices.daily.avgPrice;
 
-    // Vertical range = highest price in a 2 days period
-    if (prices.daily.maxPrice > maxPrice) {
-      maxPrice = prices.daily.maxPrice;
+    // Recalculate maxPrice from the current chartData or new prices
+    let currentMax = 0;
+    if (chartData.length > 0) {
+      currentMax = chartData.reduce((max, p) => p.spotPrice > max ? p.spotPrice : max, 0);
     }
+    // Consider the new prices' maxPrice as well
+    if (prices.daily.maxPrice > currentMax) {
+      currentMax = prices.daily.maxPrice;
+    }
+    maxPrice = currentMax;
+
 
     // verticalStepCount = step count for the vertical range
     const fixed = (maxPrice / verticalStepCount) * fixedOffset;
@@ -572,10 +611,14 @@ function saveThresholds(idx, threshold, where) {
   function calcAverage(obj, element) {
     // Calculate the average sum of the specified element from "obj" object array
     let sum = 0;
+    if (obj.length === 0) {
+      return 0; // Return 0 if the array is empty
+    }
     for (let i = 0; i <= obj.length - 1; i++) {
       sum += obj[i][element];
     }
-    return sum / i;
+    // Use obj.length for division, as 'i' will be obj.length at the end of the loop
+    return sum / obj.length; 
   }
   // Helper function to check if a string is a valid JSON
   function isJsonString(str) {
