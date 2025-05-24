@@ -5,9 +5,12 @@ const MQTTClient = require("./mqtt/mqtt");
 const notice = require("./publish/notice.js");
 const { event } = require("./misc/misc.js");
 const { loadYaml } = require("./misc/util.js");
+const PriceService = require("./lib/common/priceService.js");
+const mergePricesPlugin = require("./plugin/mergeprices.js");
 
 require("./misc/dbinit.js");
 require("./ams/pulseControl.js");
+// plugselector is used via event, its listeners are set up when it's required.
 require("./plugin/plugselector.js");
 require("./publish/hassAnnounce.js");
 
@@ -15,6 +18,7 @@ const programName = "ElWiz";
 const programPid = process.pid;
 const configFile = "./config.yaml";
 let config;
+
 try {
   config = loadYaml(configFile);
 } catch (error) {
@@ -24,14 +28,24 @@ try {
   process.exit(1);
 }
 
+// Basic console logger for elwiz main
+const logger = {
+  info: (message) => console.log(`[ElWiz INFO] ${message}`),
+  error: (message) => console.error(`[ElWiz ERROR] ${message}`),
+  debug: (message) => {
+    if (config.debug) console.log(`[ElWiz DEBUG] ${message}`);
+  },
+};
+
 const messageFormat = config.messageFormat || "raw";
 const meterModel = config.meterModel;
-const meter = `./ams/${meterModel}.js`;
+const meterPath = `./ams/${meterModel}.js`;
 try {
-  require(meter);
+  require(meterPath);
+  logger.info(`Meter module ${meterPath} loaded.`);
 } catch (error) {
-  console.error(
-    `[Main] Fatal error loading meter module ${meter}: ${error.message}`,
+  logger.error(
+    `[Main] Fatal error loading meter module ${meterPath}: ${error.message}`,
   );
   process.exit(1);
 }
@@ -39,48 +53,74 @@ try {
 const watchValue = config.watchValue || 15;
 
 const mqttUrl = config.mqttUrl || "mqtt://localhost:1883";
-const mqttOpts = config.mqttOptions;
-const mqttClient = new MQTTClient(mqttUrl, mqttOpts, "ElWiz");
+const mqttOpts = config.mqttOptions || {};
+const elwizMqttClient = new MQTTClient(mqttUrl, mqttOpts, "ElWizMain", logger);
 
-let topic = [];
-topic.push(config.topic) || "tibber";
+// Instantiate PriceService
+const priceServiceInstance = new PriceService(
+  elwizMqttClient,
+  {
+    priceTopic: config.priceTopic,
+    debug: config.debug, // Pass general debug flag to priceService config
+  },
+  logger,
+);
 
-mqttClient.waitForConnect();
+// Initialize mergeprices plugin with the PriceService instance
+mergePricesPlugin.initialize(priceServiceInstance);
+
+let pulseTopics = []; // Renamed from 'topic' to avoid conflict
+if (config.topic) {
+  // Ensure config.topic exists before pushing
+  pulseTopics.push(config.topic);
+} else {
+  pulseTopics.push("tibber"); // Default if not specified
+  logger.warn(
+    "MQTT topic for Tibber Pulse not specified in config, using default 'tibber'",
+  );
+}
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 (async () => {
+  await elwizMqttClient.waitForConnect(); // Ensure MQTT client is connected before Pulse class tries to use it
+
   class Pulse {
     constructor() {
-      this.debug = config.DEBUG || false;
-      this.mqttClient = mqttClient;
+      this.debug = config.debug || false;
+      this.mqttClient = elwizMqttClient;
+      this.timerValue = watchValue;
+      this.timerExpired = false;
       this.init();
-      notice.run();
+      if (notice && typeof notice.run === "function") {
+        notice.run();
+      } else {
+        logger.warn("Notice module or run method not available.");
+      }
     }
 
     async init() {
-      //this.mqttClient = mqttClient; //new MQTTClient(mqttUrl, mqttOpts, 'ElWiz');
-
-      delay(1500); // Delay 1.5 secs, waiting for prices
+      await delay(1500);
       setInterval(() => this.watch(), 1000);
-      console.log(`${programName} is performing, PID: `, programPid);
+      logger.info(`${programName} is performing, PID: ${programPid}`);
 
-      topic.forEach((topic) => {
-        this.mqttClient.subscribe(topic, function (err) {
+      pulseTopics.forEach((t) => {
+        this.mqttClient.subscribe(t, (err) => {
           if (err) {
-            console.log("clientIn error", err);
+            logger.error(
+              `MQTT subscription error for Pulse topic "${t}": ${err}`,
+            );
           } else {
-            console.log(
-              `Listening on \"${brokerInUrl}\" with topic \"${topic}\"`,
+            logger.info(
+              `Listening on "${mqttUrl}" for Pulse messages with topic "${t}"`,
             );
           }
         });
       });
 
-      event.emit("notice", config.greetMessage);
-
-      //this.setupSignalHandlers();
-      console.log("Running init");
+      event.emit("notice", config.greetMessage || "ElWiz is performing...");
+      logger.info("ElWiz Pulse instance initialized.");
+      this.run(); // Start the message listener
     }
 
     watch() {
@@ -88,33 +128,43 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
         this.timerValue--;
       }
       if (this.timerValue <= 0 && !this.timerExpired) {
-        event.emit("notice", config.offlineMessage);
+        event.emit("notice", config.offlineMessage || "Pulse is offline!");
         this.timerExpired = true;
         this.timerValue = 0;
-        console.log("Pulse is offline!");
+        logger.info("Pulse is offline!");
       }
     }
 
     async run() {
-      this.mqttClient.on("message", (topic, message) => {
-        if (messageFormat === "json") {
-          event.emit(meterModel, {
-            topic: topic,
-            message: JSON.parse(message),
-          });
-        } else {
-          const buf = Buffer.from(message);
-          this.processMessage(buf);
+      this.mqttClient.on("message", (msgTopic, msgPayload) => {
+        if (pulseTopics.includes(msgTopic)) {
+          // Process only messages from configured Pulse topics
+          this.timerValue = watchValue; // Reset watchdog on receiving relevant message
+          this.timerExpired = false;
+
+          if (messageFormat === "json") {
+            try {
+              event.emit(meterModel, {
+                topic: msgTopic,
+                message: JSON.parse(msgPayload.toString()),
+              });
+            } catch (e) {
+              logger.error(
+                `Error parsing JSON message from Pulse: ${e.message}`,
+              );
+            }
+          } else {
+            const buf = Buffer.from(msgPayload);
+            this.processMessage(buf);
+          }
         }
       });
-      console.log("Running run");
+      logger.info("ElWiz Pulse message processor is running.");
     }
 
     processMessage(buf) {
       if (buf[0] === 0x08) {
-        // Find the first occurrence of 0x7e
         const indexOf7e = buf.indexOf(0x7e);
-        // If 0x7E is found, slice the buffer from that position onward, keeping 0x7E
         if (indexOf7e !== -1) {
           buf = buf.slice(indexOf7e);
         }
@@ -122,36 +172,49 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       const messageType = buf[0];
 
       if (messageType === 0x2f) {
+        // OBIS
         const msg = buf.toString();
         event.emit("obis", msg);
       } else if (messageType === 0x7b) {
+        // JSON status from some Pulse versions
         const msg = buf.toString();
         event.emit("status", msg);
       } else if (messageType === 0x7e) {
+        // HDLC frame (AMS data)
         this.processMeterData(buf);
-      } else if (messageType === "H") {
+      } else if (messageType === "H" && buf.length === 1) {
+        // Possible "Hello" or keep-alive from some Pulse fw
         const msg = buf.toString();
-        event.emit("hello", msg);
+        event.emit("hello", msg); // Assuming 'hello' event is handled or just for debug
+        if (this.debug)
+          logger.debug(`Received 'hello' message from Pulse: ${msg}`);
       } else {
         const msg = buf.toString();
-        event.emit("notice", msg);
+        // Avoid logging every unknown message if it's too noisy, or add specific checks
+        if (this.debug)
+          logger.debug(
+            `Received unhandled message type or string from Pulse (first byte: ${buf[0]}): ${msg.slice(0, 50)}...`,
+          );
+        event.emit("notice", msg); // Generic notice for unhandled
       }
     }
 
     processMeterData(buf) {
-      const dataLength = (buf[1] & 0x0f) * 256 + buf[2] + 2;
-
-      if (buf.length === dataLength) {
-        this.timerValue = watchValue;
-        this.timerExpired = false;
-        // Send Pulse data to list decoder
+      // Simplified length check, actual HDLC parsing might be more complex
+      if (buf.length > 2) {
+        // Basic check for some payload
+        // Assuming the full buffer is the meter data if it starts with 0x7e
         event.emit("pulse", buf);
-      } // End valid data
+      } else {
+        if (this.debug)
+          logger.debug(
+            `Invalid meter data buffer received (too short): ${buf.toString("hex")}`,
+          );
+      }
     }
   }
 
   const pulse = new Pulse();
-  //await pulse.init();
-  await pulse.run();
-  //notice.run();
+  // run() is called from init() now
+  // await pulse.run();
 })();
