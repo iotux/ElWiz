@@ -12,5 +12,8 @@
   },
   "scripts": {
     "start": "node elwiz.js"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3"
   }
 }

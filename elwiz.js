@@ -1,49 +1,53 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
+const fs = require("fs");
 const MQTTClient = require("./mqtt/mqtt");
-const notice = require('./publish/notice.js');
-const { event } = require('./misc/misc.js');
-const { loadYaml } = require('./misc/util.js');
+const notice = require("./publish/notice.js");
+const { event } = require("./misc/misc.js");
+const { loadYaml } = require("./misc/util.js");
 
-require('./misc/dbinit.js');
-require('./ams/pulseControl.js');
-require('./plugin/plugselector.js');
-require('./publish/hassAnnounce.js');
+require("./misc/dbinit.js");
+require("./ams/pulseControl.js");
+require("./plugin/plugselector.js");
+require("./publish/hassAnnounce.js");
 
-const programName = 'ElWiz';
+const programName = "ElWiz";
 const programPid = process.pid;
-const configFile = './config.yaml';
+const configFile = "./config.yaml";
 let config;
 try {
   config = loadYaml(configFile);
 } catch (error) {
-  console.error(`[Main] Fatal error loading config file ${configFile}: ${error.message}`);
+  console.error(
+    `[Main] Fatal error loading config file ${configFile}: ${error.message}`,
+  );
   process.exit(1);
 }
 
-const messageFormat = config.messageFormat || 'raw';
+const messageFormat = config.messageFormat || "raw";
 const meterModel = config.meterModel;
 const meter = `./ams/${meterModel}.js`;
 try {
   require(meter);
 } catch (error) {
-  console.error(`[Main] Fatal error loading meter module ${meter}: ${error.message}`);
+  console.error(
+    `[Main] Fatal error loading meter module ${meter}: ${error.message}`,
+  );
   process.exit(1);
 }
 
 const watchValue = config.watchValue || 15;
 
-const mqttUrl = config.mqttUrl || 'mqtt://localhost:1883';
+const mqttUrl = config.mqttUrl || "mqtt://localhost:1883";
 const mqttOpts = config.mqttOptions;
-const mqttClient = new MQTTClient(mqttUrl, mqttOpts, 'ElWiz');
+const mqttClient = new MQTTClient(mqttUrl, mqttOpts, "ElWiz");
 
 let topic = [];
-topic.push(config.topic) || 'tibber';
+topic.push(config.topic) || "tibber";
 
 mqttClient.waitForConnect();
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 (async () => {
   class Pulse {
@@ -66,15 +70,17 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
           if (err) {
             console.log("clientIn error", err);
           } else {
-            console.log(`Listening on \"${brokerInUrl}\" with topic \"${topic}\"`)
+            console.log(
+              `Listening on \"${brokerInUrl}\" with topic \"${topic}\"`,
+            );
           }
         });
       });
 
-      event.emit('notice', config.greetMessage);
+      event.emit("notice", config.greetMessage);
 
       //this.setupSignalHandlers();
-      console.log('Running init');
+      console.log("Running init");
     }
 
     watch() {
@@ -82,23 +88,26 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         this.timerValue--;
       }
       if (this.timerValue <= 0 && !this.timerExpired) {
-        event.emit('notice', config.offlineMessage);
+        event.emit("notice", config.offlineMessage);
         this.timerExpired = true;
         this.timerValue = 0;
-        console.log('Pulse is offline!');
+        console.log("Pulse is offline!");
       }
     }
 
     async run() {
-      this.mqttClient.on('message', (topic, message) => {
-        if (messageFormat === 'json') {
-          event.emit(meterModel, { 'topic': topic, 'message': JSON.parse(message) });
+      this.mqttClient.on("message", (topic, message) => {
+        if (messageFormat === "json") {
+          event.emit(meterModel, {
+            topic: topic,
+            message: JSON.parse(message),
+          });
         } else {
           const buf = Buffer.from(message);
           this.processMessage(buf);
         }
       });
-      console.log('Running run');
+      console.log("Running run");
     }
 
     processMessage(buf) {
@@ -114,29 +123,29 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
       if (messageType === 0x2f) {
         const msg = buf.toString();
-        event.emit('obis', msg);
+        event.emit("obis", msg);
       } else if (messageType === 0x7b) {
         const msg = buf.toString();
-        event.emit('status', msg);
+        event.emit("status", msg);
       } else if (messageType === 0x7e) {
         this.processMeterData(buf);
-      } else if (messageType === 'H') {
+      } else if (messageType === "H") {
         const msg = buf.toString();
-        event.emit('hello', msg);
+        event.emit("hello", msg);
       } else {
         const msg = buf.toString();
-        event.emit('notice', msg);
+        event.emit("notice", msg);
       }
     }
 
     processMeterData(buf) {
-      const dataLength = (buf[1] & 0x0F) * 256 + buf[2] + 2;
+      const dataLength = (buf[1] & 0x0f) * 256 + buf[2] + 2;
 
       if (buf.length === dataLength) {
         this.timerValue = watchValue;
         this.timerExpired = false;
         // Send Pulse data to list decoder
-        event.emit('pulse', buf);
+        event.emit("pulse", buf);
       } // End valid data
     }
   }
