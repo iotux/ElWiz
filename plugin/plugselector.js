@@ -65,21 +65,20 @@ const onPlugEvent2 = async function (obj) {
 };
 
 const onPlugEvent3 = async function (obj) {
-  if (config.computePrices) {
+  // Call mergePrices unconditionally to ensure price data like spotPrice is always added
+  try {
+    obj = await mergePrices('list3', obj);
+  } catch (error) {
+    console.error('plugselector: Error calling mergePrices for list3:', error);
+  }
+
+  // calculateCost remains conditional
+  if (config.calculateCost) {
     try {
-      obj = await mergePrices('list3', obj);
+      obj = await calculateCost('list3', obj);
     } catch (error) {
-      console.log('calling mergePrices', error);
+      console.error('plugselector: Error calling calculateCost for list3:', error);
     }
-
-    if (config.calculateCost) {
-      try {
-        obj = await calculateCost('list3', obj);
-      } catch (error) {
-        console.log('onPlugEvent3 calling calculateCost', error);
-      }
-    }
-
   }
 
   if (debug) {
