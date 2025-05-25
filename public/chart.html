@@ -79,6 +79,7 @@
     let currency;
 
     let isDarkMode;
+    const reconnectDelay = 5000; // 5 seconds for WebSocket reconnection
 
     let titleString;
     let todayString;
@@ -96,17 +97,82 @@
       localStorage.setItem('clientId', clientId)
     }
 
-    window.onload = function () {
-
-      const wsSend = function (clientId, channel, topic, message) {
+    // Moved wsSend to module scope
+    const wsSend = function (clientId, channel, topic, message) {
+      if (ws && ws.readyState === WebSocket.OPEN) { // Check if ws is open
         ws.send(JSON.stringify({
           clientId: clientId,
           channel: channel,
           topic: topic,
           payload: message
         }));
+      } else {
+        console.log('WebSocket not open. Message not sent.', {clientId, channel, topic, message});
+      }
+    };
+
+    function connectWebSocket() {
+      console.log('Attempting to connect WebSocket to:', wsUrl);
+      if (!wsUrl) {
+        console.error('WebSocket URL not defined. Cannot connect.');
+        // Optionally update UI to inform user about configuration error
+        document.getElementById('chartLegend').innerHTML = '<b>Configuration error: WebSocket URL not set.</b>';
+        return;
+      }
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = function (e) {
+        console.log('WebSocket opened');
+        document.getElementById('chartLegend').innerHTML = '<b>Connection established. Waiting for data...</b>';
+        wsSend(clientId, 'chart', 'get', 'init');
       }
 
+      ws.onerror = function(error) {
+        console.log('WebSocket error: ', error.message || error);
+        // Ensure onclose is triggered to handle reconnection.
+        if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
+          ws.close(); 
+        }
+      };
+
+      ws.onclose = function(event) {
+        console.log('WebSocket connection closed. Attempting to reconnect in ' + (reconnectDelay / 1000) + ' seconds.', event.reason);
+        document.getElementById('chartLegend').innerHTML = '<b>Connection lost. Retrying...</b>';
+        setTimeout(connectWebSocket, reconnectDelay);
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (debug) console.log('onmessage', data);
+        const topic = data.topic;
+        if (topic === 'update' || topic === 'full' || topic === 'init') {
+          chartData = data.payload;
+
+          if (chartData.length > 0) {
+            const canvas = document.getElementById('spotPrices');
+            const ctx = canvas.getContext('2d');
+            
+            dataAvailable = true;
+            createChart(canvas, ctx, isDarkMode); // isDarkMode should be set from config by now
+            updateIconClickListener(canvas, toggleDayNightMode);
+            drawDarkModeIcon(canvas, ctx); // draw icon after chart creation
+            updateVerticalLines(isDarkMode); // isDarkMode
+            updateDateLabels();
+
+            if (debug) {
+              console.log(`chartData loaded ${getDateString(chartData[0].startTime)}`, `\n\tstartTime: ${chartData[0].startTime}\n\t  endTime: ${chartData[chartData.length - 1].startTime}`);
+              console.log('chartData', chartData);
+              console.log('onmessage:isDarkMode', isDarkMode);
+            }
+          } else {
+            const legendElement = document.getElementById('chartLegend');
+            legendElement.innerHTML = '<b>Prices are not available. Check your price provider or wait for next update.</b>';
+          }
+        }
+      };
+    }
+
+    window.onload = function () {
       fetch('/config')
         .then(response => response.json())
         .then(conf => {
@@ -139,54 +205,13 @@
             if (debug)
               console.log('Got isDarkMode from config, value:', isDarkMode);
           }
-
-          ws = new WebSocket(wsUrl);
-
-          ws.onopen = function (e) {
-            console.log('Websocket opened');
-            wsSend(clientId, 'chart', 'get', 'init');
-          }
-
-          ws.onerror = function (err) {
-            console.log('Error: ', err.message);
-          }
-
-          ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (debug) console.log('onmessage', data);
-            //const channel = data.channel;
-            const topic = data.topic;
-            if (topic === 'update' || topic === 'full' || topic === 'init') {
-              chartData = data.payload;
-
-              if (chartData.length > 0) {
-                const canvas = document.getElementById('spotPrices');
-                const ctx = canvas.getContext('2d');
-                const iconWidth = 32;
-                const iconHeight = 32;
-                const xPos = canvas.width - iconWidth - 0;
-                const yPos = 0;
-
-                dataAvailable = true;
-                createChart(canvas, ctx, isDarkMode);
-                updateIconClickListener(canvas, toggleDayNightMode);
-                drawDarkModeIcon(canvas, ctx);
-                updateVerticalLines(isDarkMode);
-                updateDateLabels();
-
-                if (debug) {
-                  console.log(`chartData loaded ${getDateString(chartData[0].startTime)}`, `\n\tstartTime: ${chartData[0].startTime}\n\t  endTime: ${chartData[chartData.length - 1].startTime}`);
-                  console.log('chartData', chartData);
-                  console.log('onmessage:isDarkMode', isDarkMode);
-                }
-              } else {
-                const legendElement = document.getElementById('chartLegend');
-                legendElement.innerHTML = '<b>Prices are not available. Check your price provider or wait for next update.</b>';
-              }
-            }
-          }
+          // Initial call to connect WebSocket after config is loaded
+          connectWebSocket(); 
         })
-        .catch(error => console.error('Error creating chart:', error));
+        .catch(error => {
+            console.error('Error fetching config or initial chart setup:', error);
+            document.getElementById('chartLegend').innerHTML = '<b>Error loading configuration. Cannot connect.</b>';
+        });
     };
 
     function drawDarkModeIcon(canvas, ctx) {
@@ -662,3 +687,4 @@
 </body>
 
 </html>
+
