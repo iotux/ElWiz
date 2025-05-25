@@ -15,7 +15,8 @@ const cacheOptions = {
   //syncInterval: 10, // seconds
   syncOnBreak: true,
   savePath: config.savePath || './data',
-  debug: cacheDebug
+  debug: cacheDebug,
+  logFunction: cacheDebug ? (...args) => console.log(...args) : () => {},
 };
 
 // Initial energy savings data
@@ -71,14 +72,17 @@ async function dbInit(name, options, data) {
   // Initialize the cache with the given name and options
   db = new UniCache(name, options);
 
-  // Check if the cache is empty and initialize it with the provided data
-  if (!await db.existsObject(name)) {
-    if (cacheDebug) console.log('Database is empty')
-    await db.save(data);
-  }
+  // IMPORTANT: Await the asynchronous initialization of UniCache
+  await db.init();
 
-  // Fetch the cache data on startup
-  return await db.fetch();
+  // Check if the cache is empty and initialize it with the provided data
+  if (await db.isEmpty()) {
+    if (options.debug) console.log('[dbInit]: Database is empty');
+    await db.save(data);
+  } else {
+    if (options.debug) console.log(`[dbInit] UniCache "${cacheName}" initialized...`);
+  }
+  if (options.debug) console.log('[dbInit] ', await db.fetch());
 }
 
 dbInit(cacheName, cacheOptions, energySavings);
