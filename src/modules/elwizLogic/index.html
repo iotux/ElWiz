@@ -1,0 +1,102 @@
+// src/modules/elwizLogic/index.js
+
+class ElwizLogicModule {
+  constructor(moduleConfig, mainLogger, eventBusInstance) {
+    this.config = moduleConfig; // Expected: { enabled, debug, calculateCost }
+    this.logger = mainLogger;
+    this.eventBus = eventBusInstance;
+    this.moduleName = 'ElwizLogicModule';
+
+    this.calculateCost = this.config.calculateCost || false; // Default to false if not specified
+    this.debug = this.config.debug || false;
+
+    this.latestHanData = null;
+    this.latestPriceData = null;
+
+    this.logger.info(this.moduleName, "Initialized.");
+    if (this.calculateCost) {
+      this.logger.info(this.moduleName, "Cost calculation is ENABLED.");
+    } else {
+      this.logger.info(this.moduleName, "Cost calculation is DISABLED.");
+    }
+  }
+
+  start() {
+    this.logger.info(this.moduleName, 'Starting ElwizLogicModule...');
+    this._setupEventListeners();
+  }
+
+  _setupEventListeners() {
+    this.eventBus.on('han:data', (data) => {
+      this.latestHanData = data;
+      if (this.debug) this.logger.debug(this.moduleName, 'Received han:data:', data.rawPayload ? data.rawPayload.substring(0, 100) + '...' : 'No raw payload');
+      else this.logger.info(this.moduleName, 'Received han:data event.');
+      this._processData();
+    });
+
+    if (this.calculateCost) {
+      this.eventBus.on('prices:updated', (data) => {
+        this.latestPriceData = data; // Stores { currentDay, nextDay, prevDay, ... }
+        if (this.debug) this.logger.debug(this.moduleName, 'Received prices:updated event for cost calculation. Current day date:', data.currentPriceDate);
+        else this.logger.info(this.moduleName, 'Received prices:updated event.');
+        this._processData();
+      });
+    }
+    this.logger.info(this.moduleName, "Event listeners set up.");
+  }
+
+  _processData() {
+    if (this.debug) this.logger.debug(this.moduleName, "_processData called.");
+
+    if (!this.latestHanData) {
+      if (this.debug) this.logger.debug(this.moduleName, "Waiting for HAN data...");
+      return;
+    }
+
+    // Placeholder for actual ElWiz logic (e.g., calculating consumption, power, etc.)
+    // For now, we'll just log the HAN data that would be processed.
+    // In a real scenario, you'd parse latestHanData.rawPayload or use latestHanData.jsonData
+    // based on what HanReaderModule provides and what this module expects.
+    
+    let elwizStats = {
+      timestamp: new Date().toISOString(),
+      rawHanPayload: this.latestHanData.rawPayload, // Example field
+      parsedHanJson: this.latestHanData.jsonData,   // Example field
+      // ... other direct HAN metrics would be parsed and added here
+    };
+
+    if (this.calculateCost) {
+      if (!this.latestPriceData || !this.latestPriceData.currentDay || !this.latestPriceData.currentDay.hourly) {
+        if (this.debug) this.logger.debug(this.moduleName, "Cost calculation enabled, but waiting for price data...");
+        // We have HAN data, but not price data yet. Still emit basic HAN stats.
+      } else {
+        // Placeholder for cost calculation logic
+        // This would involve:
+        // 1. Getting the current hour from HAN data (or system time if HAN data doesn't have precise hour).
+        // 2. Finding the corresponding spot price from this.latestPriceData.currentDay.hourly.
+        // 3. If HAN data has consumption for the hour, calculate cost.
+        // For now, just log that we would do it.
+        if (this.debug) {
+            this.logger.debug(this.moduleName, "Both HAN data and Price data available. Cost calculation would occur here.");
+            this.logger.debug(this.moduleName, "  Current HAN data timestamp (from event):", this.latestHanData.receivedAt);
+            this.logger.debug(this.moduleName, "  Current Price data date:", this.latestPriceData.currentPriceDate);
+        }
+        elwizStats.costCalculationAttempted = true; // Example field
+        elwizStats.priceDataDateForCost = this.latestPriceData.currentPriceDate; // Example field
+      }
+    }
+
+    // Emit basic stats (can be expanded significantly later)
+    this.eventBus.emit('elwiz:stats', elwizStats);
+    if (this.debug) this.logger.debug(this.moduleName, "Emitted 'elwiz:stats' event (placeholder).", elwizStats.parsedHanJson ? '(JSON data present)' : '(JSON data NOT present)');
+    else this.logger.info(this.moduleName, "Emitted 'elwiz:stats' event (placeholder).");
+
+
+    // Reset data if it's meant to be processed only once per new arrival,
+    // or manage it based on timestamps if continuous calculation is needed.
+    // For this initial version, let's not reset, allowing _processData to re-evaluate if either data type updates.
+  }
+}
+
+module.exports = ElwizLogicModule;
+

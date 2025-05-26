@@ -13,4 +13,4 @@ package-lock.json
 # Testing and temporary files
 testing/*
 tmp/*
-
+config/config.yaml

@@ -1,0 +1,105 @@
+# Default configuration for ElWiz-NG
+
+main:
+  logLevel: 'info' # Possible values: error, warn, info, debug
+  # Optional: Global MQTT settings if modules are to share one client managed by main
+  # mqtt:
+  #   url: "mqtt://localhost:1883"
+  #   options: {} # Standard MQTT.js client options
+
+# Configuration specifically for the chart web client (public/chart.html)
+chartConfig:
+  wsUrl: 'ws://localhost:8322/'
+  darkMode: false
+  yBeginAtZero: false
+  debug: false
+  languageCode: 'nb-NO'
+  currencyCode: 'NOK'
+  en-GB:
+    titleString: Hourly energy prices
+    todayString: Today
+    markerTitle: Time markers
+    midnightTitle: Midnight
+    nowTitle: Current time
+    zoneTitle: Bar colors
+    greenTitle: Green zone
+    redTitle: Red zone
+  de-DE:
+    titleString: Stündliche energiepreise
+    todayString: Heute
+    markerTitle: Zeitmarkierungen
+    midnightTitle: Mitternacht
+    nowTitle: Aktuelle uhrzeit
+    zoneTitle: Balkenfarben
+    greenTitle: Grüne zone
+    redTitle: Rote zone
+  nb-NO:
+    titleString: Energipriser per time
+    todayString: I dag
+    markerTitle: Tidsmarkører
+    midnightTitle: Midnatt
+    nowTitle: Nå
+    zoneTitle: Søylefarger
+    greenTitle: Grønn sone
+    redTitle: Rød sone
+
+modules:
+  priceService:
+    enabled: true
+    priceTopic: 'elwiz-ng/prices'
+    debug: false
+    mqtt:
+      url: 'mqtt://localhost:1883'
+      options: {}
+      clientName: 'ElWiz_PriceService_DefaultClient'
+
+  chartService:
+    enabled: true
+    debug: false
+    chartTopic: 'elwiz-ng/chart'
+    haBaseTopic: 'elwiz-ng'
+    savePath: './data'
+    fixedAverageOffset: 0
+    adjustmentStepFactor: 1.0
+    verticalStepCount: 50
+    mqtt:
+      url: 'mqtt://localhost:1883'
+      options: {}
+      clientName: 'ElWiz_ChartService_DefaultClient'
+
+  webSocketInterface:
+    enabled: true
+    debug: false
+    wsPort: 8322
+
+  httpServer:
+    enabled: true
+    debug: false
+    httpPort: 8321
+    publicDir: './public'
+
+  hanReader:
+    enabled: true # Enable for testing in this phase
+    debug: false # Module-specific debug logging
+    hanMqttTopic: 'elwiz-ng/han/data' # User needs to override this in config.yaml
+    mqtt:
+      url: 'mqtt://localhost:1883'
+      options: {}
+      clientName: 'ElWiz_HanReader_DefaultClient'
+
+  elwizLogic:
+    enabled: true # Enable for testing in this phase
+    debug: false
+    calculateCost: true # Whether ElwizLogic should attempt to calculate costs
+
+
+  # Placeholder for other modules
+  # evChargerControl:
+  #   enabled: false
+
+  # publishingService:
+  #   enabled: false
+  #   outputs:
+  #     - type: "hass"
+  #       baseTopic: "homeassistant/sensor/elwiz_ng"
+  #       enabled: true
