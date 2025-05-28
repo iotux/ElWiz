@@ -57,7 +57,7 @@ class HanReaderModule {
     this.mqttClient.on('message', (topic, message) => {
       // Check if the message is on the HAN topic (in case of wildcard subscriptions, though not used here)
       if (topic === this.hanMqttTopic) {
-        const rawPayload = message.toString();
+        const rawPayload = message.toString('hex');
         if (this.debug) this.logger.debug(this.moduleName, `Received MQTT message on ${topic}: ${rawPayload}`);
 
         let parsedData = null;

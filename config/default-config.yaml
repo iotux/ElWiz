@@ -79,6 +79,7 @@ modules:
     publicDir: './public'
 
   hanReader:
+    meterModel: kaifa
     enabled: true # Enable for testing in this phase
     debug: false # Module-specific debug logging
     hanMqttTopic: 'elwiz-ng/han/data' # User needs to override this in config.yaml

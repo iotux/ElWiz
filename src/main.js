@@ -8,10 +8,11 @@ const path = require('path');
 const logger = require('./core/logger');
 const eventBus = require('./core/eventBus');
 
-const CONFIG_PATHS = [
-  path.join(__dirname, '../config/default-config.yaml'), // Default config
-  path.join(__dirname, '../config/config.yaml'), // User overrides
-];
+// CONFIG_PATHS is not used in the provided snippet, but kept for structural reference
+// const CONFIG_PATHS = [
+//   path.join(__dirname, '../config/default-config.yaml'), // Default config
+//   path.join(__dirname, '../config/config.yaml'), // User overrides
+// ];
 
 let config = {}; // This will hold the fully merged configuration.
 // To store initialized module instances if needed by other modules (Dependency Injection)
@@ -52,8 +53,6 @@ function loadConfig() {
     logger.info('Main', `User config file not found (optional): ${userConfigPath}`);
   }
 
-  // Perform a merge. User config overrides default.
-  // For nested objects like 'main' and 'modules', and 'mqtt' within modules, we need a deeper merge.
   const deepMerge = (target, source) => {
     for (const key in source) {
       if (source[key] instanceof Object && key in target && target[key] instanceof Object) {
@@ -65,7 +64,7 @@ function loadConfig() {
     return target;
   };
 
-  config = yaml.load(yaml.dump(baseConfig)); // Deep clone baseConfig to start with
+  config = yaml.load(yaml.dump(baseConfig));
   deepMerge(config, userConfig);
 
   if (config.main && config.main.logLevel) {
@@ -182,7 +181,7 @@ function initializeModules() {
       const hrModuleSettings = config.modules.hanReader;
       const hrMqttConf = hrModuleSettings.mqtt || (config.main && config.main.mqtt) || {};
       const hanReaderEffectiveConfig = {
-        ...hrModuleSettings, // Includes hanMqttTopic, debug
+        ...hrModuleSettings,
         mqttUrl: hrMqttConf.url || 'mqtt://localhost:1883',
         mqttOptions: hrMqttConf.options || {},
         mqttClientName: hrMqttConf.clientName || 'ElWiz_HanReader_DefaultClient',
@@ -198,13 +197,47 @@ function initializeModules() {
     logger.info('Main', 'HanReaderModule is disabled in configuration.');
   }
 
+  // --- HanDataProcessorModule --- ADDED SECTION ---
+  // Ensure this is placed after HanReaderModule if it depends on its config,
+  // or in a logical order with other modules.
+  if (config.modules.hanDataProcessor && config.modules.hanDataProcessor.enabled) {
+    logger.info('Main', 'Loading HanDataProcessorModule...');
+    try {
+      const HanDataProcessorModule = require('./modules/hanDataProcessor');
+
+      const hdpModuleSettings = config.modules.hanDataProcessor;
+      let meterModelValue = null;
+      if (config.modules.hanReader && config.modules.hanReader.meterModel) {
+        meterModelValue = config.modules.hanReader.meterModel;
+        logger.info('Main', `HanDataProcessorModule will use meterModel '${meterModelValue}' from hanReader config.`);
+      } else {
+        logger.warn('Main', 'meterModel not found in hanReader config for HanDataProcessorModule. It may not select a specific parser.');
+      }
+
+      const hanDataProcessorEffectiveConfig = {
+        ...(hdpModuleSettings || {}),
+        meterModel: meterModelValue,
+        debug: hdpModuleSettings && typeof hdpModuleSettings.debug !== 'undefined' ? hdpModuleSettings.debug : config.main && config.main.logLevel === 'debug',
+      };
+
+      const hanDataProcessor = new HanDataProcessorModule(hanDataProcessorEffectiveConfig, logger, eventBus);
+      hanDataProcessor.start();
+      services.hanDataProcessor = hanDataProcessor;
+      logger.info('Main', 'HanDataProcessorModule loaded and started.');
+    } catch (e) {
+      logger.error('Main', 'Failed to load or start HanDataProcessorModule: ' + e.message, e.stack);
+    }
+  } else {
+    logger.info('Main', 'HanDataProcessorModule is not defined or disabled in configuration.');
+  }
+  // --- END ADDED SECTION for HanDataProcessorModule ---
+
   // --- ElwizLogicModule ---
   if (config.modules.elwizLogic && config.modules.elwizLogic.enabled) {
     logger.info('Main', 'Loading ElwizLogicModule...');
     try {
       const ElwizLogicModule = require('./modules/elwizLogic');
-      const elwizLogicConfig = config.modules.elwizLogic; // Contains calculateCost, debug
-      // ElwizLogicModule does not directly use MQTT client itself, it uses eventBus
+      const elwizLogicConfig = config.modules.elwizLogic;
       const elwizLogic = new ElwizLogicModule(elwizLogicConfig, logger, eventBus);
       elwizLogic.start();
       services.elwizLogic = elwizLogic;
@@ -244,15 +277,28 @@ function start() {
     logger.debug('Main', '[EVENT] han:data - Received from topic:', hanData ? hanData.topic : 'N/A', '- Payload (raw snippet):', hanData && hanData.rawPayload ? hanData.rawPayload.substring(0, 50) + '...' : 'N/A');
   });
 
+  // --- ADDED LISTENER for HanDataProcessorModule events ---
+  eventBus.on('han:decoded:kaifa', (kaifaData) => {
+    logger.debug('Main', '[EVENT] han:decoded:kaifa - Meter:', kaifaData ? kaifaData.meterModel : 'N/A', '- ListType:', kaifaData && kaifaData.decoded ? kaifaData.decoded.listType : 'N/A');
+    // Potentially log more details from kaifaData.decoded if needed for debugging
+    // e.g., logger.debug('Main', JSON.stringify(kaifaData.decoded.elements, null, 2));
+  });
+  eventBus.on('han:decodeError:kaifa', (kaifaError) => {
+    logger.warn(
+      'Main',
+      '[EVENT] han:decodeError:kaifa - Meter:',
+      kaifaError ? kaifaError.meterModel : 'N/A',
+      '- Error:',
+      kaifaError ? kaifaError.error : 'Unknown error',
+      '- Payload Snippet:',
+      kaifaError && kaifaError.rawPayload ? kaifaError.rawPayload.substring(0, 50) + '...' : 'N/A',
+    );
+  });
+  // --- END ADDED LISTENER ---
+
   // Listeners for ElwizLogicModule events (placeholder for now)
   eventBus.on('elwiz:stats', (stats) => {
-    logger.debug(
-      'Main',
-      '[EVENT] elwiz:stats - Received stats object. HAN data timestamp:',
-      stats && stats.rawHanPayload ? 'Present' : 'Missing', // Example, actual stats structure TBD
-      'Cost calculation attempted:',
-      stats ? stats.costCalculationAttempted : 'N/A',
-    );
+    logger.debug('Main', '[EVENT] elwiz:stats - Received stats object. HAN data timestamp:', stats && stats.rawHanPayload ? 'Present' : 'Missing', 'Cost calculation attempted:', stats ? stats.costCalculationAttempted : 'N/A');
   });
 }
 
