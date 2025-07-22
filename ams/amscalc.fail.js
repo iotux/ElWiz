@@ -218,17 +218,15 @@ async function setInitialValues(obj) {
 
 async function performRolloverCalculations(obj) {
   // Hourly rollover
-  await db.set('prevHourMeterConsumption', obj.lastMeterConsumption);
-  await db.set('prevHourMeterProduction', obj.lastMeterProduction);
+  await db.set('prevHourMeterConsumption', await db.get('lastMeterConsumption'));
+  await db.set('prevHourMeterProduction', await db.get('lastMeterProduction'));
   await db.set('consumptionCurrentHour', 0);
   await db.set('productionCurrentHour', 0);
-  obj.consumptionCurrentHour = 0;
-  obj.productionCurrentHour = 0;
 
   // Daily rollover
   if (obj.isNewDay) {
-    await db.set('prevDayMeterConsumption', obj.lastMeterConsumption);
-    await db.set('prevDayMeterProduction', obj.lastMeterProduction);
+    await db.set('prevDayMeterConsumption', await db.get('lastMeterConsumption'));
+    await db.set('prevDayMeterProduction', await db.get('lastMeterProduction'));
     await db.set('consumptionToday', 0);
     await db.set('productionToday', 0);
     await db.set('minPower', 9999999);
@@ -241,8 +239,8 @@ async function performRolloverCalculations(obj) {
 
   // Monthly rollover
   if (obj.isNewMonth) {
-    await db.set('prevMonthMeterConsumption', obj.lastMeterConsumption);
-    await db.set('prevMonthMeterProduction', obj.lastMeterProduction);
+    await db.set('prevMonthMeterConsumption', await db.get('lastMeterConsumption'));
+    await db.set('prevMonthMeterProduction', await db.get('lastMeterProduction'));
     await db.set('topConsumptionHours', []);
   }
 
@@ -286,27 +284,34 @@ async function amsCalc(list, obj) {
     const currConsKWh = await consumptionCounter.getKWh();
     const currProdKWh = await productionCounter.getKWh();
 
-    // For list1 and list2, we estimate the meter reading based on power.
-    // For list3, we use the authoritative meter reading from the event.
+    // Only fetch correction factor and handle hourly data in 'list3'
     if (list === 'list3') {
       if (await db.get('isVirgin')) {
         await setInitialValues(obj);
       }
+    }
+
+    ///*
+    //if (obj.lastMeterConsumption !== undefined) {
+    if (list === 'list3') {
+      // Fetch accumulated kWh for both instances
+      const accumulatedKWh = await consumptionCounter.getAccumulatedKWh();
+      console.log('accumulatedKWh:', accumulatedKWh);
     } else {
+      //*/
+      //if (obj.lastMeterConsumption === undefined) {
+      // Calculate energy values based on power use
       obj.lastMeterConsumption = parseFloat(((await db.get('lastMeterConsumption')) + currConsKWh).toFixed(decimals)) || 0;
       obj.lastMeterProduction = parseFloat(((await db.get('lastMeterProduction')) + currProdKWh).toFixed(decimals)) || 0;
     }
-    await consumptionCounter.resetCounter();
-    await productionCounter.resetCounter();
 
-    // Unified calculation for all list types.
     obj.consumptionToday = parseFloat((obj.lastMeterConsumption - (await db.get('prevDayMeterConsumption'))).toFixed(decimals)) || 0;
     obj.productionToday = parseFloat((obj.lastMeterProduction - (await db.get('prevDayMeterProduction'))).toFixed(decimals)) || 0;
-
     obj.consumptionCurrentHour = parseFloat((obj.lastMeterConsumption - (await db.get('prevHourMeterConsumption'))).toFixed(decimals)) || 0;
     obj.productionCurrentHour = parseFloat((obj.lastMeterProduction - (await db.get('prevHourMeterProduction'))).toFixed(decimals)) || 0;
 
-    // Save all values to the database.
+    // Save values to the cache
+    // Align actual consumption and production with meter reading
     await db.set('lastMeterConsumption', obj.lastMeterConsumption);
     await db.set('lastMeterProduction', obj.lastMeterProduction);
     await db.set('consumptionCurrentHour', obj.consumptionCurrentHour);
@@ -339,6 +344,9 @@ async function amsCalc(list, obj) {
   }
 
   if (obj.isNewHour) {
+    // Reset counters for the next hour
+    await consumptionCounter.setKWh(0);
+    await productionCounter.setKWh(0);
     await performRolloverCalculations(obj);
   }
 

@@ -128,7 +128,7 @@ const listDecode = async function (msg) {
   }
 
   if (result.meterDate.substring(14, 19) === '00:01') {
-    result.isHourStart = true;
+    result.isNewHour = true;
     if (result.hourIndex === 0) {
       result.isDayStart = true;
       if (result.meterDate.substring(8, 10) === '01')

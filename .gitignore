@@ -13,4 +13,5 @@ package-lock.json
 # Testing and temporary files
 testing/*
 tmp/*
+log/*
 

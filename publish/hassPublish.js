@@ -1,14 +1,13 @@
-
-const MQTTClient = require("../mqtt/mqtt");
+const MQTTClient = require('../mqtt/mqtt');
 const { event } = require('../misc/misc.js');
 const { loadYaml } = require('../misc/util.js');
 
-const { hassAnnounce } = require('./hassAnnounce.js');
+const { hassAnnounce } = require('../publish/hassAnnounce.js');
 
 const configFile = './config.yaml';
 const config = loadYaml(configFile);
 
-const hassDebug = config.hassDebug || false;
+const debug = config.publish.debug || false;
 const debugTopic = config.debugTopic + '/';
 const haBaseTopic = config.haBaseTopic + '/' || 'elwiz/';
 const list1Opts = { retain: config.list1Retain, qos: config.list1Qos };
@@ -22,7 +21,9 @@ mqttClient.waitForConnect();
 
 function onPubEvent1(obj) {
   obj.publisher = 'hassPublish';
-  if (hassDebug) { console.log('List1: hassPublish', obj); }
+  if (debug) {
+    console.log('List1: hassPublish', JSON.stringify(obj, null, 2));
+  }
   // Unfold JSON object
   for (const [key, value] of Object.entries(obj)) {
     mqttClient.publish(haBaseTopic + 'sensor/' + key, JSON.stringify(value, null, config.DEBUG ? 2 : 0), list1Opts);
@@ -34,7 +35,9 @@ function onPubEvent2(obj) {
   delete obj.meterID;
   delete obj.meterModel;
   obj.publisher = 'hassPublish';
-  if (hassDebug) { console.log('List2: hassPublish', obj); }
+  if (debug) {
+    console.log('List2: hassPublish', JSON.stringify(obj, null, 2));
+  }
   // Unfold JSON object
   for (const [key, value] of Object.entries(obj)) {
     mqttClient.publish(haBaseTopic + 'sensor/' + key, JSON.stringify(value, null, config.DEBUG ? 2 : 0), list2Opts);
@@ -46,7 +49,9 @@ function onPubEvent2(obj) {
 
 function onPubEvent3(obj) {
   obj.publisher = 'hassPublish';
-  if (hassDebug) { console.log('List3: hassPublish', obj); }
+  if (debug) {
+    console.log('List3: hassPublish', JSON.stringify(obj, null, 2));
+  }
   // Unfold JSON object
   for (const [key, value] of Object.entries(obj)) {
     mqttClient.publish(haBaseTopic + 'sensor/' + key, JSON.stringify(value, null, config.DEBUG ? 2 : 0), list3Opts);
@@ -54,17 +59,12 @@ function onPubEvent3(obj) {
 }
 
 function onHexEvent1(hex) {
-  if (hassDebug) { console.log('List1: hexPublish', hex); }
   mqttClient.publish(debugTopic + 'list1', hex);
 }
-
 function onHexEvent2(hex) {
-  if (hassDebug) { console.log('List2: hexPublish', hex); }
   mqttClient.publish(debugTopic + 'list2', hex);
 }
-
 function onHexEvent3(hex) {
-  if (hassDebug) { console.log('List3: hexPublish', hex); }
   mqttClient.publish(debugTopic + 'list3', hex);
 }
 
@@ -83,7 +83,7 @@ const hasspublish = {
       event.on('hex3', onHexEvent3);
       //await hassAnnounce();
     }
-  }
+  },
 };
 
 hasspublish.init();

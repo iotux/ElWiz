@@ -1,453 +1,458 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <title>Hourly energy prices</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+    <!--script src="https://unpkg.com/chartjs-plugin-annotation@1.0.2"></script-->
+  </head>
 
-<head>
-  <title>Hourly energy prices</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
-  <!--script src="https://unpkg.com/chartjs-plugin-annotation@1.0.2"></script-->
-</head>
+  <body>
+    <style>
+      body {
+        overflow-x: hidden;
+        overflow-y: hidden;
+      }
+    </style>
+    <div class="chartBox" id="backgroundColorChart" style="padding: 10">
+      <canvas id="spotPrices"></canvas>
 
-<body>
-  <style>
-    body {
-      overflow-x: hidden;
-      overflow-y: hidden;
-    }
-  </style>
-  <div class="chartBox" id="backgroundColorChart" style="padding: 10;">
-    <canvas id="spotPrices"></canvas>
-
-    <!--input type="checkbox" onchange="darkMode(this)" name=""><span id="checkboxText" class="">Dark mode</span></input-->
-    <div style="display: flex; width: 100%; padding: 5px;">
-      <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
-        <span id="startDate"></span>
+      <!--input type="checkbox" onchange="darkMode(this)" name=""><span id="checkboxText" class="">Dark mode</span></input-->
+      <div style="display: flex; width: 100%; padding: 5px">
+        <div style="flex: 1; display: flex; justify-content: center; align-items: center">
+          <span id="startDate"></span>
+        </div>
+        <div style="flex: 1; display: flex; justify-content: center; align-items: center">
+          <span id="endDate"></span>
+        </div>
       </div>
-      <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
-        <span id="endDate"></span>
+      <div style="display: flex; width: 100%">
+        <div style="flex: 1; display: flex; padding-bottom: 5px; justify-content: center; align-items: center">
+          <span id="chartLegend"><b>Waiting for Websocket data. Is the server running and correctly configured?</b></span>
+        </div>
+      </div>
+      <div style="display: flex; width: 100%">
+        <div style="flex: 1; display: flex; padding-bottom: 5px; justify-content: center; align-items: center">
+          <span id="noChart"><b>&nbsp</b></span>
+        </div>
       </div>
     </div>
-    <div style="display: flex; width: 100%;">
-      <div style="flex: 1; display: flex; padding-bottom: 5px; justify-content: center; align-items: center;">
-        <span id="chartLegend"><b>Waiting for Websocket data. Is the server running and correctly configured?</b></span>
-      </div>
-    </div>
-    <div style="display: flex; width: 100%;">
-      <div style="flex: 1; display: flex; padding-bottom: 5px; justify-content: center; align-items: center;">
-        <span id="noChart"><b>&nbsp</b></span>
-      </div>
-    </div>
-  </div>
 
-  <script type="module">
-    // Colors for dark mode
-    const darkBodyColor = '#999';
-    const darkBodyBgColor = '#1c1c1c';
-    const darkBorderColor = 'white'
-    const darkGridColor = 'rgba(255, 255, 255, 0.1)';
-    // Colors for light mode
-    const lightBodyColor = '#1c1c1c';
-    const lightBodyBgColor = 'white';
-    const lightBorderColor = '#999';
-    const lightGridColor = 'rgba(240, 240, 240, 1)';
+    <script type="module">
+      // Colors for dark mode
+      const darkBodyColor = '#999';
+      const darkBodyBgColor = '#1c1c1c';
+      const darkBorderColor = 'white';
+      const darkGridColor = 'rgba(255, 255, 255, 0.1)';
+      // Colors for light mode
+      const lightBodyColor = '#1c1c1c';
+      const lightBodyBgColor = 'white';
+      const lightBorderColor = '#999';
+      const lightGridColor = 'rgba(240, 240, 240, 1)';
 
-    const commonLineWidth = 1.5;
-    const commonBorderWidth = 1.5;
-    const showBorders = true;
+      const commonLineWidth = 1.5;
+      const commonBorderWidth = 1.5;
+      const showBorders = true;
 
-    let currentClickListener = null; // Keep track of the current click listener to remove it later
-    let clientId;
+      const greenBarBgColor = 'rgba(75, 192, 192, 0.5)';
+      const greenBarBorderColor = 'rgba(75, 192, 192, 1)';
+      const greenBarHoverBgColor = 'rgba(60, 140, 140, 0.7)'; // Adjusted darker green for hover
+      const greenBarHoverBorderColor = 'rgba(60, 140, 140, 1)'; // Adjusted darker green for hover
 
-    const timestamp = new Date().getTime() * 1 + '';
+      const redBarBgColor = 'rgba(255, 99, 132, 0.5)';
+      const redBarBorderColor = 'rgba(255, 99, 132, 1)';
+      const redBarHoverBgColor = 'rgba(200, 70, 100, 0.7)'; // Darker red for hover
+      const redBarHoverBorderColor = 'rgba(200, 70, 100, 1)'; // Darker red for hover
 
-    let config;
-    let mqttClient;
-    let isOnRightSide = false;
-    // Array to hold up to 48 hours of data structures
-    let chartData = [];
-    let yBeginAtZero;
-    let chartInitialized = false;
-    let dataAvailable = false;
-    let ws;
-    let wsUrl;
-    let timezoneOffset;
-    let debug;
-    let chartIndex;
-    let languageCode;
-    let currencyCode;
-    let currency;
+      const greenBarSingleColor = 'rgba(75, 192, 192, 0.5)';
+      const redBarSingleColor = 'rgba(255, 99, 132, 0.5)';
 
-    let isDarkMode;
-    const reconnectDelay = 5000; // 5 seconds for WebSocket reconnection
+      let currentClickListener = null; // Keep track of the current click listener to remove it later
+      let clientId;
 
-    let titleString;
-    let todayString;
-    let markerTitle;
-    let midnightTitle;
-    let nowTitle;
-    let zoneTitle;
-    let greenTitle;
-    let redTitle;
+      const timestamp = new Date().getTime() * 1 + '';
 
-    if (localStorage.getItem('clientId') !== null) {
-      clientId = localStorage.getItem('clientId')
-    } else {
-      clientId = Math.floor((Math.random() * 900) + 100) + timestamp.substr(10);
-      localStorage.setItem('clientId', clientId)
-    }
+      let config;
+      let mqttClient;
+      let isOnRightSide = false;
+      // Array to hold up to 48 hours of data structures
+      let chartData = [];
+      let yBeginAtZero;
+      let chartInitialized = false;
+      let dataAvailable = false;
+      let ws;
+      let wsUrl;
 
-    // Moved wsSend to module scope
-    const wsSend = function (clientId, channel, topic, message) {
-      if (ws && ws.readyState === WebSocket.OPEN) { // Check if ws is open
-        ws.send(JSON.stringify({
-          clientId: clientId,
-          channel: channel,
-          topic: topic,
-          payload: message
-        }));
+      let debug;
+      let chartIndex;
+      let languageCode;
+      let currencyCode;
+      let currency;
+
+      let isDarkMode;
+      const reconnectDelay = 5000; // 5 seconds for WebSocket reconnection
+
+      let titleString;
+      let todayString;
+      let markerTitle;
+      let midnightTitle;
+      let nowTitle;
+      let zoneTitle;
+      let greenTitle;
+      let redTitle;
+
+      if (localStorage.getItem('clientId') !== null) {
+        clientId = localStorage.getItem('clientId');
       } else {
-        console.log('WebSocket not open. Message not sent.', {clientId, channel, topic, message});
-      }
-    };
-
-    function connectWebSocket() {
-      console.log('Attempting to connect WebSocket to:', wsUrl);
-      if (!wsUrl) {
-        console.error('WebSocket URL not defined. Cannot connect.');
-        // Optionally update UI to inform user about configuration error
-        document.getElementById('chartLegend').innerHTML = '<b>Configuration error: WebSocket URL not set.</b>';
-        return;
-      }
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = function (e) {
-        console.log('WebSocket opened');
-        document.getElementById('chartLegend').innerHTML = '<b>Connection established. Waiting for data...</b>';
-        wsSend(clientId, 'chart', 'get', 'init');
+        clientId = Math.floor(Math.random() * 900 + 100) + timestamp.substr(10);
+        localStorage.setItem('clientId', clientId);
       }
 
-      ws.onerror = function(error) {
-        console.log('WebSocket error: ', error.message || error);
-        // Ensure onclose is triggered to handle reconnection.
-        if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
-          ws.close(); 
+      // Moved wsSend to module scope
+      const wsSend = function (clientId, channel, topic, message) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          // Check if ws is open
+          ws.send(
+            JSON.stringify({
+              clientId: clientId,
+              channel: channel,
+              topic: topic,
+              payload: message,
+            }),
+          );
+        } else {
+          console.log('WebSocket not open. Message not sent.', { clientId, channel, topic, message });
         }
       };
 
-      ws.onclose = function(event) {
-        console.log('WebSocket connection closed. Attempting to reconnect in ' + (reconnectDelay / 1000) + ' seconds.', event.reason);
-        document.getElementById('chartLegend').innerHTML = '<b>Connection lost. Retrying...</b>';
-        setTimeout(connectWebSocket, reconnectDelay);
-      };
+      function connectWebSocket() {
+        console.log('Attempting to connect WebSocket to:', wsUrl);
+        if (!wsUrl) {
+          console.error('WebSocket URL not defined. Cannot connect.');
+          // Optionally update UI to inform user about configuration error
+          document.getElementById('chartLegend').innerHTML = '<b>Configuration error: WebSocket URL not set.</b>';
+          return;
+        }
+        ws = new WebSocket(wsUrl);
 
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (debug) console.log('onmessage', data);
-        const topic = data.topic;
-        if (topic === 'update' || topic === 'full' || topic === 'init') {
-          chartData = data.payload;
+        ws.onopen = function (e) {
+          console.log('WebSocket opened');
+          document.getElementById('chartLegend').innerHTML = '<b>Connection established. Waiting for data...</b>';
+          wsSend(clientId, 'chart', 'get', 'init');
+        };
 
-          if (chartData.length > 0) {
-            const canvas = document.getElementById('spotPrices');
-            const ctx = canvas.getContext('2d');
-            
-            dataAvailable = true;
-            createChart(canvas, ctx, isDarkMode); // isDarkMode should be set from config by now
-            updateIconClickListener(canvas, toggleDayNightMode);
-            drawDarkModeIcon(canvas, ctx); // draw icon after chart creation
-            updateVerticalLines(isDarkMode); // isDarkMode
-            updateDateLabels();
+        ws.onerror = function (error) {
+          console.log('WebSocket error: ', error.message || error);
+          // Ensure onclose is triggered to handle reconnection.
+          if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
+            ws.close();
+          }
+        };
 
-            if (debug) {
-              console.log(`chartData loaded ${getDateString(chartData[0].startTime)}`, `\n\tstartTime: ${chartData[0].startTime}\n\t  endTime: ${chartData[chartData.length - 1].startTime}`);
-              console.log('chartData', chartData);
-              console.log('onmessage:isDarkMode', isDarkMode);
+        ws.onclose = function (event) {
+          console.log('WebSocket connection closed. Attempting to reconnect in ' + reconnectDelay / 1000 + ' seconds.', event.reason);
+          document.getElementById('chartLegend').innerHTML = '<b>Connection lost. Retrying...</b>';
+          setTimeout(connectWebSocket, reconnectDelay);
+        };
+
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (debug) console.log('onmessage', data);
+          const topic = data.topic;
+          if (topic === 'update' || topic === 'full' || topic === 'init') {
+            chartData = data.payload.chartData;
+            chartIndex = data.payload.currentChartIndex;
+
+            if (chartData.length > 0) {
+              const canvas = document.getElementById('spotPrices');
+              const ctx = canvas.getContext('2d');
+
+              dataAvailable = true;
+              createChart(canvas, ctx, isDarkMode); // isDarkMode should be set from config by now
+              updateIconClickListener(canvas, toggleDayNightMode);
+              drawDarkModeIcon(canvas, ctx); // draw icon after chart creation
+              updateVerticalLines(isDarkMode); // isDarkMode
+              updateDateLabels();
+            } else {
+              const legendElement = document.getElementById('chartLegend');
+              legendElement.innerHTML = '<b>Prices are not available. Check your price provider or wait for next next update.</b>';
             }
-          } else {
-            const legendElement = document.getElementById('chartLegend');
-            legendElement.innerHTML = '<b>Prices are not available. Check your price provider or wait for next update.</b>';
+          } else if (topic === 'index_update') {
+            chartIndex = data.payload.currentChartIndex;
+            updateVerticalLines(isDarkMode);
           }
-        }
-      };
-    }
+        };
+      }
 
-    window.onload = function () {
-      fetch('/config')
-        .then(response => response.json())
-        .then(conf => {
-          config = conf;
-          // Always log
-          console.log('Configuration loaded:', conf);
-          debug = config.debug;
-          wsUrl = config.wsUrl;
-          languageCode = config.languageCode || 'nb-NO'
-          currencyCode = config.currencyCode || 'NOK';
-          isDarkMode = config.darkMode || false;
-          timezoneOffset = config.timezoneOffset;
-          yBeginAtZero = config.yBeginAtZero;
+      window.onload = function () {
+        fetch('/config')
+          .then((response) => response.json())
+          .then((conf) => {
+            config = conf;
+            // Always log
+            console.log('Configuration loaded:', conf);
+            debug = config.debug;
+            wsUrl = config.wsUrl;
+            languageCode = config.languageCode || 'nb-NO';
+            currencyCode = config.currencyCode || 'NOK';
+            isDarkMode = config.darkMode || false;
 
-          const lang = config.languageCode
-          titleString = config[lang].titleString || 'Hourly energy prices';
-          todayString = config[lang].todayString || 'Today';
-          markerTitle = config[lang].markerTitle || 'Time markers';
-          midnightTitle = config[lang].midnightTitle || 'Midnight';
-          nowTitle = config[lang].nowTitle || 'Current';
-          zoneTitle = config[lang].zoneTitle || 'Chart colors';
-          greenTitle = config[lang].greenTitle || 'Below threshold';
-          redTitle = config[lang].redTitle || 'Above threshold';
+            yBeginAtZero = config.yBeginAtZero;
 
-          if (localStorage.getItem('darkMode') !== null) {
-            isDarkMode = localStorage.getItem('darkMode') === 'true';
-            if (debug)
-              console.log('Got isDarkMode from localStorage, value:', isDarkMode);
-          } else {
-            if (debug)
-              console.log('Got isDarkMode from config, value:', isDarkMode);
-          }
-          // Initial call to connect WebSocket after config is loaded
-          connectWebSocket(); 
-        })
-        .catch(error => {
+            const lang = config.languageCode;
+            titleString = config[lang].titleString || 'Hourly energy prices';
+            todayString = config[lang].todayString || 'Today';
+            markerTitle = config[lang].markerTitle || 'Time markers';
+            midnightTitle = config[lang].midnightTitle || 'Midnight';
+            nowTitle = config[lang].nowTitle || 'Current';
+            zoneTitle = config[lang].zoneTitle || 'Chart colors';
+            greenTitle = config[lang].greenTitle || 'Below threshold';
+            redTitle = config[lang].redTitle || 'Above threshold';
+
+            if (localStorage.getItem('darkMode') !== null) {
+              isDarkMode = localStorage.getItem('darkMode') === 'true';
+              if (debug) console.log('Got isDarkMode from localStorage, value:', isDarkMode);
+            } else {
+              if (debug) console.log('Got isDarkMode from config, value:', isDarkMode);
+            }
+            // Initial call to connect WebSocket after config is loaded
+            connectWebSocket();
+          })
+          .catch((error) => {
             console.error('Error fetching config or initial chart setup:', error);
             document.getElementById('chartLegend').innerHTML = '<b>Error loading configuration. Cannot connect.</b>';
-        });
-    };
-
-    function drawDarkModeIcon(canvas, ctx) {
-      const icon = new Image();
-      icon.onload = function () {
-        const iconWidth = 32;
-        const iconHeight = 32;
-        // Adjust based on layout
-        const xPos = canvas.width - iconWidth - 0;
-        const yPos = 0;
-
-        ctx.drawImage(icon, xPos, yPos, iconWidth, iconHeight);
-      };
-      icon.src = isDarkMode ? 'icon-day' : 'icon-night'; // Choose the icon based on mode
-    }
-
-    function updateIconClickListener(canvas, onClickFunction) {
-      // If there's an existing click listener, remove it to prevent duplicates
-      if (currentClickListener) {
-        canvas.removeEventListener('click', currentClickListener);
-      }
-
-      // Updated click listener that uses the latest icon position
-      const newClickListener = function (event) {
-        const rect = canvas.getBoundingClientRect();
-        const clickX = event.clientX - rect.left;
-        const clickY = event.clientY - rect.top;
-
-        // Adjust these values based on your icon's new position after canvas resize
-        // Assuming iconWidth=32. Disregard padding
-        const iconXPos = canvas.width - 32; // -10
-        const iconYPos = 0; // 10
-        const iconWidth = 32;
-        const iconHeight = 32;
-
-        if (clickX > iconXPos && clickX < iconXPos + iconWidth && clickY > iconYPos && clickY < iconYPos + iconHeight) {
-          onClickFunction();
-        }
-      };
-
-      // Update the current click listener reference and add the new listener to the canvas
-      currentClickListener = newClickListener;
-      canvas.addEventListener('click', newClickListener);
-    }
-
-    //function darkMode(checkBox) {
-    function toggleDayNightMode() {
-      isDarkMode = !isDarkMode;
-      localStorage.setItem('darkMode', isDarkMode.toString());
-      const x = myChart.config.options.scales.x;
-      const y = myChart.config.options.scales.y;
-      const canvas = document.getElementById('spotPrices');
-      const ctx = canvas.getContext('2d');
-
-      document.body.style.backgroundColor = isDarkMode ? darkBodyBgColor : lightBodyBgColor;
-      document.body.style.color = isDarkMode ? darkBodyColor : lightBodyColor;
-
-      x.grid.borderColor = isDarkMode ? darkBorderColor : lightBorderColor;
-      y.grid.borderColor = isDarkMode ? darkBorderColor : lightBorderColor;
-      x.grid.color = isDarkMode ? darkGridColor : lightGridColor;
-      y.grid.color = isDarkMode ? darkGridColor : lightGridColor;
-      myChart.update();
-      //console.log('myChart.config', myChart.config)
-      //drawDarkModeIcon(canvas, ctx);
-    }
-
-    const showTitle = true;
-    const showLegend = false;
-
-    // Helper functions ========================
-    function toggleTheme(isDark) {
-      //window.myChart.options = isDark ? darkThemeOptions : lightThemeOptions; // Assume lightThemeOptions is defined
-      //window.myChart.update();
-    }
-
-    function skewDays(days) {
-      const oneDay = 86400000; // pre-calculate milliseconds in a day (24 * 60 * 60 * 1000)
-      const date = new Date(Date.now() + oneDay * days);
-      // Pad the month and day with a leading zero if they are less than 10
-      const yyyy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-      const dd = String(date.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-
-    function getDayName(dateTimeString) {
-      const date = new Date(dateTimeString);
-      const day = new Intl.DateTimeFormat(languageCode, { weekday: 'long' }).format(date);
-      return `${day.charAt(0).toUpperCase()}${day.slice(1)}`
-    }
-
-    function getServerTime(serverTime) {
-      const now = new Date(serverTime);
-      const offset = -now.getTimezoneOffset();
-      const offsetSign = offset >= 0 ? '+' : '-';
-      const pad = (num) => num < 10 ? '0' + num : num.toString();
-      const offsetHours = Math.abs(Math.floor(offset / 60));
-      const offsetMinutes = Math.abs(offset % 60);
-
-      const year = now.getFullYear();
-      const month = pad(now.getMonth() + 1); // Months are 0-based
-      const day = pad(now.getDate());
-      const hours = pad(now.getHours());
-      const minutes = pad(now.getMinutes());
-      const seconds = pad(now.getSeconds());
-
-      // Construct the ISO-like string with local time without the timezone offset
-      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-    }
-
-    function getDateString(serverTime) {
-      const now = new Date(serverTime);
-      const offset = -now.getTimezoneOffset();
-      const offsetSign = offset >= 0 ? '+' : '-';
-      const pad = (num) => num < 10 ? '0' + num : num.toString();
-      const offsetHours = Math.abs(Math.floor(offset / 60));
-      const offsetMinutes = Math.abs(offset % 60);
-
-      const year = now.getFullYear();
-      const month = pad(now.getMonth() + 1); // Months are 0-based
-      const day = pad(now.getDate());
-      return `${year}-${month}-${day}`;
-    }
-
-    // "yyyy-MM-dd hh:mm:ss"
-    function formatDate(dateTimeString) {
-      return (`${dateTimeString.substring(0, 10)} ${dateTimeString.substring(11, 16)}`);
-    }
-
-    // Return "yyyy-MM-dd"
-    function friendlyDate(dateTimeString) {
-      return (`${dateTimeString.substring(0, 10)}`);
-    }
-
-    function hasNextDayPrices() {
-      let ret = false;
-      try {
-        ret = chartData[24].startTime.substring(0, 10) === skewDays(1) ? true : false;
-      } catch (err) {
-        console.log('Day ahead prices are not available')
-        return false;
-      }
-      return ret;
-    }
-
-    function hasTodayPrices() {
-      const now = new Date();
-      const today = getDateString(now);
-      let ret = false;
-      try {
-        ret = chartData[24].startTime.substring(0, 10) === today || chartData[0].startTime.substring(0, 10) === today ? true : false;
-      } catch (err) {
-        console.log('Prices are not available')
-        return false;
-      }
-      return ret;
-    }
-
-    function hasPrices() {
-      return chartData.length > 0;
-    }
-
-    const verticalLinePlugin = {
-      id: 'verticalLinePlugin',
-      afterDraw: (chart, args, options) => {
-        const ctx = chart.ctx;
-        const xAxis = chart.scales.x;
-        // Drawing vertical lines
-        if (options.lines && Array.isArray(options.lines) && xAxis) {
-          options.lines.forEach(line => {
-            const x = xAxis.getPixelForValue(line.lineAt);
-            ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(x, chart.chartArea.top);
-            ctx.lineTo(x, chart.chartArea.bottom);
-            ctx.lineWidth = line.lineWidth || 2; // if specified
-            ctx.strokeStyle = line.color || 'red'; // Default to 'red' if color is not specified
-            ctx.stroke();
-            ctx.restore();
           });
+      };
+
+      function drawDarkModeIcon(canvas, ctx) {
+        const icon = new Image();
+        icon.onload = function () {
+          const iconWidth = 32;
+          const iconHeight = 32;
+          // Adjust based on layout
+          const xPos = canvas.width - iconWidth - 0;
+          const yPos = 0;
+
+          ctx.drawImage(icon, xPos, yPos, iconWidth, iconHeight);
+        };
+        icon.src = isDarkMode ? 'icon-day' : 'icon-night'; // Choose the icon based on mode
+      }
+
+      function updateIconClickListener(canvas, onClickFunction) {
+        // If there's an existing click listener, remove it to prevent duplicates
+        if (currentClickListener) {
+          canvas.removeEventListener('click', currentClickListener);
         }
 
-        const canvas = document.getElementById('spotPrices');
-        const context = canvas.getContext('2d');
-        // Call the function to load and draw the icon
-        updateIconClickListener(canvas, toggleDayNightMode);
-        drawDarkModeIcon(canvas, context);
-      }
-    };
+        // Updated click listener that uses the latest icon position
+        const newClickListener = function (event) {
+          const rect = canvas.getBoundingClientRect();
+          const clickX = event.clientX - rect.left;
+          const clickY = event.clientY - rect.top;
 
-    const fgColor = isDarkMode ? 'white' : 'black'
-    const pluginOptions = {
-      title: {
-        display: showTitle,
-        //text: titleString, // handled in
-        font: {
-          size: 18
-        },
-        color: '#999',
-        padding: { top: 10, bottom: 10 }
-      },
-      legend: {
-        display: showLegend // This hides the default legend
-      },
-      tooltip: {
-        callbacks: {
-          title: function (context) {
-            let idx = context[0].dataIndex;
-            return (`Date: ${formatDate(chartData[idx].startTime)}`);
-          },
-          label: function (context) {
-            //  const value = context.formattedValue;
-            //  return `Spot price: ${currency} ${value}` || '';
-            let label = context.dataset.label || '';
-            if (context.parsed.y !== null) {
-              return `Spot price: ${new Intl.NumberFormat(languageCode, { style: 'currency', currency: currencyCode, currencyDisplay: 'narrowSymbol' }).format(context.parsed.y)}`;
-            } else {
-              return label;
-            }
+          // Adjust these values based on your icon's new position after canvas resize
+          // Assuming iconWidth=32. Disregard padding
+          const iconXPos = canvas.width - 32; // -10
+          const iconYPos = 0; // 10
+          const iconWidth = 32;
+          const iconHeight = 32;
+
+          if (clickX > iconXPos && clickX < iconXPos + iconWidth && clickY > iconYPos && clickY < iconYPos + iconHeight) {
+            onClickFunction();
           }
-        }
-      }
-    }
+        };
 
-    const scalesOptions = {
-      x: {
-        border: {
-          display: false,
+        // Update the current click listener reference and add the new listener to the canvas
+        currentClickListener = newClickListener;
+        canvas.addEventListener('click', newClickListener);
+      }
+
+      //function darkMode(checkBox) {
+      function toggleDayNightMode() {
+        isDarkMode = !isDarkMode;
+        localStorage.setItem('darkMode', isDarkMode.toString());
+        const x = myChart.config.options.scales.x;
+        const y = myChart.config.options.scales.y;
+        const canvas = document.getElementById('spotPrices');
+        const ctx = canvas.getContext('2d');
+
+        document.body.style.backgroundColor = isDarkMode ? darkBodyBgColor : lightBodyBgColor;
+        document.body.style.color = isDarkMode ? darkBodyColor : lightBodyColor;
+
+        x.grid.borderColor = isDarkMode ? darkBorderColor : lightBorderColor;
+        y.grid.borderColor = isDarkMode ? darkBorderColor : lightBorderColor;
+        x.grid.color = isDarkMode ? darkGridColor : lightGridColor;
+        y.grid.color = isDarkMode ? darkGridColor : lightGridColor;
+        myChart.update();
+        //console.log('myChart.config', myChart.config)
+        //drawDarkModeIcon(canvas, ctx);
+      }
+
+      const showTitle = true;
+      const showLegend = false;
+
+      // Helper functions ========================
+      function toggleTheme(isDark) {
+        //window.myChart.options = isDark ? darkThemeOptions : lightThemeOptions; // Assume lightThemeOptions is defined
+        //window.myChart.update();
+      }
+
+      function skewDays(days) {
+        const oneDay = 86400000; // pre-calculate milliseconds in a day (24 * 60 * 60 * 1000)
+        const date = new Date(Date.now() + oneDay * days);
+        // Pad the month and day with a leading zero if they are less than 10
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function getDayName(dateTimeString) {
+        const date = new Date(dateTimeString);
+        const day = new Intl.DateTimeFormat(languageCode, { weekday: 'long' }).format(date);
+        return `${day.charAt(0).toUpperCase()}${day.slice(1)}`;
+      }
+
+      function getServerTime(serverTime) {
+        const now = new Date(serverTime);
+        const offset = -now.getTimezoneOffset();
+        const offsetSign = offset >= 0 ? '+' : '-';
+        const pad = (num) => (num < 10 ? '0' + num : num.toString());
+        const offsetHours = Math.abs(Math.floor(offset / 60));
+        const offsetMinutes = Math.abs(offset % 60);
+
+        const year = now.getFullYear();
+        const month = pad(now.getMonth() + 1); // Months are 0-based
+        const day = pad(now.getDate());
+        const hours = pad(now.getHours());
+        const minutes = pad(now.getMinutes());
+        const seconds = pad(now.getSeconds());
+
+        // Construct the ISO-like string with local time without the timezone offset
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+      }
+
+      function getDateString(dateTime) {
+        const date = new Date(dateTime);
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      // "yyyy-MM-dd hh:mm:ss"
+      function formatDate(dateTimeString) {
+        return `${dateTimeString.substring(0, 10)} ${dateTimeString.substring(11, 16)}`;
+      }
+
+      // Return "yyyy-MM-dd"
+      function friendlyDate(dateTimeString) {
+        return `${dateTimeString.substring(0, 10)}`;
+      }
+
+      function hasNextDayPrices() {
+        let ret = false;
+        try {
+          ret = chartData[24].startTime.substring(0, 10) === skewDays(1) ? true : false;
+        } catch (err) {
+          console.log('Day ahead prices are not available');
+          return false;
+        }
+        return ret;
+      }
+
+      function hasTodayPrices() {
+        const now = new Date();
+        const today = getDateString(now);
+        let ret = false;
+        try {
+          ret = chartData[24].startTime.substring(0, 10) === today || chartData[0].startTime.substring(0, 10) === today ? true : false;
+        } catch (err) {
+          console.log('Prices are not available');
+          return false;
+        }
+        return ret;
+      }
+
+      function hasPrices() {
+        return chartData.length > 0;
+      }
+
+      const verticalLinePlugin = {
+        id: 'verticalLinePlugin',
+        afterDraw: (chart, args, options) => {
+          const ctx = chart.ctx;
+          const xAxis = chart.scales.x;
+          // Drawing vertical lines
+          if (options.lines && Array.isArray(options.lines) && xAxis) {
+            options.lines.forEach((line) => {
+              const x = xAxis.getPixelForValue(line.lineAt);
+              ctx.save();
+              ctx.beginPath();
+              ctx.moveTo(x, chart.chartArea.top);
+              ctx.lineTo(x, chart.chartArea.bottom);
+              ctx.lineWidth = line.lineWidth || 2; // if specified
+              ctx.strokeStyle = line.color || 'red'; // Default to 'red' if color is not specified
+              ctx.stroke();
+              ctx.restore();
+            });
+          }
+
+          const canvas = document.getElementById('spotPrices');
+          const context = canvas.getContext('2d');
+          // Call the function to load and draw the icon
+          updateIconClickListener(canvas, toggleDayNightMode);
+          drawDarkModeIcon(canvas, context);
         },
-        //type: 'category', // or 'time' if using time-based labels
-        grid: {
-          display: true,
-          drawOnChartArea: true,
+      };
+
+      const fgColor = isDarkMode ? 'white' : 'black';
+      const pluginOptions = {
+        title: {
+          display: showTitle,
+          //text: titleString, // handled in
+          font: {
+            size: 18,
+          },
+          color: '#999',
+          padding: { top: 10, bottom: 10 },
         },
-        // Uncomment next block to customize the x labels
-        /*
+        legend: {
+          display: showLegend, // This hides the default legend
+        },
+        tooltip: {
+          callbacks: {
+            title: function (context) {
+              let idx = context[0].dataIndex;
+              return `Date: ${formatDate(chartData[idx].startTime)}`;
+            },
+            label: function (context) {
+              //  const value = context.formattedValue;
+              //  return `Spot price: ${currency} ${value}` || '';
+              let label = context.dataset.label || '';
+              if (context.parsed.y !== null) {
+                return `Spot price: ${new Intl.NumberFormat(languageCode, { style: 'currency', currency: currencyCode, currencyDisplay: 'narrowSymbol' }).format(context.parsed.y)}`;
+              } else {
+                return label;
+              }
+            },
+          },
+        },
+      };
+
+      const scalesOptions = {
+        x: {
+          border: {
+            display: false,
+          },
+          //type: 'category', // or 'time' if using time-based labels
+          grid: {
+            display: true,
+            drawOnChartArea: true,
+          },
+          // Uncomment next block to customize the x labels
+          /*
         ticks: {
           callback: function (value, index, ticks) {
             // "yyyy-MM-dd hh:mm"
@@ -455,236 +460,235 @@
           }
         }
         */
-      },
-      y: {
-        border: {
-          display: true
         },
-        beginAtZero: yBeginAtZero
-      }
-    };
-
-    const dataConfig = function (isDarkMode) {
-      const data = {
-        //labels: chartData.map(d => d.startTime), // Your x-axis labels
-        datasets: [{
-          data: chartData.map(d => d.spotPrice),
-          borderWidth: commonBorderWidth, //1,
-          borderRadius: 4,
-          yAxisID: 'y',
-        }, {
-          label: 'Threshold',
-          data: chartData.map(d => d.thresholdLevel),
-          backgroundColor: isDarkMode ? 'rgba(0, 135, 0, 0.2)' : 'rgba(0, 135, 0, 0.2)',
-          borderColor: isDarkMode ? 'rgba(0, 135, 0, 1)' : 'rgba(0, 135, 0, 1)',
-          type: 'line',
-          borderDash: [10, 5],
-          borderWidth: commonBorderWidth,
-          stepped: 'middle',
-          fill: true,
-          yAxisID: 'y',
-          pointRadius: 0,
-        }, {
-          label: 'Average Price',
-          data: chartData.map(d => d.avgPrice), // Ensure avgPrice is defined and correct
-          backgroundColor: isDarkMode ? 'rgba(0, 135, 0, 0.2)' : 'rgba(0, 135, 0, 0.2)',
-          borderColor: isDarkMode ? 'rgba(0, 135, 0, 1)' : 'rgba(0, 135, 0, 1)',
-          type: 'line',
-          //borderDash: [5, 5],
-          borderWidth: commonBorderWidth,
-          stepped: 'middle',
-          fill: false,
-          yAxisID: 'y',
-          pointRadius: 0,
-        }]
-      }
-      return data;
-    }
-
-    // Ensure the plugin is registered before creating the chart
-    Chart.register(verticalLinePlugin);
-
-    function createChart(canvas, ctx, isDark) {
-      let barBorderColor, barBgColor;
-      const greenBarBgColor = 'rgba(75, 192, 192, 0.5)';
-      const greenBarBorderColor = 'rgba(75, 192, 192, 1)';
-
-      const redBarBgColor = 'rgba(255, 99, 132, 0.5)';
-      const redBarBorderColor = 'rgba(255, 99, 132, 1)';
-
-      const greenBarSingleColor = 'rgba(75, 192, 192, 0.5)';
-      const redBarSingleColor = 'rgba(255, 99, 132, 0.5)';
-
-      if (!window.myChart) {
-        window.myChart = new Chart(ctx, {
-          type: 'bar', // Using a bar chart for hourly spot prices
-          data: dataConfig(isDark),
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: 3,
-            animation: true,
-            scales: scalesOptions,
-            plugins: pluginOptions,
+        y: {
+          border: {
+            display: true,
           },
-          plugins: [verticalLinePlugin] // Ensure the plugin is still included
+          beginAtZero: yBeginAtZero,
+        },
+      };
+
+      const dataConfig = function (isDarkMode) {
+        const data = {
+          //labels: chartData.map(d => d.startTime), // Your x-axis labels
+          datasets: [
+            {
+              data: chartData.map((d) => d.spotPrice),
+              borderWidth: commonBorderWidth, //1,
+              borderRadius: 4,
+              yAxisID: 'y',
+              hoverBackgroundColor: chartData.map((d) => (d.spotPrice > d.thresholdLevel ? redBarHoverBgColor : greenBarHoverBgColor)),
+              hoverBorderColor: chartData.map((d) => (d.spotPrice > d.thresholdLevel ? redBarHoverBorderColor : greenBarHoverBorderColor)),
+            },
+            {
+              label: 'Threshold',
+              data: chartData.map((d) => d.thresholdLevel),
+              backgroundColor: isDarkMode ? 'rgba(0, 135, 0, 0.2)' : 'rgba(0, 135, 0, 0.2)',
+              borderColor: isDarkMode ? 'rgba(0, 135, 0, 1)' : 'rgba(0, 135, 0, 1)',
+              type: 'line',
+              borderDash: [10, 5],
+              borderWidth: commonBorderWidth,
+              stepped: 'middle',
+              fill: true,
+              yAxisID: 'y',
+              pointRadius: 0,
+            },
+            {
+              label: 'Average Price',
+              data: chartData.map((d) => d.avgPrice), // Ensure avgPrice is defined and correct
+              backgroundColor: isDarkMode ? 'rgba(0, 135, 0, 0.2)' : 'rgba(0, 135, 0, 0.2)',
+              borderColor: isDarkMode ? 'rgba(0, 135, 0, 1)' : 'rgba(0, 135, 0, 1)',
+              type: 'line',
+              //borderDash: [5, 5],
+              borderWidth: commonBorderWidth,
+              stepped: 'middle',
+              fill: false,
+              yAxisID: 'y',
+              pointRadius: 0,
+            },
+          ],
+        };
+        return data;
+      };
+
+      // Ensure the plugin is registered before creating the chart
+      Chart.register(verticalLinePlugin);
+
+      function createChart(canvas, ctx, isDark) {
+        let barBorderColor, barBgColor;
+        if (!window.myChart) {
+          window.myChart = new Chart(ctx, {
+            type: 'bar', // Using a bar chart for hourly spot prices
+            data: dataConfig(isDark),
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              aspectRatio: 3,
+              animation: true,
+              scales: scalesOptions,
+              plugins: pluginOptions,
+            },
+            plugins: [verticalLinePlugin], // Ensure the plugin is still included
+          });
+        }
+
+        document.body.style.backgroundColor = isDarkMode ? darkBodyBgColor : lightBodyBgColor;
+        document.body.style.color = isDarkMode ? darkBodyColor : lightBodyColor;
+        const x = window.myChart.config.options.scales.x;
+        const y = window.myChart.config.options.scales.y;
+        x.grid.borderColor = isDarkMode ? darkBorderColor : lightBorderColor;
+        y.grid.borderColor = isDarkMode ? darkBorderColor : lightBorderColor;
+        x.grid.color = isDarkMode ? darkGridColor : lightGridColor;
+        y.grid.color = isDarkMode ? darkGridColor : lightGridColor;
+
+        if (showBorders) {
+          barBgColor = chartData.map((d) => (d.spotPrice > d.thresholdLevel ? redBarBgColor : greenBarBgColor));
+          barBorderColor = chartData.map((d) => (d.spotPrice > d.thresholdLevel ? redBarBorderColor : greenBarBorderColor));
+        } else {
+          barBgColor = chartData.map((d) => (d.spotPrice > d.thresholdLevel ? redBarSingleColor : greenBarSingleColor));
+          barBorderColor = chartData.map((d) => (d.spotPrice > d.thresholdLevel ? redBarSingleColor : greenBarSingleColor));
+        }
+
+        // Update existing chart
+        window.myChart.options.plugins.title.text = titleString;
+        window.myChart.data.labels = chartData.map((d) => d.startTime.substring(11, 13));
+        window.myChart.data.datasets[0].data = chartData.map((d) => d.spotPrice);
+        window.myChart.data.datasets[0].backgroundColor = barBgColor;
+        window.myChart.data.datasets[0].borderColor = barBorderColor;
+        window.myChart.data.datasets[1].data = chartData.map((d) => d.thresholdLevel); // Update thresholdLevel line
+        window.myChart.data.datasets[2].data = chartData.map((d) => d.avgPrice); // Update avgPrice line
+        //window.myChart.config.data.datasets[2].borderColor = 'rgba(0, 135, 0, 1)';
+        //window.myChart.config.data.datasets[0].hidden = true; // Ensure visibility
+        //window.myChart.config.data.datasets[1].hidden = false; // Ensure visibility
+        //window.myChart.config.data.datasets[2].hidden = false; // Ensure visibility
+        window.myChart.update();
+        //console.log('myChart.config', myChart.config)
+        updateCustomLegend(greenBarBgColor, greenBarBorderColor, redBarBgColor, redBarBorderColor);
+      }
+
+      function updateVerticalLines(isDarkMode) {
+        if (chartIndex === -1) {
+          if (debug) console.warn('updateVerticalLines: chartIndex not provided by server or invalid.');
+          return; // Exit if no valid chartIndex is found
+        }
+
+        // Determine isOnRightSide based on chartIndex and chartData length
+        // If chartData has 48 entries, and chartIndex is 24 or greater, it's on the right side.
+        isOnRightSide = chartData.length > 24 && chartIndex >= 24;
+
+        const lines = [
+          {
+            lineAt: chartIndex,
+            lineWidth: commonLineWidth,
+            color: isDarkMode ? 'red' : 'red', // Color for the current time line (red)
+          },
+          {
+            // The midnight line is static at 23.5, marking the end of the first day
+            lineAt: 23.5, // Constant position for the transition between days
+            lineWidth: commonLineWidth,
+            color: isDarkMode ? '#205080' : 'blue', // Color for the midnight line (blue)
+          },
+        ];
+        if (debug) {
+          console.log('updateVerticalLines debug:');
+          console.log('  chartIndex (received from server):', chartIndex);
+          console.log('  isOnRightSide:', isOnRightSide);
+          console.log('  lines sent to chart:', lines);
+        }
+        // Update the vertical line position
+        if (window.myChart && window.myChart.options.plugins.verticalLinePlugin) {
+          window.myChart.options.plugins.verticalLinePlugin.lines = lines; // Adjust if your label format differs
+          window.myChart.update();
+        }
+      }
+
+      function intlDate(dateTimeString) {
+        const date = new Date(dateTimeString);
+        return new Intl.DateTimeFormat(languageCode).format(date);
+      }
+
+      function updateDateLabels() {
+        if (chartData.length > 24) {
+          // Chart displays 48 hours, so it spans two days.
+          // startDate should be the date of the first data point.
+          // endDate should be the date of the 25th data point (index 24).
+          const firstDayDate = friendlyDate(chartData[0].startTime);
+          const secondDayDate = friendlyDate(chartData[24].startTime);
+
+          document.getElementById('startDate').textContent = `${getDayName(firstDayDate)} ${intlDate(firstDayDate)}`;
+          document.getElementById('endDate').textContent = `${getDayName(secondDayDate)} ${intlDate(secondDayDate)}`;
+        } else if (chartData.length > 0) {
+          // Chart displays only one day's data.
+          const todayDate = friendlyDate(chartData[0].startTime);
+          document.getElementById('startDate').textContent = `${getDayName(todayDate)} ${intlDate(todayDate)}`;
+          document.getElementById('endDate').textContent = "Next day's prices are not available"; // Or similar
+        } else {
+          // No chart data available.
+          document.getElementById('startDate').textContent = '';
+          document.getElementById('endDate').textContent = 'Prices are not available';
+        }
+      }
+
+      function updateCustomLegend(greenBgColor, greenBorderColor, redBgColor, redBorderColor) {
+        //const legendMsg = document.getElementById('legendMessage');
+        const legendElement = document.getElementById('chartLegend');
+        legendElement.innerHTML = ''; // Clear existing legend items
+        // Define your custom legend items
+        const legendItems = [
+          {
+            text: `${midnightTitle} &nbsp;&nbsp;`,
+            bgColor: 'blue',
+            //fgColor: "rgba(255, 99, 132, 1)"
+          },
+          {
+            text: `${nowTitle} &nbsp;&nbsp; <b>${zoneTitle}:</b> `,
+            bgColor: 'red',
+            //fgColor: "rgba(255, 99, 132, 1)"
+          },
+          {
+            text: `${greenTitle} &nbsp;&nbsp;`,
+            bgColor: greenBgColor,
+            borderColor: greenBorderColor,
+          },
+          {
+            text: `${redTitle}`,
+            bgColor: redBgColor,
+            borderColor: redBorderColor,
+          },
+        ];
+
+        // Create and append legend items
+        const firstElem = document.createElement('span');
+        firstElem.innerHTML = `<span"><b>${markerTitle}: &nbsp;</b></span>`;
+        legendElement.appendChild(firstElem);
+        legendItems.forEach((item) => {
+          const itemElement = document.createElement('span');
+          itemElement.innerHTML = `<span style="color:${item.fgColor}; background-color:${item.bgColor};
+        width: 36px; height: 12px; display: inline-block; margin-right: 5px;"></span> ${item.text}`;
+          legendElement.appendChild(itemElement);
         });
       }
 
-      document.body.style.backgroundColor = isDarkMode ? darkBodyBgColor : lightBodyBgColor;
-      document.body.style.color = isDarkMode ? darkBodyColor : lightBodyColor;
-      const x = window.myChart.config.options.scales.x;
-      const y = window.myChart.config.options.scales.y;
-      x.grid.borderColor = isDarkMode ? darkBorderColor : lightBorderColor;
-      y.grid.borderColor = isDarkMode ? darkBorderColor : lightBorderColor;
-      x.grid.color = isDarkMode ? darkGridColor : lightGridColor;
-      y.grid.color = isDarkMode ? darkGridColor : lightGridColor;
+      function scheduleVerticalLineUpdate() {
+        // Calculate the time until the next hour.
+        const now = new Date();
+        const msToNextHour = ((60 - now.getMinutes()) * 60 - now.getSeconds()) * 1000;
 
-      if (showBorders) {
-        barBgColor = chartData.map(d => d.spotPrice > d.thresholdLevel ? redBarBgColor : greenBarBgColor);
-        barBorderColor = chartData.map(d => d.spotPrice > d.thresholdLevel ? redBarBorderColor : greenBarBorderColor);
-      } else {
-        barBgColor = chartData.map(d => d.spotPrice > d.thresholdLevel ? redBarSingleColor : greenBarSingleColor);
-        barBorderColor = chartData.map(d => d.spotPrice > d.thresholdLevel ? redBarSingleColor : greenBarSingleColor);
+        setTimeout(() => {
+          updateVerticalLines(); // Update at the start of the next hour.
+          updateDateLabels();
+
+          setInterval(() => {
+            updateVerticalLines(); // Then update every hour thereafter.
+            updateDateLabels();
+          }, 3600000); // 3600000ms = 1 hour
+        }, msToNextHour);
       }
 
-      // Update existing chart
-      window.myChart.options.plugins.title.text = titleString;
-      window.myChart.data.labels = chartData.map(d => d.startTime.substring(11, 13));
-      window.myChart.data.datasets[0].data = chartData.map(d => d.spotPrice);
-      window.myChart.data.datasets[0].backgroundColor = barBgColor;
-      window.myChart.data.datasets[0].borderColor = barBorderColor;
-      window.myChart.data.datasets[1].data = chartData.map(d => d.thresholdLevel); // Update thresholdLevel line
-      window.myChart.data.datasets[2].data = chartData.map(d => d.avgPrice); // Update avgPrice line
-      //window.myChart.config.data.datasets[2].borderColor = 'rgba(0, 135, 0, 1)';
-      //window.myChart.config.data.datasets[0].hidden = true; // Ensure visibility
-      //window.myChart.config.data.datasets[1].hidden = false; // Ensure visibility
-      //window.myChart.config.data.datasets[2].hidden = false; // Ensure visibility
-      window.myChart.update();
-      //console.log('myChart.config', myChart.config)
-      updateCustomLegend(greenBarBgColor, greenBarBorderColor, redBarBgColor, redBarBorderColor);
-    }
-
-    function updateVerticalLines(isDarkMode) {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() + now.getTimezoneOffset() + timezoneOffset * 60);
-
-      const nowDateString = getDateString(now);
-      let rightSideStartDate;
-      let chartIndex = now.getHours(); //.getHours();
-      if (chartData.length > 24) {
-        rightSideStartDate = getDateString(chartData[24].startTime)
-        isOnRightSide = rightSideStartDate === nowDateString;
-      }
-      // Calculate the index for the vertical line based on the current hour
-      if (isOnRightSide) chartIndex += 24; // Adjust index for the second half
-      const lines = [
-        {
-          lineAt: chartIndex, //currentTimePosition,
-          lineWidth: commonLineWidth,
-          color: isDarkMode ? 'red' : 'red' //'#882020', // Color for the current time line (red)
-        },
-        {
-          // The midnight line is static at 23.5, marking the end of the first day
-          lineAt: 23.5, // Constant position for the transition between days
-          lineWidth: commonLineWidth,
-          color: isDarkMode ? '#205080' : 'blue' //'#205080', // Color for the midnight line (blue)
-        }
-      ];
-      if (debug) {
-        console.log('currentdate', nowDateString);
-        console.log('rightSideStartDate', rightSideStartDate);
-        console.log('isOnRightSide', isOnRightSide);
-        console.log('chartIndex', chartIndex);
-        console.log('lines sent to chart', lines);
-      }
-      // Update the vertical line position
-      if (window.myChart && window.myChart.options.plugins.verticalLinePlugin) {
-        window.myChart.options.plugins.verticalLinePlugin.lines = lines; // Adjust if your label format differs
-        window.myChart.update();
-      }
-    }
-
-    function intlDate(dateTimeString) {
-      const date = new Date(dateTimeString);
-      return new Intl.DateTimeFormat(languageCode).format(date);
-    }
-
-    function updateDateLabels() {
-      if (chartData.length > 24) { // Check if there are enough data points
-        const textLeft = isOnRightSide ? `${getDayName(skewDays(-1))} ${intlDate(skewDays(-1))}` : `${todayString} ${intlDate(skewDays(0))}`;
-        const textRight = isOnRightSide ? `${todayString} ${intlDate(skewDays(0))}` : `${getDayName(skewDays(1))} ${intlDate(skewDays(1))}`;
-        document.getElementById('startDate').textContent = `${textLeft}`;
-        document.getElementById('startDate').textColor = `white`;
-        document.getElementById('endDate').textContent = `${textRight}`;
-      } else {
-        document.getElementById('startDate').textContent = `${getDayName(friendlyDate(chartData[0].startTime))} ${friendlyDate(chartData[0].startTime)}`;
-        document.getElementById('endDate').textContent = 'Today\'s prices are not available';
-      }
-    }
-
-    function updateCustomLegend(greenBgColor, greenBorderColor, redBgColor, redBorderColor) {
-      //const legendMsg = document.getElementById('legendMessage');
-      const legendElement = document.getElementById('chartLegend');
-      legendElement.innerHTML = ''; // Clear existing legend items
-      // Define your custom legend items
-      const legendItems = [
-        {
-          text: `${midnightTitle} &nbsp;&nbsp;`,
-          bgColor: "blue",
-          //fgColor: "rgba(255, 99, 132, 1)"
-        },
-        {
-          text: `${nowTitle} &nbsp;&nbsp; <b>${zoneTitle}:</b> `,
-          bgColor: "red",
-          //fgColor: "rgba(255, 99, 132, 1)"
-        },
-        {
-          text: `${greenTitle} &nbsp;&nbsp;`,
-          bgColor: greenBgColor,
-          borderColor: greenBorderColor
-        },
-        {
-          text: `${redTitle}`,
-          bgColor: redBgColor,
-          borderColor: redBorderColor
-        }
-      ];
-
-      // Create and append legend items
-      const firstElem = document.createElement('span');
-      firstElem.innerHTML = `<span"><b>${markerTitle}: &nbsp;</b></span>`;
-      legendElement.appendChild(firstElem);
-      legendItems.forEach(item => {
-        const itemElement = document.createElement('span');
-        itemElement.innerHTML = `<span style="color:${item.fgColor}; background-color:${item.bgColor};
-        width: 36px; height: 12px; display: inline-block; margin-right: 5px;"></span> ${item.text}`;
-        legendElement.appendChild(itemElement);
+      document.addEventListener('DOMContentLoaded', (event) => {
+        scheduleVerticalLineUpdate();
       });
-    }
-
-    function scheduleVerticalLineUpdate() {
-      // Calculate the time until the next hour.
-      const now = new Date();
-      const msToNextHour = ((60 - now.getMinutes()) * 60 - now.getSeconds()) * 1000;
-
-      setTimeout(() => {
-        updateVerticalLines(); // Update at the start of the next hour.
-        updateDateLabels()
-
-        setInterval(() => {
-          updateVerticalLines(); // Then update every hour thereafter.
-          updateDateLabels()
-        }, 3600000); // 3600000ms = 1 hour
-      }, msToNextHour);
-    }
-
-    document.addEventListener('DOMContentLoaded', (event) => {
-      scheduleVerticalLineUpdate();
-    });
-
-  </script>
-</body>
-
+    </script>
+  </body>
 </html>
-

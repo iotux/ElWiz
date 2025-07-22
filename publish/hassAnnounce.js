@@ -1,5 +1,4 @@
-
-const MQTTClient = require("../mqtt/mqtt");
+const MQTTClient = require('../mqtt/mqtt');
 const { loadYaml, getCurrencySymbol } = require('../misc/util.js');
 
 const configFile = './config.yaml';
@@ -38,8 +37,8 @@ const hassDevice = function (deviceType, name, uniqueId, devClass, staClass, uni
       name: secondDay ? 'ElWizD2' : 'ElWiz',
       sw: 'https://github.com/iotux/ElWiz',
       mdl: 'ElWiz',
-      mf: 'iotux'
-    }
+      mf: 'iotux',
+    },
   };
   if (devClass !== '') result.dev_cla = devClass; // device_class
   if (staClass !== '') result.stat_cla = staClass; // state_class
@@ -66,10 +65,6 @@ const hassAnnounce = async function () {
   announce = hassDevice('sensor', 'Consumption Today', 'consumption_today', 'energy', 'total', 'kWh', 'consumptionToday');
   await mqttClient.publish(`${announceTopic}/consumptionToday/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
 
-  // Keeping this for one-hour consumption
-  announce = hassDevice('sensor', 'Consumption last hour', 'consumption_last_hour', 'energy', 'total', 'kWh', 'consumptionLastHour');
-  await mqttClient.publish(`${announceTopic}/consumptionLastHour/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
-
   if (hasProduction) {
     announce = hassDevice('sensor', 'Last meter production', 'last_meter_production', 'energy', 'total_increasing', 'kWh', 'lastMeterProduction');
     await mqttClient.publish(`${announceTopic}/lastMeterProduction/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
@@ -79,9 +74,6 @@ const hassAnnounce = async function () {
 
     announce = hassDevice('sensor', 'Production today', 'production_today', 'energy', 'total', 'kWh', 'productionToday');
     await mqttClient.publish(`${announceTopic}/productionToday/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
-
-    //announce = hassDevice('sensor', 'Production last hour', 'production_last_hour', 'energy', 'total', 'kWh', 'productionLastHour');
-    //await mqttClient.publish(`${announceTopic}/productionLastHour/config`, JSON.stringify(announce, debug ? null : undefined, 2), pubOpts);
   }
 
   announce = hassDevice('sensor', 'Top Hours Average', 'top_hours_average', 'energy', 'total', 'kWh', 'topHoursAverage');

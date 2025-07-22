@@ -7,8 +7,9 @@ const path = require("path");
 const MQTTClient = require("./mqtt/mqtt");
 const WebSocketServer = require("./lib/chartserver/webSocketServer");
 const ChartDataService = require("./lib/chartserver/chartDataService");
-const HassIntegrationChart = require("./lib/chartserver/hassIntegrationChart");
+const HassChartIntegration = require("./lib/chartserver/hassChartIntegration");
 const PriceService = require("./lib/common/priceService.js");
+const { event } = require("./misc/misc.js");
 
 const app = express();
 const configPath = "./chart-config.yaml";
@@ -69,24 +70,27 @@ const priceServiceInstance = new PriceService(
     debug: serverConfig.debug,
   },
   logger,
+  event,
 );
 
 // --- Instantiate Other Services ---
 // ChartDataService gets the PriceService instance to fetch data.
 // It also gets the sharedMqttClient for its own publications (e.g., hourly stats to MQTT if needed).
+const webSocketServer = new WebSocketServer(
+  serverConfig.wsServerPort || 8322,
+  null, // Temporarily pass null for chartDataService
+  logger,
+);
 const chartDataService = new ChartDataService(
   serverConfig,
   sharedMqttClient,
   priceServiceInstance,
+  webSocketServer, // Pass webSocketServer instance
   logger,
 );
-const webSocketServer = new WebSocketServer(
-  serverConfig.wsServerPort || 8322,
-  chartDataService,
-  logger,
-);
+webSocketServer.chartDataService = chartDataService; // Assign chartDataService after both are initialized
 // HassIntegrationChart uses the sharedMqttClient to publish HASS discovery/status.
-const hassIntegrationChart = new HassIntegrationChart(
+const hassChartIntegration = new HassChartIntegration(
   sharedMqttClient,
   serverConfig,
   logger,
@@ -97,23 +101,8 @@ sharedMqttClient.on("message", async (topic, message) => {
   logger.debug(`[Server] MQTT message received on topic: ${topic}`);
   const chartTopicBase = serverConfig.chartTopic || "elwiz/chart";
 
-  // Price messages are handled by PriceService internally due to its own subscription.
-  // This handler is now only for chart-specific commands, like adjustments.
   if (topic.startsWith(chartTopicBase)) {
-    const chartWasModified = await chartDataService.processMqttChartAdjustment(
-      topic,
-      message,
-    );
-    if (chartWasModified) {
-      // chartDataService.processMqttChartAdjustment now calls refreshChartDataFromPriceService,
-      // which in turn calls checkAndSendChartData. So, the return value 'chartWasModified'
-      // from processMqttChartAdjustment indicates if wsSendAll should be called.
-      webSocketServer.wsSendAll(
-        "chart",
-        "update",
-        chartDataService.getChartDataForClient(),
-      );
-    }
+    await chartDataService.processMqttChartAdjustment(topic, message);
   }
 });
 
@@ -129,8 +118,8 @@ function setupChartServerSubscriptions() {
     );
 
     // Publish HASS discovery messages and availability once connected and subscriptions are set up.
-    hassIntegrationChart.publishDiscoveryMessages();
-    hassIntegrationChart.publishAvailability(true);
+    hassChartIntegration.publishDiscoveryMessages();
+    hassChartIntegration.publishAvailability(true);
   } catch (err) {
     logger.error(
       "[Server] MQTT subscription error for chart-specific topics: " + err,
@@ -156,18 +145,15 @@ if (sharedMqttClient.connected) {
   setupChartServerSubscriptions();
 }
 
+event.on('newPrices', async () => {
+    logger.info('[Server] newPrices event received. Triggering chart update.');
+    await chartDataService.handlePriceUpdate();
+});
+
 // --- Scheduled Tasks ---
 async function runHourlyTasks() {
   logger.debug("[Server] Running hourly tasks...");
-  // chartDataService.performHourlyTasks() will use PriceService to refresh its data.
-  const chartDataUpdated = await chartDataService.performHourlyTasks();
-  if (chartDataUpdated) {
-    webSocketServer.wsSendAll(
-      "chart",
-      "update",
-      chartDataService.getChartDataForClient(),
-    );
-  }
+  await chartDataService.performHourlyTasks();
 }
 
 function scheduleHourlyTasks() {
@@ -189,7 +175,7 @@ function scheduleHourlyTasks() {
     logger.info("[Server] Hourly tasks scheduled to run every hour.");
   }, msToNextHour);
 
-  // Optional: a quick refresh shortly after startup if needed, before aligning to the hour
+  // Optional: a quick refresh shortly after startup if needed, if retained price data should immediately populate the chart.
   // This might be useful if retained price data should immediately populate the chart.
   // PriceService attempts an initial load; ChartDataService also does an initial refresh.
   // This explicit call ensures chartDataService syncs with PriceService after initial loads.
@@ -197,14 +183,7 @@ function scheduleHourlyTasks() {
     logger.info(
       "[Server] Performing initial ChartDataService sync with PriceService post-startup.",
     );
-    const updated = await chartDataService.refreshChartDataFromPriceService();
-    if (updated) {
-      webSocketServer.wsSendAll(
-        "chart",
-        "update",
-        chartDataService.getChartDataForClient(),
-      );
-    }
+    await chartDataService.handlePriceUpdate();
   }, 5000); // 5 seconds after startup
 }
 
@@ -234,7 +213,6 @@ app.get("/config", (req, res) => {
     );
   }
   const clientConfig = { ...chartConfig };
-  clientConfig.timezoneOffset = chartDataService.getTimezoneOffset();
   res.json(clientConfig);
 });
 
@@ -252,7 +230,7 @@ app.listen(serverPort, () => {
 // --- Graceful Shutdown ---
 function gracefulShutdown() {
   logger.info("[Server] Attempting graceful shutdown...");
-  hassIntegrationChart.publishAvailability(false); // Set HASS status to offline
+  hassChartIntegration.publishAvailability(false); // Set HASS status to offline
 
   // Close WebSocket server
   webSocketServer.wss.close(() => {

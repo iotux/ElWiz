@@ -9,6 +9,7 @@ config.yaml
 chart-config.yaml
 package-lock.json
 tmp/*
+log/*
 # Ignore .md 
 docs/*
 *.md

@@ -82,6 +82,10 @@ class MQTTClient {
   on(event, callback) {
     this.client.on(event, callback);
   }
+
+  end(force, callback) {
+    this.client.end(force, callback);
+  }
 }
 
 module.exports = MQTTClient;

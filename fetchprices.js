@@ -21,7 +21,6 @@ const regionMap = loadYaml('./priceregions.yaml');
 const nordPoolUrl = `https://dataportal-api.nordpoolgroup.com/api/DayAheadPrices?market=DayAhead`;
 //const url = `${nordPoolUrl}&deliveryArea=${this.regionCode}&currency=${this.priceCurrency}&date=${urlDate}`;
 
-
 const baseUrl = config.entsoeBaseUrl || 'https://web-api.tp.entsoe.eu/api';
 const entsoeToken = config.priceAccessToken || null;
 //const priceRegion = config.priceRegion || 8; // Oslo
@@ -41,14 +40,19 @@ const debug = config.DEBUG || false;
 const priceTopic = config.priceTopic || 'elwiz/prices';
 const keepDays = config.keepDays || 7;
 
-const spotVatPercent = config.spotVatPercent || 0;
+const supplierKwhPrice = config.supplierKwhPrice || 0;
 const supplierDayPrice = config.supplierDayPrice || 0;
 const supplierMonthPrice = config.supplierMonthPrice || 0;
 const supplierVatPercent = config.supplierVatPercent || 0;
 
+const spotVatPercent = config.spotVatPercent || 0;
+
+const gridVatPercent = config.gridVatPercent || 0;
+const gridKwhPrice = config.gridKwhPrice || 0;
 const gridDayPrice = config.gridDayPrice || 0;
 const gridMonthPrice = config.gridMonthPrice || 0;
-const gridVatPercent = config.gridVatPercent || 0;
+
+const energyTax = config.energyTax || 0;
 
 //const dayHoursStart = parseInt(config.dayHoursStart.split(':')[0]) || 6;
 //const dayHoursEnd = parseInt(config.dayHoursEnd.split(':')[0]) || 22;
@@ -216,17 +220,16 @@ async function getNordPoolPrices(dayOffset) {
         };
 
         for (let curHour = 0; curHour <= 23; curHour++) {
-          const floatingPrice =
-            curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+          const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
           let spotPrice = hourly[curHour].entryPerArea[region] / 1000;
           spotPrice += (spotPrice * spotVatPercent) / 100;
           const priceObj = {
             startTime: utcToLocalDateTime(hourly[curHour].deliveryStart),
-            ensTime: utcToLocalDateTime(hourly[curHour].deliveryEnd),
+            endTime: utcToLocalDateTime(hourly[curHour].deliveryEnd),
             spotPrice: parseFloat(spotPrice.toFixed(4)),
             floatingPrice: floatingPrice,
-            fixedPrice: gridFixedPrice + supplierFixedPrice
-          }
+            fixedPrice: gridFixedPrice + supplierFixedPrice,
+          };
           oneDayPrices.hourly.push(priceObj);
 
           minPrice = spotPrice < minPrice ? spotPrice : minPrice;
@@ -270,7 +273,8 @@ async function getEntsoePrices(dayOffset) {
   let oneDayPrices;
   if (missingPrice) {
     const url = entsoeUrl(entsoeToken, regionCode, entsoeDate(dayOffset), entsoeDate(dayOffset + 1));
-    await axios.get(url, entsoeOpts)
+    await axios
+      .get(url, entsoeOpts)
       .then(async function (body) {
         const result = convert.xml2js(body.data, { compact: true, spaces: 4 });
         if (result.Publication_MarketDocument !== undefined) {
@@ -285,21 +289,20 @@ async function getEntsoePrices(dayOffset) {
           let maxPrice = 0;
           oneDayPrices = {
             priceDate: priceDate,
-            priceProvider: "ENTSO-E",
-            priceProviderUrl: entsoeUrl("*****", priceRegion, entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
+            priceProvider: 'ENTSO-E',
+            priceProviderUrl: entsoeUrl('*****', priceRegion, entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
             hourly: [],
             daily: {},
           };
 
           for (let curHour = 0; curHour <= 23; curHour++) {
-            const floatingPrice =
-              curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+            const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
             let spotPrice = (realMeat.Point[curHour]['price.amount']._text * currencyRate) / 1000;
             spotPrice += (spotPrice * spotVatPercent) / 100;
 
             const priceObj = {
               startTime: utcToLocalDateTime(hourly[curHour].deliveryStart),
-              ensTime: utcToLocalDateTime(hourly[curHour].deliveryEnd),
+              endTime: utcToLocalDateTime(hourly[curHour].deliveryEnd),
               spotPrice: parseFloat(spotPrice.toFixed(4)),
               floatingPrice: floatingPrice,
               fixedPrice: gridFixedPrice + supplierFixedPrice,
@@ -351,11 +354,7 @@ async function publishMqtt(priceDate, priceObject) {
       console.log(`${programName}: MQTT message removed: ${PRICE_DB_PREFIX}${priceDate}`);
     } else {
       // Publish today and next day prices
-      await mqttClient.publish(
-        topic,
-        JSON.stringify(priceObject, debug ? null : undefined, 2),
-        { retain: true, qos: 1 }
-      );
+      await mqttClient.publish(topic, JSON.stringify(priceObject, debug ? null : undefined, 2), { retain: true, qos: 1 });
       console.log(`${programName}: MQTT message published: ${PRICE_DB_PREFIX}${priceDate}`);
     }
   } catch (err) {
@@ -381,14 +380,16 @@ async function init() {
   let dayPrice = energyDayPrice + (energyDayPrice * gridVatPercent) / 100;
   gridDayHourPrice = parseFloat(dayPrice.toFixed(4));
 
+  let floatingPrice = supplierKwhPrice + gridKwhPrice + energyTax;
+  floatingPrice += floatingPrice * (supplierVatPercent / 100);
+  floatingPrice = parseFloat(floatingPrice.toFixed(4));
 
-  let fixedPrice = gridDayPrice / 24;
-  fixedPrice += gridMonthPrice / 720;
+  // A fixed monthly price addition, distributed hourly
+  let fixedPrice = gridMonthPrice / 720;
   fixedPrice += (fixedPrice * gridVatPercent) / 100;
   gridFixedPrice = parseFloat(fixedPrice.toFixed(4));
 
-  fixedPrice = supplierDayPrice / 24;
-  fixedPrice += supplierMonthPrice / 720;
+  fixedPrice = supplierMonthPrice / 720;
   fixedPrice += (fixedPrice * supplierVatPercent) / 100;
   supplierFixedPrice = parseFloat(fixedPrice.toFixed(4));
 }
@@ -401,8 +402,8 @@ async function run() {
   await retireDays(keepDays);
 
   for (let i = (keepDays - 1) * -1; i <= 1; i++) {
-    if (!await priceDb.existsObject(`${PRICE_DB_PREFIX}${skewDays(i)}`)) {
-      if (priceFetchPriority === "nordpool") {
+    if (!(await priceDb.existsObject(`${PRICE_DB_PREFIX}${skewDays(i)}`))) {
+      if (priceFetchPriority === 'nordpool') {
         const success = await getNordPoolPrices(i);
         if (!success) {
           currencyRate = await getCurrencyRate(priceCurrency);
@@ -421,7 +422,7 @@ async function run() {
   await delay(2000);
 
   if (await priceDb.existsObject(`${PRICE_DB_PREFIX}${skewDays(1)}`)) {
-    console.log('NextDayAvailable')
+    console.log('NextDayAvailable');
     await publishMqtt(skewDays(-1), null);
     //await publishMqtt(skewDays(-1), await priceDb.retrieveObject(`${PRICE_DB_PREFIX}${skewDays(-1)}`));
     await publishMqtt(skewDays(0), await priceDb.retrieveObject(`${PRICE_DB_PREFIX}${skewDays(0)}`));

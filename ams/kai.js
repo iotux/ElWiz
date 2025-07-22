@@ -1,3 +1,4 @@
+
 // const db = require('../misc/dbinit.js');
 const amsCalc = require('../ams/amscalc.js');
 const { event } = require('../misc/misc.js');
@@ -5,16 +6,9 @@ const { hex2Dec, hex2Ascii, getAmsTime, loadYaml } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
 const configFile = './config.yaml';
-let config;
-try {
-  config = loadYaml(configFile);
-} catch (error) {
-  console.error(`[Kaifa] Error loading config file ${configFile}: ${error.message}`);
-  throw error; // Re-throw the error to be handled by the caller
-}
+const config = loadYaml(configFile);
 
 const debug = config.amsMeter.debug || false;
-const debugHex = config.amsMeter.debugHex || false;
 
 const amsLastMessage = config.amsLastMessage || '59:56';
 
@@ -26,7 +20,7 @@ let isHourStarted = false;
  * @returns {Object} - An object containing the decoded list information and the list type
  */
 const listDecode = async function (msg) {
-  let index = msg.indexOf('FF') + 8;
+  let index = msg.indexOf('FF800000') + 8;
   const elements = hex2Dec(msg.substring(index + 2, index + 4)); // Correct
   const ts = getAmsTime(msg, 38);
   const hourIndex = parseInt(ts.substring(11, 13));
@@ -37,15 +31,16 @@ const listDecode = async function (msg) {
     listType: 'list1',
     timestamp: ts,
     hourIndex: hourIndex,
-    power: null,
+    power: null
   };
 
   if (!isHourStarted && minuteIndex === 0) {
-    obj.isNewHour = true;
+    obj.isHourStart = true;
     isHourStarted = true;
     if (hourIndex === 0) {
-      obj.isNewDay = true;
-      if (ts.substring(8, 10) === '01') obj.isNewMonth = true;
+      obj.isDayStart = true;
+      if (ts.substring(8, 10) === '01')
+        obj.isMonthStart = true;
     }
   }
 
@@ -65,7 +60,7 @@ const listDecode = async function (msg) {
   if (elements === 1) {
     obj.listType = 'list1';
     obj.power = hex2Dec(msg.substring(index + 6, index + 14)) / 1000;
-    //console.log('AMS Kaifa: list1', JSON.stringify(obj, null, 2));
+    //console.log('AMS Kaifa: list1', obj)
   }
 
   if (elements >= 9) {
@@ -105,7 +100,7 @@ const listDecode = async function (msg) {
     index += 50;
 
     if (obj.voltagePhase2 === 0) {
-      obj.voltagePhase2 = Math.sqrt((obj.voltagePhase1 - obj.voltagePhase3 * 0.5) ** 2 + (obj.voltagePhase3 * 0.866) ** 2).toFixed(0) * 1;
+      obj.voltagePhase2 = (Math.sqrt((obj.voltagePhase1 - obj.voltagePhase3 * 0.5) ** 2 + (obj.voltagePhase3 * 0.866) ** 2)).toFixed(0) * 1;
     }
   }
 
@@ -120,9 +115,12 @@ const listDecode = async function (msg) {
     obj.lastMeterProduction = hex2Dec(msg.substring(index + 10, index + 18)) / 1000;
     obj.lastMeterConsumptionReactive = hex2Dec(msg.substring(index + 20, index + 28)) / 1000;
     obj.lastMeterProductionReactive = hex2Dec(msg.substring(index + 30, index + 38)) / 1000;
+    obj.isNewHour = obj.meterDate.substring(14, 19) === '00:10';
+    obj.isNewDay = obj.meterDate.substring(11, 19) === '00:00:10';
+    obj.isNewMonth = (obj.meterDate.substring(8, 10) === '01' && obj.isNewDay);
   }
 
-  return obj;
+  return (obj);
 };
 
 /**
@@ -133,12 +131,10 @@ const listHandler = async function (buf) {
   const hex = buf.toString('hex').toUpperCase();
   const listObject = await listDecode(hex);
   const list = listObject.listType;
-
   if (debug) {
-    console.log(`amsMeter, ${list}: ${JSON.stringify(listObject, null, 2)}`);
-  }
-  if (debugHex) {
-    console.log(`${list}: ${hex}`);
+    console.log('amsHex', {ts: listObject.timestamp , hex: hex});
+    console.log('amsData', listObject);
+    /*
     if (list === 'list1') {
       event.emit('hex1', hex);
     } else if (list === 'list2') {
@@ -146,6 +142,7 @@ const listHandler = async function (buf) {
     } else if (list === 'list3') {
       event.emit('hex3', hex);
     }
+    */
   }
 
   obj = await amsCalc(list, listObject);
