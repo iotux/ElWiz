@@ -34,10 +34,6 @@ async function calculateCost(list, obj) {
     obj.accumulatedReward = parseFloat(((await db.get('accumulatedReward')) + obj.rewardLastHour).toFixed(4));
     await db.set('accumulatedCost', obj.accumulatedCost);
     await db.set('accumulatedReward', obj.accumulatedReward);
-
-    // The hour is finished. The current consumption value is the baseline for the next hour.
-    await db.set('prevHourMeterConsumption', await db.get('lastMeterConsumption'));
-    await db.set('prevHourMeterProduction', await db.get('lastMeterProduction'));
   }
 
   if (list === 'list2') {
