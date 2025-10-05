@@ -1,38 +1,29 @@
-# Breaking changes
+# Breaking Changes
 
-## 2024-07-23
+## Nord Pool API Change (October 2025)
 
-**Configuration file (config.yaml.sample)**
+Effective October 1st, 2025, Nord Pool has changed their price interval from 1-hour to 15-minute intervals. This means:
 
-Several configuration items are changed to take into account recent program changes.
-Most notably **haBaseTopic**, which was necessary to accommodate for changes in Home Assistant discovery code. Also not that MQTT **username** and **password** are now a suboption under **mqttOptions**.
+- Nord Pool now provides 96 price points per day (instead of 24)  
+- The fetchprices.js program has been updated to handle both intervals
+- The default price interval remains 1-hour for backward compatibility
 
-Carefully inspect the changes in your own **config.yaml** file and modify accordingly.
+### Action Required
 
-**amsCalc** 
+Due to this API change, you should clear your cached price data to avoid inconsistencies:
 
-The **amsCalc** module are changed to calculate the energy closest possible to the next hour. This is necessary for Home Assistant's inability to show the correct energy consumption when meters publishes data past current hour. This change may break the driver code for **aidon** and **kamstrup** AMS meters. Users should post an issue at Github if this happens. This change also necessitated changes to other modules.
+1. Delete cached price data:
+   ```bash
+   rm -rf ./data/prices/*
+   ```
 
-## 2023-04-06
+2. Restart ElWiz:
+   ```bash  
+   pm2 restart md2run.json
+   ```
 
-**Configuration file (config.yaml.sample)**
+### Configuration
 
-Several new configuration items are introduced to take into account recent program changes.
-
-Most notably these changes are as follows with the default values shown. 
-
-**cacheType: file**
-
-Possible options are **file** and **redis**
-
-The cache is primarly used for storing price data and to persist AMS meter data during program stops.
-
-**storage: none**
-
-Storage is meant for long term storing of price and meter data for statistics purposes.
-
-**priceTopic: elwiz/prices**
-
-With the introduction of publishing prices via MQTT, **ElWiz** is modified accordingly to subscribe to the price data.
-
-It is important to add these changes to the **configf.yaml** file, else the ElWiz execution will break. 
+The new `priceInterval` setting in config.yaml allows you to specify:
+- `1h` (default) - 1-hour intervals
+- `15m` - 15-minute intervals

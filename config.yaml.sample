@@ -111,6 +111,10 @@ haAnnounceTopic: homeassistant
 # an email to "transparency@entsoe.eu" and ask for a token.
 # Without a token, the program will only operate on
 # the Nord Pool energy market
+
+# Valid priceInterval options: 1h (default) and 15m
+priceInterval: 1h
+
 priceAccessToken: <insert your token here>
 
 # base-URL for Entso-E
