@@ -1,4 +1,4 @@
-FROM node:buster
+FROM node:18-bullseye-slim
 
 RUN apt-get update && apt-get install tzdata -y
 # For development
