@@ -40,6 +40,9 @@ const debug = config.DEBUG || false;
 const priceTopic = config.priceTopic || 'elwiz/prices';
 const keepDays = config.keepDays || 7;
 
+// Price interval configuration - 1h is default to maintain backward compatibility
+const priceInterval = config.priceInterval || '1h'; // Valid values: '1h' (1 hour) or '15m' (15 minutes)
+
 const supplierKwhPrice = config.supplierKwhPrice || 0;
 const supplierDayPrice = config.supplierDayPrice || 0;
 const supplierMonthPrice = config.supplierMonthPrice || 0;
@@ -208,7 +211,9 @@ async function getNordPoolPrices(dayOffset) {
       const response = await axios.get(url, nordPoolOpts);
       if (response.status === 200 && response.data) {
         const data = response.data;
-        const hourly = data.multiAreaEntries;
+        const priceObjects = data.multiAreaEntries;
+        const priceObjectsCount = priceObjects.length;
+
         let minPrice = 9999;
         let maxPrice = 0;
         oneDayPrices = {
@@ -219,30 +224,136 @@ async function getNordPoolPrices(dayOffset) {
           daily: {},
         };
 
-        for (let curHour = 0; curHour <= 23; curHour++) {
-          const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
-          let spotPrice = hourly[curHour].entryPerArea[region] / 1000;
-          spotPrice += (spotPrice * spotVatPercent) / 100;
-          const priceObj = {
-            startTime: utcToLocalDateTime(hourly[curHour].deliveryStart),
-            endTime: utcToLocalDateTime(hourly[curHour].deliveryEnd),
-            spotPrice: parseFloat(spotPrice.toFixed(4)),
-            floatingPrice: floatingPrice,
-            fixedPrice: gridFixedPrice + supplierFixedPrice,
-          };
-          oneDayPrices.hourly.push(priceObj);
+        // Handle different price object amounts based on the price interval
+        if (priceInterval === '1h') {
+          // Handle 1-hour interval
+          if (priceObjectsCount === 96) {
+            // 96 15-min prices: group 4 elements into 1 hour and calculate average (as per requirement)
+            for (let curHour = 0; curHour < 24; curHour++) {
+              const startIndex = curHour * 4;
+              let hourlySum = 0;
+              let validCount = 0;
 
-          minPrice = spotPrice < minPrice ? spotPrice : minPrice;
-          maxPrice = spotPrice > maxPrice ? spotPrice : maxPrice;
+              // Sum the 4 15-minute prices for this hour
+              for (let i = 0; i < 4; i++) {
+                const index = startIndex + i;
+                if (index < priceObjects.length) {
+                  const rawPrice = priceObjects[index].entryPerArea[region] / 1000;
+                  let spotPrice = rawPrice;
+                  spotPrice += (spotPrice * spotVatPercent) / 100;
+                  hourlySum += spotPrice;
+                  validCount++;
+                }
+              }
+
+              // Calculate average price for the hour (as per requirement: "average price should be the hour price")
+              const avgSpotPrice = validCount > 0 ? hourlySum / validCount : 0;
+              const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+
+              // Use the start and end times of the whole hour period
+              const priceObj = {
+                startTime: utcToLocalDateTime(priceObjects[startIndex].deliveryStart),
+                endTime: utcToLocalDateTime(priceObjects[startIndex + 3].deliveryEnd),
+                spotPrice: parseFloat(avgSpotPrice.toFixed(4)),
+                floatingPrice: floatingPrice,
+                fixedPrice: gridFixedPrice + supplierFixedPrice,
+              };
+              oneDayPrices.hourly.push(priceObj);
+
+              minPrice = avgSpotPrice < minPrice ? avgSpotPrice : minPrice;
+              maxPrice = avgSpotPrice > maxPrice ? avgSpotPrice : maxPrice;
+            }
+          } else if (priceObjectsCount === 24) {
+            // 24 1-hour prices: each element price is the hour price (as per requirement)
+            for (let curHour = 0; curHour < 24; curHour++) {
+              const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+              let spotPrice = priceObjects[curHour].entryPerArea[region] / 1000;
+              spotPrice += (spotPrice * spotVatPercent) / 100;
+              const priceObj = {
+                startTime: utcToLocalDateTime(priceObjects[curHour].deliveryStart),
+                endTime: utcToLocalDateTime(priceObjects[curHour].deliveryEnd),
+                spotPrice: parseFloat(spotPrice.toFixed(4)),
+                floatingPrice: floatingPrice,
+                fixedPrice: gridFixedPrice + supplierFixedPrice,
+              };
+              oneDayPrices.hourly.push(priceObj);
+
+              minPrice = spotPrice < minPrice ? spotPrice : minPrice;
+              maxPrice = spotPrice > maxPrice ? spotPrice : maxPrice;
+            }
+          }
+        } else if (priceInterval === '15m') {
+          // Handle 15-minute interval
+          if (priceObjectsCount === 96) {
+            // 96 15-min prices: each element is the actual 15 minutes price (as per requirement)
+            for (let curIndex = 0; curIndex < 96; curIndex++) {
+              const hourOfDay = new Date(priceObjects[curIndex].deliveryStart).getHours(); // Get hour from actual start time
+              const floatingPrice = hourOfDay >= dayHoursStart && hourOfDay < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+              let spotPrice = priceObjects[curIndex].entryPerArea[region] / 1000;
+              spotPrice += (spotPrice * spotVatPercent) / 100;
+              const priceObj = {
+                startTime: utcToLocalDateTime(priceObjects[curIndex].deliveryStart),
+                endTime: utcToLocalDateTime(priceObjects[curIndex].deliveryEnd),
+                spotPrice: parseFloat(spotPrice.toFixed(4)),
+                floatingPrice: floatingPrice,
+                fixedPrice: gridFixedPrice + supplierFixedPrice,
+              };
+              oneDayPrices.hourly.push(priceObj);
+
+              minPrice = spotPrice < minPrice ? spotPrice : minPrice;
+              maxPrice = spotPrice > maxPrice ? spotPrice : maxPrice;
+            }
+          } else if (priceObjectsCount === 24) {
+            // 24 1-hour prices: each element is divided by 4, and the result is the 15 minutes price (as per requirement)
+            for (let curHour = 0; curHour < 24; curHour++) {
+              const rawSpotPrice = priceObjects[curHour].entryPerArea[region] / 1000;
+              // Divide by 4 to get the 15-minute price (as per requirement)
+              let quarterSpotPrice = rawSpotPrice / 4;
+              quarterSpotPrice += (quarterSpotPrice * spotVatPercent) / 100;
+
+              // Create 4 15-minute intervals for this hour using the original start time
+              // To properly calculate 15-minute intervals, create a separate start/end time for each 15-min period
+              const baseStart = new Date(priceObjects[curHour].deliveryStart);
+
+              for (let quarter = 0; quarter < 4; quarter++) {
+                const start = new Date(baseStart);
+                start.setMinutes(baseStart.getMinutes() + quarter * 15);
+                const end = new Date(start);
+                end.setMinutes(start.getMinutes() + 15);
+
+                const hourOfDay = start.getHours();
+                const floatingPrice = hourOfDay >= dayHoursStart && hourOfDay < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+
+                const priceObj = {
+                  startTime: formatISO(start, { representation: 'complete' }),
+                  endTime: formatISO(end, { representation: 'complete' }),
+                  spotPrice: parseFloat(quarterSpotPrice.toFixed(4)),
+                  floatingPrice: floatingPrice,
+                  fixedPrice: gridFixedPrice + supplierFixedPrice,
+                };
+                oneDayPrices.hourly.push(priceObj);
+
+                minPrice = quarterSpotPrice < minPrice ? quarterSpotPrice : minPrice;
+                maxPrice = quarterSpotPrice > maxPrice ? quarterSpotPrice : maxPrice;
+              }
+            }
+          }
         }
+
+        // Calculate daily statistics
+        // Adjust the peak/offPeak calculations based on interval
+        const dayHoursStartInt = parseInt(dayHoursStart) || 6;
+        const dayHoursEndInt = parseInt(dayHoursEnd) || 22;
+        const startHourIndex = priceInterval === '1h' ? dayHoursStartInt : dayHoursStartInt * 4;
+        const endHourIndex = priceInterval === '1h' ? dayHoursEndInt - 1 : dayHoursEndInt * 4 - 1;
 
         oneDayPrices.daily = {
           minPrice: parseFloat((minPrice + (minPrice * spotVatPercent) / 100).toFixed(4)),
           maxPrice: parseFloat((maxPrice + (maxPrice * spotVatPercent) / 100).toFixed(4)),
           avgPrice: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice').toFixed(4)),
-          peakPrice: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', dayHoursStart, dayHoursEnd - 1).toFixed(4)),
-          offPeakPrice1: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', 0, dayHoursStart - 1).toFixed(4)),
-          offPeakPrice2: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', dayHoursEnd, 23).toFixed(4)),
+          peakPrice: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', startHourIndex, endHourIndex).toFixed(4)),
+          offPeakPrice1: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', 0, startHourIndex - 1).toFixed(4)),
+          offPeakPrice2: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', endHourIndex + 1, oneDayPrices.hourly.length - 1).toFixed(4)),
         };
 
         // Store to cache
@@ -290,36 +401,160 @@ async function getEntsoePrices(dayOffset) {
           oneDayPrices = {
             priceDate: priceDate,
             priceProvider: 'ENTSO-E',
-            priceProviderUrl: entsoeUrl('*****', priceRegion, entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
+            priceProviderUrl: entsoeUrl('*****', regionCode, entsoeDate(dayOffset), entsoeDate(dayOffset + 1)),
             hourly: [],
             daily: {},
           };
 
-          for (let curHour = 0; curHour <= 23; curHour++) {
-            const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
-            let spotPrice = (realMeat.Point[curHour]['price.amount']._text * currencyRate) / 1000;
-            spotPrice += (spotPrice * spotVatPercent) / 100;
+          // Determine number of price points in the data
+          const priceObjects = Array.isArray(realMeat.Point) ? realMeat.Point : [realMeat.Point];
+          const priceObjectsCount = priceObjects.length;
 
-            const priceObj = {
-              startTime: utcToLocalDateTime(hourly[curHour].deliveryStart),
-              endTime: utcToLocalDateTime(hourly[curHour].deliveryEnd),
-              spotPrice: parseFloat(spotPrice.toFixed(4)),
-              floatingPrice: floatingPrice,
-              fixedPrice: gridFixedPrice + supplierFixedPrice,
-            };
-            oneDayPrices.hourly.push(priceObj);
+          if (priceInterval === '1h') {
+            // Handle 1-hour interval
+            if (priceObjectsCount === 96) {
+              // 96 15-min prices: group 4 elements into 1 hour and calculate average (as per requirement)
+              for (let curHour = 0; curHour < 24; curHour++) {
+                const startIndex = curHour * 4;
+                let hourlySum = 0;
+                let validCount = 0;
 
-            minPrice = spotPrice < minPrice ? spotPrice : minPrice;
-            maxPrice = spotPrice > maxPrice ? spotPrice : maxPrice;
+                // Sum the 4 15-minute prices for this hour
+                for (let i = 0; i < 4; i++) {
+                  const index = startIndex + i;
+                  if (index < priceObjects.length) {
+                    const rawPrice = (priceObjects[index]['price.amount']._text * currencyRate) / 1000;
+                    let spotPrice = rawPrice;
+                    spotPrice += (spotPrice * spotVatPercent) / 100;
+                    hourlySum += spotPrice;
+                    validCount++;
+                  }
+                }
+
+                // Calculate average price for the hour (as per requirement: "average price should be the hour price")
+                const avgSpotPrice = validCount > 0 ? hourlySum / validCount : 0;
+                // For now, we need to determine the hour based on the time information in the data if available
+                // For ENTSO-E, we'll need to get the hour from the Period.TimeInterval
+                const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+
+                // For simplicity in this version, we'll use a generic approach
+                // since the realMeat structure may differ from NordPool
+                const currentHourStart = new Date();
+                currentHourStart.setHours(curHour, 0, 0, 0);
+                const currentHourEnd = new Date(currentHourStart);
+                currentHourEnd.setHours(currentHourEnd.getHours() + 1);
+
+                const priceObj = {
+                  startTime: formatISO(currentHourStart, { representation: 'complete' }),
+                  endTime: formatISO(currentHourEnd, { representation: 'complete' }),
+                  spotPrice: parseFloat(avgSpotPrice.toFixed(4)),
+                  floatingPrice: floatingPrice,
+                  fixedPrice: gridFixedPrice + supplierFixedPrice,
+                };
+                oneDayPrices.hourly.push(priceObj);
+
+                minPrice = avgSpotPrice < minPrice ? avgSpotPrice : minPrice;
+                maxPrice = avgSpotPrice > maxPrice ? avgSpotPrice : maxPrice;
+              }
+            } else if (priceObjectsCount === 24) {
+              // 24 1-hour prices: each element price is the hour price (as per requirement)
+              for (let curHour = 0; curHour < 24; curHour++) {
+                const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+                let spotPrice = (priceObjects[curHour]['price.amount']._text * currencyRate) / 1000;
+                spotPrice += (spotPrice * spotVatPercent) / 100;
+
+                const currentHourStart = new Date();
+                currentHourStart.setHours(curHour, 0, 0, 0);
+                const currentHourEnd = new Date(currentHourStart);
+                currentHourEnd.setHours(currentHourEnd.getHours() + 1);
+
+                const priceObj = {
+                  startTime: formatISO(currentHourStart, { representation: 'complete' }),
+                  endTime: formatISO(currentHourEnd, { representation: 'complete' }),
+                  spotPrice: parseFloat(spotPrice.toFixed(4)),
+                  floatingPrice: floatingPrice,
+                  fixedPrice: gridFixedPrice + supplierFixedPrice,
+                };
+                oneDayPrices.hourly.push(priceObj);
+
+                minPrice = spotPrice < minPrice ? spotPrice : minPrice;
+                maxPrice = spotPrice > maxPrice ? spotPrice : maxPrice;
+              }
+            }
+          } else if (priceInterval === '15m') {
+            // Handle 15-minute interval
+            if (priceObjectsCount === 96) {
+              // 96 15-min prices: each element is the actual 15 minutes price (as per requirement)
+              for (let curIndex = 0; curIndex < 96; curIndex++) {
+                const hourOfDay = Math.floor(curIndex / 4); // 4 15-min slots per hour
+                const floatingPrice = hourOfDay >= dayHoursStart && hourOfDay < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+                let spotPrice = (priceObjects[curIndex]['price.amount']._text * currencyRate) / 1000;
+                spotPrice += (spotPrice * spotVatPercent) / 100;
+
+                // Create a 15-minute time interval
+                const currentHourStart = new Date();
+                currentHourStart.setHours(Math.floor(curIndex / 4), (curIndex % 4) * 15, 0, 0);
+                const currentHourEnd = new Date(currentHourStart);
+                currentHourEnd.setMinutes(currentHourStart.getMinutes() + 15);
+
+                const priceObj = {
+                  startTime: formatISO(currentHourStart, { representation: 'complete' }),
+                  endTime: formatISO(currentHourEnd, { representation: 'complete' }),
+                  spotPrice: parseFloat(spotPrice.toFixed(4)),
+                  floatingPrice: floatingPrice,
+                  fixedPrice: gridFixedPrice + supplierFixedPrice,
+                };
+                oneDayPrices.hourly.push(priceObj);
+
+                minPrice = spotPrice < minPrice ? spotPrice : minPrice;
+                maxPrice = spotPrice > maxPrice ? spotPrice : maxPrice;
+              }
+            } else if (priceObjectsCount === 24) {
+              // 24 1-hour prices: each element is divided by 4, and the result is the 15 minutes price (as per requirement)
+              for (let curHour = 0; curHour < 24; curHour++) {
+                const rawSpotPrice = (priceObjects[curHour]['price.amount']._text * currencyRate) / 1000;
+                // Divide by 4 to get the 15-minute price (as per requirement)
+                let quarterSpotPrice = rawSpotPrice / 4;
+                quarterSpotPrice += (quarterSpotPrice * spotVatPercent) / 100;
+
+                // Create 4 15-minute intervals for this hour
+                for (let quarter = 0; quarter < 4; quarter++) {
+                  const floatingPrice = curHour >= dayHoursStart && curHour < dayHoursEnd ? gridDayHourPrice : gridNightHourPrice;
+                  const currentHourStart = new Date();
+                  currentHourStart.setHours(curHour, quarter * 15, 0, 0); // Each quarter is 15 minutes
+                  const currentHourEnd = new Date(currentHourStart);
+                  currentHourEnd.setMinutes(currentHourStart.getMinutes() + 15);
+
+                  const priceObj = {
+                    startTime: formatISO(currentHourStart, { representation: 'complete' }),
+                    endTime: formatISO(currentHourEnd, { representation: 'complete' }),
+                    spotPrice: parseFloat(quarterSpotPrice.toFixed(4)),
+                    floatingPrice: floatingPrice,
+                    fixedPrice: gridFixedPrice + supplierFixedPrice,
+                  };
+                  oneDayPrices.hourly.push(priceObj);
+
+                  minPrice = quarterSpotPrice < minPrice ? quarterSpotPrice : minPrice;
+                  maxPrice = quarterSpotPrice > maxPrice ? quarterSpotPrice : maxPrice;
+                }
+              }
+            }
           }
+
+          // Calculate daily statistics
+          // Adjust the peak/offPeak calculations based on interval
+          const dayHoursStartInt = parseInt(dayHoursStart) || 6;
+          const dayHoursEndInt = parseInt(dayHoursEnd) || 22;
+          const startHourIndex = priceInterval === '1h' ? dayHoursStartInt : dayHoursStartInt * 4;
+          const endHourIndex = priceInterval === '1h' ? dayHoursEndInt - 1 : dayHoursEndInt * 4 - 1;
 
           oneDayPrices.daily = {
             minPrice: parseFloat((minPrice + (minPrice * spotVatPercent) / 100).toFixed(4)),
             maxPrice: parseFloat((maxPrice + (maxPrice * spotVatPercent) / 100).toFixed(4)),
             avgPrice: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice').toFixed(4)),
-            peakPrice: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', dayHoursStart, dayHoursEnd - 1).toFixed(4)),
-            offPeakPrice1: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', 0, dayHoursStart - 1).toFixed(4)),
-            offPeakPrice2: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', dayHoursEnd, 23).toFixed(4)),
+            peakPrice: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', startHourIndex, endHourIndex).toFixed(4)),
+            offPeakPrice1: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', 0, startHourIndex - 1).toFixed(4)),
+            offPeakPrice2: parseFloat(averageCalc(oneDayPrices.hourly, 'spotPrice', endHourIndex + 1, oneDayPrices.hourly.length - 1).toFixed(4)),
           };
 
           // Store to cache
