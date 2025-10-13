@@ -23,6 +23,7 @@ RUN npm install fs && \
   npm install mqtt && \
   npm install node-schedule && \
   npm install js-yaml && \
+  npm install @iotux/uni-cache \
   npm cache clean --force
 
 # Bundle app source
@@ -30,4 +31,3 @@ COPY . /app
 
 ENTRYPOINT ["pm2", "--no-daemon", "start"]
 CMD ["pm2run.json"]
-

@@ -244,6 +244,10 @@ topHoursSize: 12
 topHoursCount: 3
 
 # Mostly for developers
+amsMeter:
+  debug: false
+  debugHex: false
+
 amscalc:
   debug: false
 
