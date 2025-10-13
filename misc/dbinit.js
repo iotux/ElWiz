@@ -72,17 +72,17 @@ async function dbInit(name, options, data) {
   // Initialize the cache with the given name and options
   db = new UniCache(name, options);
 
-  // IMPORTANT: Await the asynchronous initialization of UniCache
-  await db.init();
+  // Initialise UniCache and seed default data if the cache is currently empty
+  const seeded = await db.init(data);
 
-  // Check if the cache is empty and initialize it with the provided data
-  if (await db.isEmpty()) {
-    if (options.debug) console.log('[dbInit]: Database is empty');
-    await db.save(data);
-  } else {
-    if (options.debug) console.log(`[dbInit] UniCache "${cacheName}" initialized...`);
+  if (options.debug) {
+    if (seeded) {
+      console.log(`[dbInit] Seeded initial data for "${cacheName}".`);
+    } else {
+      console.log(`[dbInit] UniCache "${cacheName}" already contained data.`);
+    }
+    console.log('[dbInit]', await db.fetch());
   }
-  if (options.debug) console.log('[dbInit] ', await db.fetch());
 }
 
 dbInit(cacheName, cacheOptions, energySavings);
