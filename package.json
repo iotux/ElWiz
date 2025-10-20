@@ -1,8 +1,9 @@
 {
   "dependencies": {
-    "@iotux/uni-cache": "^0.2.0",
+    "@iotux/uni-cache": "^0.3.0",
     "axios": "^1.7.9",
     "date-fns": "^4.1.0",
+    "elwiz-prices": "^0.1.2",
     "express": "^4.21.1",
     "js-yaml": "^4.1.0",
     "mqtt": "^5.14.1",

@@ -1,16 +1,13 @@
 # Fetching energy prices
 
-The **fetchprices.js** program retrieves prices from the Nord Pool power exchange and the Entso-E European power market. Provided the power tariffs and VAT are correctly set, the program calculates 
-the user's gross price per kWh, as well as the spot price including VAT as shown below.
+The **fetchprices.js** helper now wraps the published **`elwiz-prices`** CLI. It fetches day-ahead prices from Nord Pool (and Entso-E as fallback) and stores the raw results in `./data/prices`. Those payloads contain the spot price and metadata; ElWiz itself optionally adds supplier/grid surcharges when `computePrices` or `calculateCost` are enabled in `config.yaml`. The raw hourly structure looks like this:
 
 ```javascript
 "hourly": [
   {
     "startTime": "2024-07-22T11:00:00",
     "endTime": "2024-07-22T12:00:00",
-    "spotPrice": 0.3559,
-    "gridFixedPrice": 0.1925,
-    "supplierFixedPrice": 0.0542
+    "spotPrice": 0.3559
   }
 ]
 ```
@@ -29,7 +26,7 @@ In addition, a daily summary is provided.
 
 The program fetches new prices daily from the Nord Pool power exchange. 
 There are several parameters that can be adjusted to customize the program's behavior.
-Below is the part of the configuration file relevant to **getprices.js**.
+Below is the part of the configuration file relevant to **fetchprices.js**.
 Make sure to include a space after the colon \( **:** \) if parameters are changed.
 
 The default scheduling method is the **node-schedule** module.
@@ -49,7 +46,7 @@ Users who prefer to use **node-schedule** can ensure the program runs continuous
 by using **PM2** (https://pm2.keymetrics.io/) or a similar program.
 
 When the program starts, it will create the **./data** directory and fetch the first set
-of prices, then calculate the prices.
+of prices. Any additional price calculation (floating/fixed components, VAT) happens later inside ElWiz if enabled.
 
 The **keepDays** parameter determines how many days of price data are kept. 
 This is set to **7 days**, but can be changed to fewer or more days.
@@ -89,13 +86,13 @@ priceRegion: 8
 
 ### Price Calculation
 To get correct price calculations, it is important to enter the prices listed in the local power company's invoice. 
-The invoice prices consist of a fixed price and a price per kWh for both the network owner and the power company.
+When you enable `computePrices` or `calculateCost`, ElWiz uses these parameters to enrich the spot prices delivered by `elwiz-prices`. The invoice prices typically contain a fixed price and a price per kWh for both the network owner and the power company.
 For the following parameters, you can choose to enter prices with or without **VAT**. 
 If you enter net prices, the VAT rate must be entered in the **supplierVatPercent** parameter.
 In the example below, the power company delivers electricity at the spot price + a surcharge of **9 NOK** per month.
 Here, **VAT** of **25%** is already included. **supplierVatPercent** is therefore set to **0.0**. 
 The surcharge of **9 NOK** is distributed over the number of hours in a month. 
-The spot price from the Nordic power exchange is added **VAT** and included in the result.
+VAT is applied later inside ElWiz when the optional price layer is active.
 
 ```
 supplierKwhPrice: 0.0
@@ -138,6 +135,7 @@ scheduleMinutes: [30]
 # Setting computePrices false for
 # only returning naked spot prices (no VAT)
 computePrices: false
+calculateCost: false
 
 # Use the same currency as your local supplier
 # The following currencies are available:
@@ -176,3 +174,6 @@ gridKwhPrice: 0.0
 gridDayPrice: 0.0
 gridVatPercent: 0.0
 ```
+
+> **Note on currencies**  
+> The previous `fetch-eu-currencies.js` helper has been removed. Currency rates are now resolved internally by the `elwiz-prices` module, so no separate currency fetch step is required.

@@ -1,16 +1,12 @@
 {
   "apps": [
     {
-      "name": "elwiz",
-      "script": "./elwiz.js"
-    },
-    {
       "name": "Prices",
       "script": "./fetchprices.js"
     },
     {
-      "name": "currencies",
-      "script": "./fetch-eu-currencies.js"
+      "name": "elwiz",
+      "script": "./elwiz.js"
     },
     {
       "name": "chart",

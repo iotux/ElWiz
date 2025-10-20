@@ -86,14 +86,20 @@ async function mergePrices(list, obj) {
     // Only update hourly prices if this condition is met
     const currentHourData = priceServiceInstance.getHourlyData(idx, 'current');
     if (currentHourData) {
-      obj.spotPrice = currentHourData.spotPrice;
-      obj.floatingPrice = currentHourData.floatingPrice;
-      obj.fixedPrice = currentHourData.fixedPrice;
-      if (obj.spotPrice !== null && obj.floatingPrice !== null && obj.fixedPrice !== null) {
-        obj.customerPrice = parseFloat((obj.spotPrice + obj.floatingPrice + obj.fixedPrice).toFixed(4));
+      const spotPrice = typeof currentHourData.spotPrice === 'number' ? currentHourData.spotPrice : null;
+      const floatingPrice = typeof currentHourData.floatingPrice === 'number' ? currentHourData.floatingPrice : null;
+      const fixedPrice = typeof currentHourData.fixedPrice === 'number' ? currentHourData.fixedPrice : null;
+
+      obj.spotPrice = spotPrice;
+      obj.floatingPrice = floatingPrice;
+      obj.fixedPrice = fixedPrice;
+
+      if (spotPrice !== null && floatingPrice !== null && fixedPrice !== null) {
+        obj.customerPrice = parseFloat((spotPrice + floatingPrice + fixedPrice).toFixed(4));
       } else {
         obj.customerPrice = null;
       }
+
       obj.startTime = currentHourData.startTime;
       obj.endTime = currentHourData.endTime;
     }
@@ -128,9 +134,9 @@ async function mergePrices(list, obj) {
       if (nextHourData) {
         obj.startTimeDay2 = nextHourData.startTime;
         obj.endTimeDay2 = nextHourData.endTime;
-        obj.spotPriceDay2 = nextHourData.spotPrice;
-        obj.floatingPriceDay2 = nextHourData.floatingPrice;
-        obj.fixedPriceDay2 = nextHourData.fixedPrice;
+        obj.spotPriceDay2 = typeof nextHourData.spotPrice === 'number' ? nextHourData.spotPrice : null;
+        obj.floatingPriceDay2 = typeof nextHourData.floatingPrice === 'number' ? nextHourData.floatingPrice : null;
+        obj.fixedPriceDay2 = typeof nextHourData.fixedPrice === 'number' ? nextHourData.fixedPrice : null;
       }
 
       obj.minPriceDay2 = nextDailySummary.minPrice;

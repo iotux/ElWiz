@@ -29,7 +29,7 @@
 
 ## Intro
 
-<code style="color:red">**Breaking changes:** Users with an existing installation of **ElWiz** are encouraged to carefully read the <a href="docs/Breaking.md">Breaking.md</a> document</code>
+<code style="color:red">**Breaking changes:** Users with an existing installation of **ElWiz** are encouraged to carefully read the <a href="./docs/Breaking.md">Breaking.md</a> document</code>
 
 **Tibber Pulse** is a microcontroller (MCU) capable of reading power consumption data from an **AMS meter**.
 In the following it is referred as **Pulse**.
@@ -42,8 +42,7 @@ The program interprets raw binary data from **Pulse** and translates it into eas
 **ElWiz** can also run in a **Docker environment** along with an **MQTT broker** and **Home Assistant**. A separate **Docker guide** is is found
 [**here: docker.md**](docs/docker.md)
 
-Users of **AMS meters** are billed per hour. The program **fetchprices.js** retrieves **spot prices** from the **Nordpool** power exchange and calculates the user's electricity costs hour by hour. To take advantage of this, the configuration file **config.yaml** must be adjusted according to the power supplier's tariffs.
-**fetchprices.js** is described in detail in [**fetchprices.md**](docs/fetchprices.md).
+Users of **AMS meters** are billed per hour. The optional price tool (`fetchprices.js`, now a wrapper around the `elwiz-prices` npm module) retrieves **spot prices** from the **Nord Pool** power exchange. When price enrichment is enabled, ElWiz adds supplier/grid surcharges and cost calculations so downstream components receive `spotPrice`, `floatingPrice`, and `fixedPrice`. These features are disabled by default and are activated by setting `computePrices` / `calculateCost` in **config.yaml**. The price tool is described in detail in [**fetchprices.md**](docs/fetchprices.md).
 
 **elwiz-chart** is a chart program that is used to visualize the fluctuating price data fetched by the **fetchprices** program. The program is described in detail in [**elwiz-chart.md**](docs/elwiz-chart.md) document.
 
@@ -185,6 +184,8 @@ haAnnounceTopic: homeassistant
 # A separate topic will also prevent "spamming" of HA
 haBaseTopic: elwiz
 
+computePrices: true
+calculateCost: true
 ```
 
 It is worth noting the following:
@@ -193,6 +194,8 @@ It is worth noting the following:
 
 The program has "ready-made" integration for **Home Assistant** as configured. For other systems some configuration changes are likely needed.
 A plugin system is used to transform **Pulse** messages to other formats.
+
+`computePrices` and `calculateCost` control whether ElWiz enriches spot prices with supplier/grid components and performs cost aggregation. Leave them set to `false` if you only need raw spot prices from MQTT; when set to `true`, ElWiz lazy-loads the price calculation module and will expect the surcharge-related configuration values to be present.
 
 ## ElWiz chart configuration
 

@@ -1,0 +1,21 @@
+# ElWiz Prices Configuration Example
+# 
+# This is an example configuration file for the elwiz-prices module
+# Copy this file to price-config.yaml and modify as needed
+
+# Price settings
+cacheType: 'file'            # Shared cache backend ('file', 'sqlite', etc.)
+regionCode: 'NO1'             # Nord Pool bidding zone
+priceCurrency: 'NOK'          # Currency code (NOK, EUR, etc.)
+priceInterval: '1h'           # '1h' for hourly, '15m' for 15-minute intervals
+dayHoursStart: 6              # Peak/off-peak stats start hour
+dayHoursEnd: 22               # Peak/off-peak stats end hour
+
+# API settings
+priceAccessToken: 'your-entsoe-token-here'         # ENTSO-E requires an access token
+priceFetchPriority: 'nordpool'                     # 'nordpool' or 'entsoe'
+
+# Cache retention
+keepDays: 7                                        # Days of price data to keep in cache
+# Scheduler debug
+scheduerDebug: false

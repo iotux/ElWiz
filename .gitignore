@@ -1,5 +1,5 @@
 #
-*.swp
+*.sw*
 node_modules/
 # Data directory
 data/*
@@ -9,6 +9,7 @@ tibberdump.js
 # Local configuration
 config.yaml
 chart-config.yaml
+price-config.yaml
 package-lock.json
 # Testing and temporary files
 testing/*

@@ -42,6 +42,16 @@ try {
 
 const serverConfig = config.serverConfig || {};
 let chartConfig = config.chartConfig || {}; // Client-side chart config
+let mainAppConfig = {};
+
+try {
+  const mainConfigContent = fs.readFileSync("./config.yaml", "utf8");
+  mainAppConfig = yaml.load(mainConfigContent) || {};
+} catch (error) {
+  logger.warn(
+    `[Server] Unable to load main config.yaml for price calculations: ${error.message}`,
+  );
+}
 
 // --- MQTT Client Setup ---
 // This client will be used by PriceService for price topics AND by chart server for its specific topics.
@@ -63,15 +73,44 @@ const sharedMqttClient = new MQTTClient(
 
 // --- Instantiate PriceService ---
 // PriceService will use the sharedMqttClient to subscribe to price topics.
+const priceCalcEnabled = !!(mainAppConfig.computePrices || mainAppConfig.calculateCost);
+
 const priceServiceInstance = new PriceService(
   sharedMqttClient,
   {
     priceTopic: serverConfig.priceTopic, // From chart-config.yaml
     debug: serverConfig.debug,
+    manualFeed: priceCalcEnabled,
   },
   logger,
   event,
 );
+
+if (priceCalcEnabled) {
+  const PriceCalc = require("./lib/common/priceCalc.js");
+  const priceCalc = new PriceCalc({
+    mqttClient: sharedMqttClient,
+    priceService: priceServiceInstance,
+    config: {
+      priceTopic: serverConfig.priceTopic || mainAppConfig.priceTopic,
+      priceInterval: mainAppConfig.priceInterval,
+      debug: serverConfig.debug,
+      supplierKwhPrice: mainAppConfig.supplierKwhPrice,
+      supplierVatPercent: mainAppConfig.supplierVatPercent,
+      supplierMonthPrice: mainAppConfig.supplierMonthPrice,
+      gridKwhPrice: mainAppConfig.gridKwhPrice,
+      gridVatPercent: mainAppConfig.gridVatPercent,
+      gridMonthPrice: mainAppConfig.gridMonthPrice,
+      energyTax: mainAppConfig.energyTax,
+      energyDayPrice: mainAppConfig.energyDayPrice,
+      energyNightPrice: mainAppConfig.energyNightPrice,
+      dayHoursStart: mainAppConfig.dayHoursStart,
+      dayHoursEnd: mainAppConfig.dayHoursEnd,
+    },
+    logger,
+  });
+  void priceCalc; // Retain instance for its MQTT side effects.
+}
 
 // --- Instantiate Other Services ---
 // ChartDataService gets the PriceService instance to fetch data.

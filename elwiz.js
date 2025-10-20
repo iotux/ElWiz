@@ -52,16 +52,46 @@ const mqttUrl = config.mqttUrl || 'mqtt://localhost:1883';
 const mqttOpts = config.mqttOptions || {};
 const elwizMqttClient = new MQTTClient(mqttUrl, mqttOpts, 'ElWizMain', logger);
 
+const priceCalcEnabled = !!(config.computePrices || config.calculateCost);
+
 // Instantiate PriceService
 const priceServiceInstance = new PriceService(
   elwizMqttClient,
   {
     priceTopic: config.priceTopic,
     debug: config.DEBUG, // Pass general debug flag to priceService config
+    manualFeed: priceCalcEnabled,
   },
   logger,
   event,
 );
+
+// Optionally initialize price calculation module to enrich prices before they reach PriceService
+if (priceCalcEnabled) {
+  const PriceCalc = require('./lib/common/priceCalc.js');
+  const priceCalc = new PriceCalc({
+    mqttClient: elwizMqttClient,
+    priceService: priceServiceInstance,
+    config: {
+      priceTopic: config.priceTopic,
+      priceInterval: config.priceInterval,
+      debug: config.mergeprices?.debug || config.DEBUG,
+      supplierKwhPrice: config.supplierKwhPrice,
+      supplierVatPercent: config.supplierVatPercent,
+      supplierMonthPrice: config.supplierMonthPrice,
+      gridKwhPrice: config.gridKwhPrice,
+      gridVatPercent: config.gridVatPercent,
+      gridMonthPrice: config.gridMonthPrice,
+      energyTax: config.energyTax,
+      energyDayPrice: config.energyDayPrice,
+      energyNightPrice: config.energyNightPrice,
+      dayHoursStart: config.dayHoursStart,
+      dayHoursEnd: config.dayHoursEnd,
+    },
+    logger,
+  });
+  void priceCalc; // Retain instance for its MQTT side effects.
+}
 
 // Initialize mergeprices plugin with the PriceService instance
 mergePricesPlugin.initialize(priceServiceInstance);
