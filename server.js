@@ -17,10 +17,16 @@ let config;
 
 // --- Logger Setup (Basic Console Logger) ---
 const logger = {
-  info: (message) => console.log(`[Server INFO] ${message}`),
-  warn: (message) => console.warn(`[Server WARN] ${message}`),
-  error: (message) => console.error(`[Server ERROR] ${message}`),
-  debug: (message) => {
+  info: function (message) {
+    console.log(`[Server INFO] ${message}`);
+  },
+  warn: function (message) {
+    console.warn(`[Server WARN] ${message}`);
+  },
+  error: function (message) {
+    console.error(`[Server ERROR] ${message}`);
+  },
+  debug: function (message) {
     // Initial config load might not be done yet when logger is defined.
     // So, check config existence before accessing serverConfig.debug.
     if (config && config.serverConfig && config.serverConfig.debug) {
@@ -28,6 +34,14 @@ const logger = {
     }
   },
 };
+
+// Ensure logger methods are bound and won't be lost
+Object.keys(logger).forEach((key) => {
+  if (typeof logger[key] === 'function') {
+    const originalFn = logger[key];
+    logger[key] = originalFn.bind(logger);
+  }
+});
 
 // --- Load Main Configuration ---
 try {
