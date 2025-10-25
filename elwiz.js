@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
-const MQTTClient = require('./mqtt/mqtt');
+const MQTTClient = require('./misc/mqtt');
 const notice = require('./publish/notice.js');
 const { event } = require('./misc/misc.js');
 const { loadYaml } = require('./misc/util.js');

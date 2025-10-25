@@ -1,8 +1,7 @@
-
 const { event } = require('../misc/misc.js');
 const { loadYaml } = require('../misc/util.js');
 
-//const MQTTClient = require("../mqtt/mqtt");
+//const MQTTClient = require("../misc/mqtt");
 const configFile = './config.yaml';
 const config = loadYaml(configFile);
 
@@ -44,7 +43,7 @@ const publish = {
   },
   run: function (list, obj) {
     this.init();
-  }
+  },
 };
 
 module.exports = publish;

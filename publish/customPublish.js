@@ -1,7 +1,6 @@
-
 const { event } = require('../misc/misc.js');
 const { loadYaml } = require('../misc/util.js');
-const MQTTClient = require("../mqtt/mqtt");
+const MQTTClient = require('../misc/mqtt');
 
 const configFile = './config.yaml';
 const config = loadYaml(configFile);
@@ -18,7 +17,7 @@ mqttClient.waitForConnect();
  * It is probably best to copy the file and modify the copy
  * but then add the new name to the "config.yaml" file.
  *
-*/
+ */
 function onPubEvent1(obj) {
   delete obj.timestamp;
   console.log('List1: customPublish', obj);
@@ -53,7 +52,7 @@ const publish = {
       event.on('publish3', onPubEvent3);
       client = Mqtt.mqttClient();
     }
-  }
+  },
 };
 
 publish.init();

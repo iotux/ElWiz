@@ -1,7 +1,6 @@
-
 const { event } = require('../misc/misc.js');
 const { loadYaml } = require('../misc/util.js');
-const MQTTClient = require("../mqtt/mqtt");
+const MQTTClient = require('../misc/mqtt');
 
 const configFile = './config.yaml';
 const config = loadYaml(configFile);
@@ -14,7 +13,7 @@ mqttClient.waitForConnect();
 /*
  * Publishes a plain basic object with only Pulse data
  * and possibly price and cost information
-*/
+ */
 function onPubEvent1(obj) {
   delete obj.timestamp;
   obj.publisher = 'basicPublish';
@@ -50,7 +49,7 @@ const publish = {
       event.on('publish3', onPubEvent3);
       client = Mqtt.mqttClient();
     }
-  }
+  },
 };
 
 publish.init();

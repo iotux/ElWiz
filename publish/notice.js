@@ -1,12 +1,11 @@
-
 const { event } = require('../misc/misc.js');
 const { upTime, getMacAddress, loadYaml } = require('../misc/util.js');
-const MQTTClient = require("../mqtt/mqtt");
+const MQTTClient = require('../misc/mqtt');
 
 const configFile = './config.yaml';
 const config = loadYaml(configFile);
 
-const mqttUrl = config.mqttUrl;// || 'mqtt://localhost:1883';
+const mqttUrl = config.mqttUrl; // || 'mqtt://localhost:1883';
 const mqttOpts = config.mqttOptions;
 const mqttClient = new MQTTClient(mqttUrl, mqttOpts, 'notice');
 mqttClient.waitForConnect();
@@ -61,7 +60,6 @@ function onNotice(msg) {
   } else {
     mqttClient.publish(config.pubNotice, msg, config.statOpts);
   }
-
 }
 
 const notice = {
@@ -88,7 +86,7 @@ const notice = {
    */
   run: function (list, obj) {
     this.init();
-  }
+  },
 };
 
 module.exports = notice;

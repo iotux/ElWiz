@@ -1,4 +1,4 @@
-const MQTTClient = require("../mqtt/mqtt");
+const MQTTClient = require('../misc/mqtt');
 const { event } = require('../misc/misc.js');
 const { loadYaml } = require('../misc/util.js');
 
@@ -11,7 +11,7 @@ const mqttClient = new MQTTClient(mqttUrl, mqttOpts, 'pulseControl');
 
 const controlTopic = config.pulseControlTopic || 'rebbit';
 const refreshMessage = config.pulseRefreshMessage || 'batching_disable';
-const refreshInterval = config.pulseRefreshInterval || "-1";
+const refreshInterval = config.pulseRefreshInterval || '-1';
 
 mqttClient.waitForConnect();
 
@@ -21,14 +21,14 @@ function onContolEvent(obj) {
 
 const pulseControl = {
   isVirgin: true,
-  init: function() {
+  init: function () {
     if (this.isVirgin) {
       this.isVirgin = false;
       //event.on('publish1', onContolEvent);
       //event.on('publish2', onContolEvent);
       event.on('publish3', onContolEvent);
     }
-  }
+  },
 };
 
 pulseControl.init();

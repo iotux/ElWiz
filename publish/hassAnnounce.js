@@ -1,4 +1,4 @@
-const MQTTClient = require('../mqtt/mqtt');
+const MQTTClient = require('../misc/mqtt');
 const { loadYaml, getCurrencySymbol } = require('../misc/util.js');
 
 const configFile = './config.yaml';
