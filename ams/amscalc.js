@@ -163,9 +163,12 @@ async function setInitialValues(obj) {
 }
 
 async function performRolloverCalculations(obj) {
+  const lastMeterConsumption = obj.lastMeterConsumption || await db.get('lastMeterConsumption');
+  const lastMeterProduction = obj.lastMeterProduction || await db.get('lastMeterProduction');
+
   // Hourly rollover
-  await db.set('prevHourMeterConsumption', obj.lastMeterConsumption);
-  await db.set('prevHourMeterProduction', obj.lastMeterProduction);
+  await db.set('prevHourMeterConsumption', lastMeterConsumption);
+  await db.set('prevHourMeterProduction', lastMeterProduction);
   await db.set('consumptionCurrentHour', 0);
   await db.set('productionCurrentHour', 0);
   obj.consumptionCurrentHour = 0;
@@ -173,8 +176,8 @@ async function performRolloverCalculations(obj) {
 
   // Daily rollover
   if (obj.isNewDay) {
-    await db.set('prevDayMeterConsumption', obj.lastMeterConsumption);
-    await db.set('prevDayMeterProduction', obj.lastMeterProduction);
+    await db.set('prevDayMeterConsumption', lastMeterConsumption);
+    await db.set('prevDayMeterProduction', lastMeterProduction);
     await db.set('consumptionToday', 0);
     await db.set('productionToday', 0);
     await db.set('minPower', 9999999);
@@ -187,8 +190,8 @@ async function performRolloverCalculations(obj) {
 
   // Monthly rollover
   if (obj.isNewMonth) {
-    await db.set('prevMonthMeterConsumption', obj.lastMeterConsumption);
-    await db.set('prevMonthMeterProduction', obj.lastMeterProduction);
+    await db.set('prevMonthMeterConsumption', lastMeterConsumption);
+    await db.set('prevMonthMeterProduction', lastMeterProduction);
     await db.set('topConsumptionHours', []);
   }
 
@@ -203,6 +206,33 @@ async function performRolloverCalculations(obj) {
  * @returns {Object} - The updated object with calculated values.
  */
 async function amsCalc(list, obj) {
+  // Internal Rollover Detection
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentDay = now.getDate();
+  const lastHour = await db.get('lastHour');
+  const lastDay = await db.get('lastDay');
+
+  // Detect rollover if hour changed and we're not at the very first run (-1)
+  if (lastHour !== undefined && lastHour !== -1 && currentHour !== lastHour) {
+    obj.isNewHour = true;
+    if (currentDay !== lastDay) {
+      obj.isNewDay = true;
+      if (currentDay === 1) obj.isNewMonth = true;
+    }
+  }
+
+  // Update tracking state
+  if (lastHour === -1 || currentHour !== lastHour) {
+    await db.set('lastHour', currentHour);
+    await db.set('lastDay', currentDay);
+  }
+
+  // Perform rollover BEFORE processing the current frame
+  if (obj.isNewHour) {
+    await performRolloverCalculations(obj);
+  }
+
   if (obj.power !== undefined && obj.power !== null) {
     obj.minPower = await getMinPower(obj.power);
     obj.maxPower = await getMaxPower(obj.power);
@@ -213,10 +243,13 @@ async function amsCalc(list, obj) {
     await productionCounter.setPower(obj.powerProduction);
 
     if (list === 'list3') {
-      if (await db.get('isVirgin')) {
+      if (obj.lastMeterConsumption !== undefined && await db.get('isVirgin')) {
         await setInitialValues(obj);
       }
-      // The hour is finished. The current consumption value is the baseline for the next hour.
+      // If sanitized or missing, fall back to last known DB value
+      if (obj.lastMeterConsumption === undefined) {
+        obj.lastMeterConsumption = await db.get('lastMeterConsumption');
+      }
     } else {
       const currConsKWh = await consumptionCounter.getKWh();
       const currProdKWh = await productionCounter.getKWh();
@@ -224,33 +257,17 @@ async function amsCalc(list, obj) {
       obj.lastMeterProduction = parseFloat(((await db.get('lastMeterProduction')) + currProdKWh).toFixed(decimals)) || 0;
     }
 
+    // Ensure we have a valid baseline if it was 0 (e.g. after a cache clear or initial start)
+    const prevHourCons = await db.get('prevHourMeterConsumption');
+    if (obj.lastMeterConsumption > 0 && prevHourCons === 0) {
+      await db.set('prevHourMeterConsumption', obj.lastMeterConsumption);
+      await db.set('prevDayMeterConsumption', obj.lastMeterConsumption);
+      await db.set('prevMonthMeterConsumption', obj.lastMeterConsumption);
+    }
+
     obj.consumptionToday = parseFloat((obj.lastMeterConsumption - (await db.get('prevDayMeterConsumption'))).toFixed(decimals)) || 0;
     obj.productionToday = parseFloat((obj.lastMeterProduction - (await db.get('prevDayMeterProduction'))).toFixed(decimals)) || 0;
 
-    /*
-    let consumptionThisHour = obj.lastMeterConsumption - (await db.get('prevHourMeterConsumption'));
-    if (consumptionThisHour < 0 && list === 'list3') {
-        const discrepancy = consumptionThisHour; // This is a negative value
-        const newPrevHourConsumption = obj.lastMeterConsumption;
-
-        if(debug) {
-            console.log(`[AmsCalc] Correcting prevHourMeterConsumption due to list3 realignment. Discrepancy: ${discrepancy}`);
-            console.log(`[AmsCalc] Old prevHourMeterConsumption: ${await db.get('prevHourMeterConsumption')}, New: ${newPrevHourConsumption}`);
-        }
-
-        await db.set('prevHourMeterConsumption', newPrevHourConsumption);
-        consumptionThisHour = 0; // After realignment, consumption for the new hour starts at 0
-    }
-    obj.consumptionCurrentHour = parseFloat(consumptionThisHour.toFixed(decimals)) || 0;
-
-    let productionThisHour = obj.lastMeterProduction - (await db.get('prevHourMeterProduction'));
-    if (productionThisHour < 0 && list === 'list3') {
-        const newPrevHourProduction = obj.lastMeterProduction;
-        await db.set('prevHourMeterProduction', newPrevHourProduction);
-        productionThisHour = 0;
-    }
-    obj.productionCurrentHour = parseFloat(productionThisHour.toFixed(decimals)) || 0;
-    */
     obj.consumptionCurrentHour = parseFloat((obj.lastMeterConsumption - (await db.get('prevHourMeterConsumption'))).toFixed(decimals)) || 0;
     obj.productionCurrentHour = parseFloat((obj.lastMeterProduction - (await db.get('prevHourMeterProduction'))).toFixed(decimals)) || 0;
 
@@ -280,17 +297,13 @@ async function amsCalc(list, obj) {
     }
   }
 
-  if (obj.isNewHour) {
-    await performRolloverCalculations(obj);
-  }
-
   if (obj.meterVersion !== undefined) {
     delete obj.meterVersion;
     delete obj.meterID;
     delete obj.meterModel;
   }
 
-  console.log('amsCalc:', JSON.stringify(obj, null, 2));
+  if (debug && obj.isHourEnd !== undefined && obj.isHourEnd === true) console.log('amsCalc:', JSON.stringify(obj, null, 2));
 
   return obj;
 }
