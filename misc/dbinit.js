@@ -57,6 +57,11 @@ const energySavings = {
   minPower: 9999999,
   maxPower: 0,
   averagePower: 0,
+
+
+  // Rollover tracking
+  lastHour: -1,
+  lastDay: -1,
 };
 
 let db;

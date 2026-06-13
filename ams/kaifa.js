@@ -1,4 +1,3 @@
-// const db = require('../misc/dbinit.js');
 const amsCalc = require('../ams/amscalc.js');
 const { event } = require('../misc/misc.js');
 const { hex2Dec, hex2Ascii, getAmsTime, loadYaml } = require('../misc/util.js');
@@ -31,7 +30,7 @@ const listDecode = async function (msg) {
   const ts = getAmsTime(msg, 38);
   const hourIndex = parseInt(ts.substring(11, 13));
   const minuteIndex = parseInt(ts.substring(14, 16));
-  const timeSubStr = ts.substr(14, 5);
+  const timeSubStr = ts.substring(14, 19);
 
   let obj = {
     listType: 'list1',
@@ -64,8 +63,9 @@ const listDecode = async function (msg) {
   // Process the elements based on their count
   if (elements === 1) {
     obj.listType = 'list1';
-    obj.power = hex2Dec(msg.substring(index + 6, index + 14)) / 1000;
-    //console.log('AMS Kaifa: list1', JSON.stringify(obj, null, 2));
+    const p_hex = msg.substring(index + 6, index + 14);
+    if (p_hex === '7FFFFFFF' || p_hex === 'FFFFFFFF') return null;
+    obj.power = hex2Dec(p_hex) / 1000;
   }
 
   if (elements >= 9) {
@@ -79,10 +79,25 @@ const listDecode = async function (msg) {
     len = hex2Dec(msg.substring(index, index + 2)) * 2;
     obj.meterModel = hex2Ascii(msg.substring(index + 2, index + 2 + len));
     index += 4 + len;
-    obj.power = hex2Dec(msg.substring(index, index + 8)) / 1000;
-    obj.powerProduction = hex2Dec(msg.substring(index + 10, index + 18)) / 1000;
-    obj.powerReactive = hex2Dec(msg.substring(index + 20, index + 28)) / 1000;
-    obj.powerProductionReactive = hex2Dec(msg.substring(index + 30, index + 38)) / 1000;
+
+    const p_hex = msg.substring(index, index + 8);
+    if (p_hex === '7FFFFFFF' || p_hex === 'FFFFFFFF') return null;
+    obj.power = hex2Dec(p_hex) / 1000;
+
+    const pp_hex = msg.substring(index + 10, index + 18);
+    if (pp_hex !== '7FFFFFFF' && pp_hex !== 'FFFFFFFF') {
+      obj.powerProduction = hex2Dec(pp_hex) / 1000;
+    }
+
+    const pr_hex = msg.substring(index + 20, index + 28);
+    if (pr_hex !== '7FFFFFFF' && pr_hex !== 'FFFFFFFF') {
+      obj.powerReactive = hex2Dec(pr_hex) / 1000;
+    }
+
+    const ppr_hex = msg.substring(index + 30, index + 38);
+    if (ppr_hex !== '7FFFFFFF' && ppr_hex !== 'FFFFFFFF') {
+      obj.powerProductionReactive = hex2Dec(ppr_hex) / 1000;
+    }
   }
 
   if (elements === 9 || elements === 14) {
@@ -116,10 +131,25 @@ const listDecode = async function (msg) {
     obj.meterDate = getAmsTime(msg, index);
     index += 26;
 
-    obj.lastMeterConsumption = hex2Dec(msg.substring(index, index + 8)) / 1000;
-    obj.lastMeterProduction = hex2Dec(msg.substring(index + 10, index + 18)) / 1000;
-    obj.lastMeterConsumptionReactive = hex2Dec(msg.substring(index + 20, index + 28)) / 1000;
-    obj.lastMeterProductionReactive = hex2Dec(msg.substring(index + 30, index + 38)) / 1000;
+    const lmc = hex2Dec(msg.substring(index, index + 8));
+    if (lmc !== 2147483647) {
+      obj.lastMeterConsumption = lmc / 1000;
+    }
+
+    const lmp = hex2Dec(msg.substring(index + 10, index + 18));
+    if (lmp !== 2147483647) {
+      obj.lastMeterProduction = lmp / 1000;
+    }
+
+    const lmcr = hex2Dec(msg.substring(index + 20, index + 28));
+    if (lmcr !== 2147483647) {
+      obj.lastMeterConsumptionReactive = lmcr / 1000;
+    }
+
+    const lmpr = hex2Dec(msg.substring(index + 30, index + 38));
+    if (lmpr !== 2147483647) {
+      obj.lastMeterProductionReactive = lmpr / 1000;
+    }
   }
 
   return obj;
@@ -153,5 +183,8 @@ const listHandler = async function (buf) {
 };
 
 event.on('pulse', listHandler);
+
+module.exports = { listHandler };
+
 
 module.exports = { listHandler };
