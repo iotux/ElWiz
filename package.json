@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@iotux/simple-cache": "^0.1.2",
     "@iotux/uni-cache": "^0.3.0",
     "axios": "^1.7.9",
     "date-fns": "^4.1.0",

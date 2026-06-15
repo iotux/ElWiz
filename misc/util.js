@@ -122,6 +122,24 @@ function hex2Dec(str) {
   return parseInt(str, 16);
 }
 
+/**
+ * Calculates the CRC-16 (FCS) for a buffer, as used in HDLC/DLMS.
+ * @param {Buffer} data - The data to calculate CRC for.
+ * @returns {number} - The calculated CRC value.
+ */
+function crc16(data) {
+  let crc = 0xffff;
+  for (let i = 0; i < data.length; i++) {
+    let b = data[i];
+    for (let j = 0; j < 8; j++) {
+      let bit = ((b >> j) & 1) ^ (crc & 1);
+      crc >>= 1;
+      if (bit) crc ^= 0x8408;
+    }
+  }
+  return crc ^ 0xffff;
+}
+
 function hex2Ascii(hex) {
   const str = hex.toString();
   let result = '';
@@ -200,5 +218,6 @@ module.exports = {
   upTime,
   getMacAddress,
   getCurrencySymbol,
-  loadYaml
+  loadYaml,
+  crc16
 };

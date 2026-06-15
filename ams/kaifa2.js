@@ -1,6 +1,6 @@
 const amsCalc = require('../ams/amscalc.js');
 const { event } = require('../misc/misc.js');
-const { hex2Dec, hex2Ascii, getAmsTime, loadYaml } = require('../misc/util.js');
+const { hex2Dec, hex2Ascii, getAmsTime, loadYaml, crc16 } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
 const configFile = './config.yaml';
@@ -25,6 +25,27 @@ let isHourStarted = false;
  * @returns {Object} - An object containing the decoded list information and the list type
  */
 const listDecode = async function (msg) {
+  // HDLC Frame Validation
+  if (!msg.startsWith('7E') || !msg.endsWith('7E')) return null;
+
+  const frameHex = msg.substring(2, msg.length - 2);
+  const frameBytes = Buffer.from(frameHex, 'hex');
+
+  // Length check (bits 0-10 of the first 2 bytes)
+  const lengthField = (frameBytes[0] << 8) | frameBytes[1];
+  const frameLength = lengthField & 0x07ff;
+  if (frameBytes.length !== frameLength) return null;
+
+  // CRC check (last 2 bytes of the frame are the FCS)
+  const dataForCrc = frameBytes.slice(0, frameLength - 2);
+  const receivedFcs = (frameBytes[frameLength - 1] << 8) | frameBytes[frameLength - 2];
+  const calculatedCrc = crc16(dataForCrc);
+
+  if (calculatedCrc !== receivedFcs) {
+    if (debug) console.error('[Kaifa] CRC Check failed');
+    return null;
+  }
+
   let index = msg.indexOf('FF') + 8;
   const elements = hex2Dec(msg.substring(index + 2, index + 4)); // Correct
   const ts = getAmsTime(msg, 38);
@@ -162,6 +183,7 @@ const listDecode = async function (msg) {
 const listHandler = async function (buf) {
   const hex = buf.toString('hex').toUpperCase();
   const listObject = await listDecode(hex);
+  if (listObject === null) return;
   const list = listObject.listType;
 
   if (debug) {

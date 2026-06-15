@@ -243,7 +243,11 @@ async function amsCalc(list, obj) {
     await productionCounter.setPower(obj.powerProduction);
 
     if (list === 'list3') {
-      if (obj.lastMeterConsumption !== undefined && await db.get('isVirgin')) {
+      // If this is the first list3 we've ever seen, or we just cleared the cache
+      const isVirgin = await db.get('isVirgin');
+      const dbLmc = await db.get('lastMeterConsumption');
+      
+      if (obj.lastMeterConsumption !== undefined && (isVirgin || dbLmc === 0)) {
         await setInitialValues(obj);
       }
       // If sanitized or missing, fall back to last known DB value
@@ -268,8 +272,20 @@ async function amsCalc(list, obj) {
     obj.consumptionToday = parseFloat((obj.lastMeterConsumption - (await db.get('prevDayMeterConsumption'))).toFixed(decimals)) || 0;
     obj.productionToday = parseFloat((obj.lastMeterProduction - (await db.get('prevDayMeterProduction'))).toFixed(decimals)) || 0;
 
-    obj.consumptionCurrentHour = parseFloat((obj.lastMeterConsumption - (await db.get('prevHourMeterConsumption'))).toFixed(decimals)) || 0;
-    obj.productionCurrentHour = parseFloat((obj.lastMeterProduction - (await db.get('prevHourMeterProduction'))).toFixed(decimals)) || 0;
+    const prevHourProd = await db.get('prevHourMeterProduction');
+
+    // If baseline is 0, we don't know the consumption yet. Skip reporting to avoid spikes.
+    if (prevHourCons > 0) {
+      obj.consumptionCurrentHour = parseFloat((obj.lastMeterConsumption - prevHourCons).toFixed(decimals)) || 0;
+    } else {
+      obj.consumptionCurrentHour = 0;
+    }
+
+    if (prevHourProd > 0) {
+      obj.productionCurrentHour = parseFloat((obj.lastMeterProduction - prevHourProd).toFixed(decimals)) || 0;
+    } else {
+      obj.productionCurrentHour = 0;
+    }
 
     await db.set('lastMeterConsumption', obj.lastMeterConsumption);
     await db.set('lastMeterProduction', obj.lastMeterProduction);
@@ -303,7 +319,8 @@ async function amsCalc(list, obj) {
     delete obj.meterModel;
   }
 
-  if (debug && obj.isHourEnd !== undefined && obj.isHourEnd === true) console.log('amsCalc:', JSON.stringify(obj, null, 2));
+  //if (debug && obj.isHourEnd !== undefined && obj.isHourEnd === true) console.log('amsCalc:', JSON.stringify(obj, null, 2));
+  if (debug) console.log('amsCalc:', JSON.stringify(obj, null, 2));
 
   return obj;
 }

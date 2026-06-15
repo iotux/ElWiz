@@ -1,5 +1,5 @@
 // Import required modules
-const UniCache = require('@iotux/uni-cache');
+const UniCache = require('@iotux/simple-cache');
 const { loadYaml } = require('../misc/util.js');
 
 // Load configuration
@@ -57,7 +57,6 @@ const energySavings = {
   minPower: 9999999,
   maxPower: 0,
   averagePower: 0,
-
 
   // Rollover tracking
   lastHour: -1,
