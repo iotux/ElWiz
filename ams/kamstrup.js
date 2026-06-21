@@ -1,11 +1,19 @@
 const amsCalc = require('../ams/amscalc.js');
 const { event } = require('../misc/misc.js');
-const { hex2Dec, hex2Ascii, hasData, getAmsTime, loadYaml } = require('../misc/util.js');
+const { hex2Dec, hex2Ascii, hasData, getAmsTime, loadYaml, crc16 } = require('../misc/util.js');
 
 // Load broker and topics preferences from config file
 const configFile = './config.yaml';
-const config = loadYaml(configFile);
-const debug = config.amscalc.debug || false;
+let config;
+try {
+  config = loadYaml(configFile);
+} catch (error) {
+  console.error(`[Kamstrup] Error loading config file ${configFile}: ${error.message}`);
+  throw error;
+}
+
+const debug = config.amsMeter.debug || false;
+const debugHex = config.amsMeter.debugHex || false;
 
 // As Kamstrup doesn't provide List1 packets, the following values may need adjustment
 const firstTick = config.amsFirstTick || '00:04';
@@ -54,6 +62,27 @@ function hex2DecSign(hex) {
 }
 
 async function listDecode(msg) {
+  // HDLC Frame Validation
+  if (!msg.startsWith('7E') || !msg.endsWith('7E')) return null;
+
+  const frameHex = msg.substring(2, msg.length - 2);
+  const frameBytes = Buffer.from(frameHex, 'hex');
+
+  // Length check (bits 0-10 of the first 2 bytes)
+  const lengthField = (frameBytes[0] << 8) | frameBytes[1];
+  const frameLength = lengthField & 0x07ff;
+  if (frameBytes.length !== frameLength) return null;
+
+  // CRC check (last 2 bytes of the frame are the FCS)
+  const dataForCrc = frameBytes.slice(0, frameLength - 2);
+  const receivedFcs = (frameBytes[frameLength - 1] << 8) | frameBytes[frameLength - 2];
+  const calculatedCrc = crc16(dataForCrc);
+
+  if (calculatedCrc !== receivedFcs) {
+    if (debug) console.error('[Kamstrup] CRC Check failed');
+    return null;
+  }
+
   const ts = getDateTime();
   const hourIndex = parseInt(ts.substring(11, 13));
   const minuteIndex = parseInt(ts.substring(14, 16));
@@ -180,20 +209,20 @@ async function listDecode(msg) {
  */
 async function listHandler(buf) {
   const hex = buf.toString('hex').toUpperCase();
-  const result = await listDecode(hex);
-  const listObject = result;
-  const list = listObject.listType;
+  const listObject = await listDecode(hex);
+  if (listObject === null) return;
+  const listType = listObject.listType;
+
   if (debug) {
-    if (list === 'list1') {
-      event.emit('hex1', hex);
-    } else if (list === 'list2') {
-      event.emit('hex2', hex);
-    } else if (list === 'list3') {
-      event.emit('hex3', hex);
-    }
+    console.log(`amsMeter, ${listType}: ${JSON.stringify(listObject, null, 2)}`);
   }
-  obj = await amsCalc(list, listObject);
-  event.emit(list, obj);
+  if (debugHex) {
+    console.log(`${listType}: ${hex}`);
+    event.emit(`hex${listType}`, hex);
+  }
+
+  const processedData = await amsCalc(listType, listObject);
+  event.emit(listType, processedData);
 }
 
 event.on('pulse', listHandler);
