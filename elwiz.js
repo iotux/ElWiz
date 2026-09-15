@@ -29,6 +29,7 @@ try {
 // Basic console logger for elwiz main
 const logger = {
   info: (message) => console.log(`[ElWiz INFO] ${message}`),
+  warn: (message) => console.log(`[ElWiz WARN] ${message}`),
   error: (message) => console.error(`[ElWiz ERROR] ${message}`),
   debug: (message) => {
     if (config.DEBUG) console.log(`[ElWiz DEBUG] ${message}`);
