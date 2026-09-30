@@ -10,9 +10,14 @@ const config = loadYaml(configFile);
 const debug = config.publish.debug || false;
 const debugTopic = config.debugTopic + '/';
 const haBaseTopic = config.haBaseTopic + '/' || 'elwiz/';
-const list1Opts = { retain: config.list1Retain, qos: config.list1Qos };
-const list2Opts = { retain: config.list2Retain, qos: config.list2Qos };
-const list3Opts = { retain: config.list3Retain, qos: config.list3Qos };
+// All elwiz/sensor/* state topics are published with the same options no
+// matter which list (1, 2 or 3) triggered the publish. The same topic can
+// be fed by several lists (e.g. consumptionCurrentHour from the frequent
+// list1 messages and from the hourly list3 message), so using the per-list
+// retain flags would make the topic alternate between retained and
+// non-retained - and a non-retained publish clears the broker's retained
+// value, leaving late subscribers without a value until the next hour.
+const sensorOpts = { retain: true, qos: 1 };
 
 const mqttUrl = config.mqttUrl || 'mqtt://localhost:1883';
 const mqttOpts = config.mqttOptions;
@@ -26,7 +31,7 @@ function onPubEvent1(obj) {
   }
   // Unfold JSON object
   for (const [key, value] of Object.entries(obj)) {
-    mqttClient.publish(haBaseTopic + 'sensor/' + key, JSON.stringify(value, null, config.DEBUG ? 2 : 0), list1Opts);
+    mqttClient.publish(haBaseTopic + 'sensor/' + key, JSON.stringify(value, null, config.DEBUG ? 2 : 0), sensorOpts);
   }
 }
 
@@ -40,7 +45,7 @@ function onPubEvent2(obj) {
   }
   // Unfold JSON object
   for (const [key, value] of Object.entries(obj)) {
-    mqttClient.publish(haBaseTopic + 'sensor/' + key, JSON.stringify(value, null, config.DEBUG ? 2 : 0), list2Opts);
+    mqttClient.publish(haBaseTopic + 'sensor/' + key, JSON.stringify(value, null, config.DEBUG ? 2 : 0), sensorOpts);
   }
   if (!Number.isNaN(obj.lastMeterConsumption)) {
     mqttClient.publish(`${haBaseTopic}sensor/status`, 'online', { retain: true, qos: 0 });
@@ -54,7 +59,7 @@ function onPubEvent3(obj) {
   }
   // Unfold JSON object
   for (const [key, value] of Object.entries(obj)) {
-    mqttClient.publish(haBaseTopic + 'sensor/' + key, JSON.stringify(value, null, config.DEBUG ? 2 : 0), list3Opts);
+    mqttClient.publish(haBaseTopic + 'sensor/' + key, JSON.stringify(value, null, config.DEBUG ? 2 : 0), sensorOpts);
   }
 }
 
